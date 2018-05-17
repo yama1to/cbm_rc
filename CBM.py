@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import os
 
 # data in "image" folder
-os.chdir("/home/daichiyamamoto/cbm_rc/image")
+os.chdir("./image")
 
 os.getcwd()
 
