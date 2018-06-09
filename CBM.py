@@ -29,7 +29,7 @@ N = 10 # number of neurons
 
 t0 = 0.0
 t1 = 5.0
-T = 10000
+T = 1000
 dt = (t1-t0)/T # time grid
 
 temperature = 1
