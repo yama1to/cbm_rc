@@ -1,7 +1,3 @@
-# Copyright (c) 2017-2018 Katori Lab. All Rights Reserved
-# Author: Yuichi Katori (yuichi.katori@gmail.com)
-# DONE: 基本的なESNを実装する。クラスは使わずに。
-
 import numpy as np
 import scipy.linalg
 from numpy.linalg import svd, inv, pinv
