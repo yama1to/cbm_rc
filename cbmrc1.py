@@ -7,15 +7,12 @@ import scipy.linalg
 from numpy.linalg import svd, inv, pinv
 import matplotlib.pyplot as plt
 
-T1 = 200
-T0 = 5
+NN=100
+MM=100
 
 Nu = 2   #size of input
-Nx = 100 #size of dynamical reservior
+Nh = 100 #size of dynamical reservior
 Ny = 2   #size of output
-
-NN=100
-MM=200
 
 sigma_np = -5
 alpha_r = 0.8
@@ -28,26 +25,12 @@ alpha0 = 0.7
 tau = 2
 lambda0 = 0.1
 
-def generate_data_sequence1():
-    D = np.zeros((T1, Ny))
-    U = np.zeros((T1, Nu))
+def generate_data_sequence():
+    D = np.zeros((MM, Ny))
+    U = np.zeros((MM, Nu))
     cy = np.linspace(0, 1, Ny)
     cu = np.linspace(0, 1, Nu)
-    for n in range(T1):
-        t = 0.1 * n
-        d = np.sin(t + cy) * 0.8
-        # d=np.sin(t+c)*np.exp(-0.1*(t-10)**2)*0.5
-        u = 0.0 * cu
-        D[n, :] = d
-        U[n, :] = u
-    return (D, U)
-
-def generate_data_sequence2():
-    D = np.zeros((T1, Ny))
-    U = np.zeros((T1, Nu))
-    cy = np.linspace(0, 1, Ny)
-    cu = np.linspace(0, 1, Nu)
-    for n in range(T1):
+    for n in range(MM):
         t = 0.1 * n
         d = np.sin(t + cy) * 0.8
         # d=np.sin(t+c)*np.exp(-0.1*(t-10)**2)*0.5
@@ -57,27 +40,25 @@ def generate_data_sequence2():
     return (D, U)
 
 def generate_s_sequence():
-    Ds0 = np.zeros((MM, Ny, NN))
-    Us0 = np.zeros((MM, Nu, NN))
+    Ds = np.zeros((MM, Ny, NN))
+    Us = np.zeros((MM, Nu, NN))
     for m in range(MM):
         for p in range(2):
-            Ds0[m][p][0:int(NN*Dp[m][p])] = 1
-            Ds0[m][p][int(NN*Dp[m][p]):int(NN)] = 0
-            Us0[m][p][0:int(NN*Up[m][p])] = 1
-            Us0[m][p][int(NN*Up[m][p]):int(NN)] = 0
-    Ds = np.reshape(Ds0, (Ny, MM*NN))
-    Us = np.reshape(Us0, (Nu, MM*NN))
-    return (Us)
+            Ds[m][p][0:int(NN*Dp[m][p])] = 1
+            Ds[m][p][int(NN*Dp[m][p]):int(NN)] = 0
+            Us[m][p][0:int(NN*Up[m][p])] = 1
+            Us[m][p][int(NN*Up[m][p]):int(NN)] = 0
+    return (Ds, Us)
 
 def generate_weight_matrix():
     global Wr, Wb, Wo, Wi
     ### Wr
-    Wr0 = np.zeros(Nx * Nx)
-    nonzeros = Nx * Nx * beta_r
+    Wr0 = np.zeros(Nh * Nh)
+    nonzeros = Nh * Nh * beta_r
     Wr0[0:int(nonzeros / 2)] = 1
     Wr0[int(nonzeros / 2):int(nonzeros)] = -1
     np.random.shuffle(Wr0)
-    Wr0 = Wr0.reshape((Nx, Nx))
+    Wr0 = Wr0.reshape((Nh, Nh))
     v = scipy.linalg.eigvals(Wr0)
     lambda_max = max(abs(v))
     Wr = Wr0 / lambda_max * alpha_r
@@ -87,89 +68,122 @@ def generate_weight_matrix():
     # print(Wr)
 
     ### Wb
-    Wb = np.zeros(Nx * Ny)
-    Wb[0:int(Nx * Ny * beta_b / 2)] = 1
-    Wb[int(Nx * Ny * beta_b / 2):int(Nx * Ny * beta_b)] = -1
+    Wb = np.zeros(Nh * Ny)
+    Wb[0:int(Nh * Ny * beta_b / 2)] = 1
+    Wb[int(Nh * Ny * beta_b / 2):int(Nh * Ny * beta_b)] = -1
     np.random.shuffle(Wb)
-    Wb = Wb.reshape((Nx, Ny))
+    Wb = Wb.reshape((Nh, Ny))
     Wb = Wb * alpha_b
     # print("Wb:")
     # print(Wb)
 
     ### Wi
-    Wi = np.zeros(Nx * Nu)
-    Wi[0:int(Nx * Nu * beta_i / 2)] = 1
-    Wi[int(Nx * Nu * beta_i / 2):int(Nx * Nu * beta_i)] = -1
+    Wi = np.zeros(Nh * Nu)
+    Wi[0:int(Nh * Nu * beta_i / 2)] = 1
+    Wi[int(Nh * Nu * beta_i / 2):int(Nh * Nu * beta_i)] = -1
     np.random.shuffle(Wi)
-    Wi = Wi.reshape((Nx, Nu))
+    Wi = Wi.reshape((Nh, Nu))
     Wi = Wi * alpha_i
     # print("Wi:")
     # print(Wi)
 
     ### Wo
-    Wo = np.ones(Ny * Nx)
-    Wo = Wo.reshape((Ny, Nx))
+    Wo = np.ones(MM * Ny)
+    Wo = Wo.reshape((Ny, MM))
     Wo = Wo
     # print(Wo)
 
-
-def fx(x):
-    return np.tanh(x)
-
-
-def fy(x):
-    return np.tanh(x)
+def fx(h):
+    return np.tanh(h)
 
 
-def fyi(x):
-    return np.arctanh(x)
+def fy(h):
+    return np.tanh(h)
 
 
-def fr(x):
-    return np.fmax(0, x)
+def fyi(h):
+    return np.arctanh(h)
 
-def fsgm(x):
-    return 1.0/(1.0+np.exp(-x))
+
+def fr(h):
+    return np.fmax(0, h)
+
+def fsgm(h):
+    return 1.0/(1.0+np.exp(-h))
+
+def flog(h):
+    return np.log(1/h-1)
+
+def update(hs, hx):
+    for i in range(Nh):
+        for j in range(NN):
+            if(hx[i][j] == 0):
+                hs[i][j] == 0
+            if(hx[i][j] == 1):
+                hs[i][j] == 1
 
 def run_network(mode):
-    global X, Y
-    X = np.zeros((T1, Nx))
-    Y = np.zeros((T1, Ny))
+    global Hx, Hs, Hp, Y, Ys, Yp
+    Hx = np.zeros((MM, Nh, NN))
+    Hs = np.zeros((MM, Nh, NN))
+    Hp = np.zeros((MM, Nh))
+    Ys = np.zeros((MM, Ny, NN))
+    Yp = np.zeros((MM, Ny))
+    Y = np.zeros((MM, Ny))
 
-    n = 0
-    x = np.random.uniform(-1, 1, Nx) * 0.2
-    y = np.zeros(Ny)
-    X[n, :] = x
-    Y[n, :] = y
-    for n in range(T1 - 1):
-        sum = np.zeros(Nx)
-        u = U[n, :]
-        sum += Wi@u
-        sum += Wr@x
+    m = 0
+    hx = np.random.uniform(0, 1, (Nh, NN))
+    hs = np.random.randint(0, 2, (Nh, NN))
+    hp = np.random.uniform(0, 1, Nh)
+    ys = np.random.randint(0, 2, (Ny, NN))
+    yp = np.random.uniform(0, 1, Ny)
+    y = np.random.uniform(-1, 2, Ny)
+    a = np.ones((Nh, NN))
+    Hx[m, :] = hx
+    Hs[m, :] = hs
+    Hp[m, :] = np.sum(hs)/NN
+    Ys[m, :] = ys
+    Yp[m, :] = np.sum(ys)/NN
+    Y[m, :] = y
+    for m in range(MM - 1):
+        sum = np.zeros((Nh, NN))
+        us = Us[m, :]
+        sum += Wi@us
+        sum += Wr@hs
         if mode == 0:
-            sum += Wb@y
+            sum += Wb@ys
         if mode == 1:  # teacher forcing
-            d = D[n, :]
-            sum += Wb@d
-        x = x + 1.0 / tau * (-alpha0 * x + fx(sum))
-        y = fy(Wo@x)
+            ds = Ds[m, :]
+            sum += Wb@ds
+        sign = a - 2*hs
+        print(sum)
+        hx = hx + sign*(1+np.exp(sign*sum))
+        hx = np.where(hx<0, 0, hx)
+        hx = np.where(hx>1, 1, hx)
+        update(hs, hx)
+        for h in range(Nh):
+            hp[h] = np.sum(hs[h])/NN
+        yp = Wo@hp
+        ys[0][0:int(NN*yp[0])] = 1
+        ys[0][int(NN*yp[0]):int(NN)] = 0
+        ys[1][0:int(NN*yp[1])] = 1
+        ys[1][int(NN*yp[1]):int(NN)] = 0
 
-        X[n + 1, :] = x
-        Y[n + 1, :] = y
-        # print(y)
-        # print(X)
+        Hs[m + 1, :] = hs
+        Hp[m + 1, :] = hp
+        Ys[m + 1, :] = ys
 
 def train_network():
     global Wo
 
     run_network(1) # run netwrok with teacher forcing
 
-    M = X[T0:, :]
-    invD = fyi(D)
-    G = invD[T0:, :]
+    M = Hp[MM:, :]
+    invD = fyi(Dp)
+    G = invD[MM:, :]
 
     ### Ridge regression
-    E = np.identity(Nx)
+    E = np.identity(Nh)
     TMP1 = inv(M.T@M + lambda0 * E)
     WoT = TMP1@M.T@G
     Wo = WoT.T
@@ -194,13 +208,13 @@ def plot2():
     ax2.plot(D)
     ax3 = fig.add_subplot(3,1,3)
     ax3.cla()
-    ax3.plot(Y)
+    ax3.plot(Yp)
     plt.show()
 
 def execute():
-    global D,U,Dp,Up
+    global D,Ds,Dp,U,Us,Up
     generate_weight_matrix()
-    D, U = generate_data_sequence2()
+    D, U = generate_data_sequence()
     Dp = fsgm(D)
     Up = fsgm(U)
     Ds, Us = generate_s_sequence()
