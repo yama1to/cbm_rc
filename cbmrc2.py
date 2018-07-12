@@ -11,6 +11,9 @@ Nu = 2   #size of input
 Nh = 25 #size of dynamical reservior
 Ny = 2   #size of output
 
+Temp=1
+dt=0.01
+
 sigma_np = -5
 alpha_r = 0.8
 alpha_b = 0.8
@@ -28,7 +31,7 @@ def generate_data_sequence():
     cy = np.linspace(0, 1, Ny)
     cu = np.linspace(0, 1, Nu)
     for n in range(MM):
-        t = 0.1 * n
+        t = 0.5 * n
         d = np.sin(t + cy) * 0.8
         # d=np.sin(t+c)*np.exp(-0.1*(t-10)**2)*0.5
         u = np.sin(t*0.3 + cu) * 0.8
@@ -40,9 +43,19 @@ def generate_data_sequence():
 def generate_s_sequence(p, u):
     s = np.zeros((MM*NN, u))
     for m in range(MM):
-        for n in range(u):
-            s[m*NN:int(NN*p[m][n])+m*NN][n] = 1
-            s[int(NN*p[m][n])+m*NN:int(NN)+m*NN][n] = 0
+
+        #for i in range(u):
+        #s[ m*NN : m*NN + int(NN*p[m][0]) ][0] = 1
+        pm=p[m]
+        for i in range(u):
+            for n in range(NN):
+                if n < NN*pm[i] :
+                    s[m*NN + n][i]=1
+
+        #print(m,m*NN,m*NN+int(NN*p[m][0]),pm,s[m*NN])
+    #for n in range(MM*NN):
+    #    print(s[n])
+
     return s
 
 def generate_weight_matrix():
@@ -134,23 +147,35 @@ def run_network(mode):
         Hs[n, :] = h
     A = np.ones((NN, Nh))
     sign = np.zeros((NN, Nh))
-    for m in range(MM):
-        for n in range(NN):
-            sum = np.zeros(Nh)
 
-            sum += Wi@Us[n+m*NN, :]
-            sum += Wr@Hs[n+m*NN, :]
-            if mode == 0:
-                sum += Wb@Ys[n+m*NN, :]
-            if mode == 1:  # teacher forcing
-                sum += Wb@Ds[n+m*NN, :]
-            sign[n, :] = A[n, :] - 2*Hs[n+m*NN, :]
 
-        for n in range(NN):
-            print(sign[n, :]*(1+np.exp(sign[n, :]*sum/NN)))
-            Hx[n+m*NN, :] = Hx[n+m*NN, :] + sign[n, :]*(1+np.exp(sign[n, :]))
-        update(Hs, Hx, m)
-        Ys[m, :] = fy(Wo@Hs[m, :])
+    for n in range(NN*MM):
+        sum = np.zeros(Nh)
+
+        sum += Wi@us
+        sum += Wr@hs
+        if mode == 0:
+            sum += Wb@ys
+        if mode == 1:  # teacher forcing
+            sum += Wb@ys
+        sign = 1 - 2*hs
+
+        #print(sign[n, :]*(1+np.exp(sign[n, :]*sum/NN)))
+
+        hx = hx + sign*(1.0+np.exp(sign*sum/Temp))*dt
+        for i in range(Nh):
+            if hx[i]>=1:
+                hx[i]=1
+                hs[i]=1
+            if hx[i]<=0:
+                hx[i]=0
+                hs[i]=1
+
+        Ys[m, :] = fy(Wo@hs)
+
+        # record
+        Hx[n,:]=hx
+
 
 def train_network():
     global Wo
@@ -182,15 +207,15 @@ def plot2():
     ax1 = fig.add_subplot(4,1,1)
     ax1.cla()
     ax1.plot(Ds)
-    ax2 = fig.add_subplot(4,1,2)
-    ax2.cla()
-    ax2.plot(Us)
-    ax3 = fig.add_subplot(4,1,3)
-    ax3.cla()
-    ax3.plot(Hx)
-    ax4 = fig.add_subplot(4,1,4)
-    ax4.cla()
-    ax4.plot(Hs)
+    #ax2 = fig.add_subplot(4,1,2)
+    #ax2.cla()
+    #ax2.plot(Us)
+    #ax3 = fig.add_subplot(4,1,3)
+    #ax3.cla()
+    #ax3.plot(Hx)
+    #ax4 = fig.add_subplot(4,1,4)
+    #ax4.cla()
+    #ax4.plot(Hs)
     plt.show()
 
 def execute():
@@ -203,8 +228,8 @@ def execute():
     Us = generate_s_sequence(Up, Nu)
 
 
-    train_network()
-    test_network()
+    #train_network()
+    #test_network()
     plot2()
 
 if __name__ == "__main__":
