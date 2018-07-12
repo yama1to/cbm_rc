@@ -3,11 +3,12 @@ import scipy.linalg
 from numpy.linalg import svd, inv, pinv
 import matplotlib.pyplot as plt
 
-T1 = 200
-T0 = 5
+NN=25
+MM=25
+MM0 = 1
 
 Nu = 2   #size of input
-Nh = 100 #size of dynamical reservior
+Nh = 25 #size of dynamical reservior
 Ny = 2   #size of output
 
 sigma_np = -5
@@ -22,11 +23,11 @@ tau = 2
 lambda0 = 0.1
 
 def generate_data_sequence():
-    D = np.zeros((T1, Ny))
-    U = np.zeros((T1, Nu))
+    D = np.zeros((MM, Ny))
+    U = np.zeros((MM, Nu))
     cy = np.linspace(0, 1, Ny)
     cu = np.linspace(0, 1, Nu)
-    for n in range(T1):
+    for n in range(MM):
         t = 0.1 * n
         d = np.sin(t + cy) * 0.8
         # d=np.sin(t+c)*np.exp(-0.1*(t-10)**2)*0.5
@@ -34,6 +35,15 @@ def generate_data_sequence():
         D[n, :] = d
         U[n, :] = u
     return (D, U)
+
+    #print("WoT\n", WoT)
+def generate_s_sequence(p, u):
+    s = np.zeros((MM*NN, u))
+    for m in range(MM):
+        for n in range(u):
+            s[m*NN:int(NN*p[m][n])+m*NN][n] = 1
+            s[int(NN*p[m][n])+m*NN:int(NN)+m*NN][n] = 0
+    return s
 
 def generate_weight_matrix():
     global Wr, Wb, Wo, Wi
@@ -46,6 +56,7 @@ def generate_weight_matrix():
     Wr0 = Wr0.reshape((Nh, Nh))
     v = scipy.linalg.eigvals(Wr0)
     lambda_max = max(abs(v))
+    #print("WoT\n", WoT)
     Wr = Wr0 / lambda_max * alpha_r
 
     # print("lamda_max",lambda_max)
@@ -70,13 +81,25 @@ def generate_weight_matrix():
     Wi = Wi.reshape((Nh, Nu))
     Wi = Wi * alpha_i
     # print("Wi:")
-    # print(Wi)
+    # print("WoT\n", WoT)
+    # print(Wi)Ds = np.zeros((MM*NN, Ny))
+    Us = np.zeros((MM*NN, Nu))
 
     ### Wo
-    Wo = np.ones(Ny * Nh)
-    Wo = Wo.reshape((Ny, Nh))
+    Wo = np.ones(MM * Ny)
+    Wo = Wo.reshape((Ny, MM))
     Wo = Wo
     # print(Wo)
+
+def update(hx, hs, m):
+    for n in range(NN):
+        for h in range(Nh):
+            if hx[n+m*NN][h]>=1:
+                hs[n+m*NN][h]=1
+                hx[n+m*NN][h]=1
+            elif hx[n+m*NN][h]<=0:
+                hs[n+m*NN][h]=0
+                hx[n+m*NN][h]=0
 
 def fx(h):
     return np.tanh(h)
@@ -85,6 +108,7 @@ def fy(h):
     return np.tanh(h)
 
 def fyi(h):
+    #print("WoT\n", WoT)
     return np.arctanh(h)
 
 def fr(h):
@@ -94,43 +118,48 @@ def fsgm(h):
     return 1.0/(1.0+np.exp(-h))
 
 def flgt(h):
-    return np.log(1/1-h)
+    return np.log(1/(1-h))
 
 def run_network(mode):
-    global Hp, Yp
-    Hp = np.zeros((T1, Nh))
-    Yp = np.zeros((T1, Ny))
+    global Hx, Hs, Hp, Y, Ys, Yp, Y
+    Hp = np.zeros((MM, Nh))
+    Hx = np.zeros((MM*NN, Nh))
+    Hs = np.zeros((MM*NN, Nh))
+    Yp = np.zeros((MM, Ny))
+    Ys = np.zeros((MM*NN, Ny))
 
-    m = 0
-    hp = np.random.uniform(0, 1, Nh)
-    yp = np.random.uniform(0, 1, Ny)
+    for n in range(NN):
+        h = np.random.randint(0, 2, Nh)
+        Hx[n, :] = h
+        Hs[n, :] = h
+    A = np.ones((NN, Nh))
+    sign = np.zeros((NN, Nh))
+    for m in range(MM):
+        for n in range(NN):
+            sum = np.zeros(Nh)
 
-    Hp[m, :] = hp
-    Yp[m, :] = yp
-    for m in range(T1 - 1):
-        sum = np.zeros(Nh)
-        up = Up[m, :]
-        sum += Wi@up
-        sum += Wr@hp
-        if mode == 0:
-            sum += Wb@yp
-        if mode == 1:  # teacher forcing
-            dp = Dp[m, :]
-            sum += Wb@dp
-        hp = hp + 1.0 / tau * (-alpha0 * hp + fx(sum))
-        yp = fy(Wo@hp)
+            sum += Wi@Us[n+m*NN, :]
+            sum += Wr@Hs[n+m*NN, :]
+            if mode == 0:
+                sum += Wb@Ys[n+m*NN, :]
+            if mode == 1:  # teacher forcing
+                sum += Wb@Ds[n+m*NN, :]
+            sign[n, :] = A[n, :] - 2*Hs[n+m*NN, :]
 
-        Hp[m + 1, :] = hp
-        Yp[m + 1, :] = yp
+        for n in range(NN):
+            print(sign[n, :]*(1+np.exp(sign[n, :]*sum/NN)))
+            Hx[n+m*NN, :] = Hx[n+m*NN, :] + sign[n, :]*(1+np.exp(sign[n, :]))
+        update(Hs, Hx, m)
+        Ys[m, :] = fy(Wo@Hs[m, :])
 
 def train_network():
     global Wo
 
     run_network(1) # run netwrok with teacher forcing
 
-    M = Hp[T1:, :]
-    invD = fyi(Dp)
-    G = invD[T1:, :]
+    M = Hs[MM0:, :]
+    invD = fyi(Ds)
+    G = invD[MM0:, :]
 
     ### Ridge regression
     E = np.identity(Nh)
@@ -152,26 +181,26 @@ def plot2():
     fig=plt.figure()
     ax1 = fig.add_subplot(4,1,1)
     ax1.cla()
-    ax1.plot(Dp)
+    ax1.plot(Ds)
     ax2 = fig.add_subplot(4,1,2)
     ax2.cla()
-    ax2.plot(Up)
+    ax2.plot(Us)
     ax3 = fig.add_subplot(4,1,3)
     ax3.cla()
-    ax3.plot(Hp)
+    ax3.plot(Hx)
     ax4 = fig.add_subplot(4,1,4)
     ax4.cla()
-    ax4.plot(Yp)
+    ax4.plot(Hs)
     plt.show()
 
 def execute():
-    global D,Dp,U,Up
+    global D,Ds,Dp,U,Us,Up
     generate_weight_matrix()
     D, U = generate_data_sequence()
     Dp = fsgm(D)
     Up = fsgm(U)
-    print(Dp)
-    print(Up)
+    Ds = generate_s_sequence(Dp, Ny)
+    Us = generate_s_sequence(Up, Nu)
 
 
     train_network()
