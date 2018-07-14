@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import sys
 from arg2x import *
 
-NN=100
+NN=200
 MM=100
 MM0 = 10
 
@@ -14,7 +14,7 @@ Nh = 100 #size of dynamical reservior
 Ny = 2   #size of output
 
 Temp=1
-dt=0.01
+dt=1.0/NN #0.01
 
 #sigma_np = -5
 alpha_i = 0.6
@@ -157,7 +157,7 @@ def fy(h):
 def fyi(h):
     #print("WoT\n", WoT)
     #return np.arctanh(h)
-    return np.log(1.0/h-1.0)
+    return -np.log(1.0/h-1.0)
 def fr(h):
     return np.fmax(0, h)
 
