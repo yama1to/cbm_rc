@@ -5,21 +5,21 @@ import matplotlib.pyplot as plt
 import sys
 from arg2x import *
 
-NN=200
-MM=100
+NN=400
+MM=200
 MM0 = 10
 
 Nu = 2   #size of input
-Nh = 100 #size of dynamical reservior
+Nh = 50 #size of dynamical reservior
 Ny = 2   #size of output
 
 Temp=1
 dt=1.0/NN #0.01
 
 #sigma_np = -5
-alpha_i = 0.6
-alpha_r = 0.3
-alpha_b = 0.8
+alpha_i = 0.7
+alpha_r = 0.1
+alpha_b = 0.
 
 alpha0 =  0.3
 
@@ -71,7 +71,7 @@ def generate_data_sequence():
     cy = np.linspace(0, 1, Ny)
     cu = np.linspace(0, 1, Nu)
     for n in range(MM):
-        t = 0.5 * n
+        t = 0.5 * n #0.5*n
         d = np.sin(t + cy) * 0.8
         # d=np.sin(t+c)*np.exp(-0.1*(t-10)**2)*0.5
         u = np.sin(t*0.5 + cu) * 0.8
@@ -204,10 +204,10 @@ def run_network(mode):
         sum = np.zeros(Nh)
         sum += Wi@us
         sum += Wr@hs
-        #if mode == 0:
-        #    sum += Wb@ys
-        #if mode == 1:  # teacher forcing
-        #    sum += Wb@ds
+        if mode == 0:
+            sum += Wb@ys
+        if mode == 1:  # teacher forcing
+            sum += Wb@ds
 
         hsign = 1 - 2*hs
         hx = hx + hsign*(1.0+np.exp(hsign*sum/Temp))*dt
@@ -229,6 +229,9 @@ def run_network(mode):
             hc=np.zeros(Nh)
             yp=yc/NN
             yc=np.zeros(Ny)
+            if m==0:
+                hp=0.5
+                yp=0.5
             #print(hp[0])
             #record
             Hp[m]=hp
@@ -269,7 +272,7 @@ def plot(data):
 
 def plot2():
     fig=plt.figure(figsize=(20, 12))
-    Nr=8
+    Nr=4
     ax = fig.add_subplot(Nr,1,1)
     ax.cla()
     ax.set_title("Up")
@@ -277,32 +280,42 @@ def plot2():
 
     ax = fig.add_subplot(Nr,1,2)
     ax.cla()
-    ax.set_title("Us")
-    ax.plot(Us)
-
-    ax = fig.add_subplot(Nr,1,3)
-    ax.cla()
-    ax.set_title("Hx")
-    ax.plot(Hx)
-    ax = fig.add_subplot(Nr,1,4)
-    ax.cla()
     ax.set_title("Hp")
     ax.plot(Hp)
 
-    ax = fig.add_subplot(Nr,1,5)
-    ax.cla()
-    ax.set_title("Ys")
-    ax.plot(Ys)
-    ax = fig.add_subplot(Nr,1,6)
+    ax = fig.add_subplot(Nr,1,3)
     ax.cla()
     ax.set_title("Yp")
     ax.plot(Yp)
 
-    ax = fig.add_subplot(Nr,1,7)
+    ax = fig.add_subplot(Nr,1,4)
     ax.cla()
     ax.set_title("Dp")
     ax.plot(Dp)
-    ax = fig.add_subplot(Nr,1,8)
+
+
+    plt.show()
+
+def plot3():
+    fig=plt.figure(figsize=(20, 12))
+    Nr=4
+
+    ax = fig.add_subplot(Nr,1,1)
+    ax.cla()
+    ax.set_title("Us")
+    ax.plot(Us)
+
+    ax = fig.add_subplot(Nr,1,2)
+    ax.cla()
+    ax.set_title("Hx")
+    ax.plot(Hx)
+
+    ax = fig.add_subplot(Nr,1,3)
+    ax.cla()
+    ax.set_title("Ys")
+    ax.plot(Ys)
+
+    ax = fig.add_subplot(Nr,1,4)
     ax.cla()
     ax.set_title("Ds")
     ax.plot(Ds)
@@ -332,6 +345,7 @@ def execute():
 
     if display :
         plot2()
+        #plot3()
 
 if __name__ == "__main__":
     config()
