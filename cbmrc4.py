@@ -3,10 +3,11 @@ import scipy.linalg
 from numpy.linalg import svd, inv, pinv
 import matplotlib.pyplot as plt
 import sys
+import copy
 from arg2x import *
 
 NN=200
-MM=20
+MM=300
 MM0 = 50
 
 Nu = 2   #size of input
@@ -17,13 +18,13 @@ Temp=1
 dt=1.0/NN #0.01
 
 #sigma_np = -5
-alpha_i = 0.4
-alpha_r = 0.1
+alpha_i = 0.2
+alpha_r = 0.25
 alpha_b = 0.
 
 alpha0 = 0#0.1
 alpha1 = 0#-5.8
-alpha2 = 1.0
+alpha2 = 0.6
 
 beta_i = 0.1
 beta_r = 0.1
@@ -95,11 +96,29 @@ def generate_s_sequence(p, u):
                     s[m*NN + n][i]=1
     return s
 
+def generate_s_sequence2(p, N):
+    s = np.zeros((MM*NN, N))
+    for m in range(MM):
+        pm=p[m]
+        for i in range(N):
+            for n in range(NN):
+                if ( pm[i]/2 < n/NN and n/NN < (pm[i]+1)/2 ) or pm[i]/2+1 < n/NN:
+                    s[m*NN + n][i]=1
+    return s
+
 def generate_ref():
     s = np.zeros(MM*NN)
     for m in range(MM):
         for n in range(NN):
             if n < NN/2 :
+                s[m*NN + n]=1
+    return s
+
+def generate_ref2():
+    s = np.zeros(MM*NN)
+    for m in range(MM):
+        for n in range(NN):
+            if 0.25*NN <= n and n <0.75*NN :
                 s[m*NN + n]=1
     return s
 
@@ -165,8 +184,8 @@ def fy(h):
 
 def fyi(h):
     #print("WoT\n", WoT)
-    #return np.arctanh(h)
-    return -np.log(1.0/h-1.0)
+    return np.arctanh(h)
+    #return -np.log(1.0/h-1.0)
 def fr(h):
     return np.fmax(0, h)
 
@@ -199,22 +218,28 @@ def run_network(mode):
     #hx = np.zeros(Nh)
     hx = np.random.uniform(0,1,Nh)
     hs = np.zeros(Nh)
+    hs_prev = np.zeros(Nh)
     hc = np.zeros(Nh)
+    hp = np.zeros(Nh)
+    ht = np.zeros(Nh)
 
     ysign = np.zeros(Ny)
     yx = np.zeros(Ny)
     ys = np.zeros(Ny)
     yc = np.zeros(Ny)
 
+    l=0
     m=0
     for n in range(NN*MM):
         us = Us[n]
         ds = Ds[n]
-        rs = Rs[n]
+        r1s = R1s[n]
+        r2s = R2s[n]
 
         sum = np.zeros(Nh)
-        sum += alpha2*(hs-rs)*rs
-        sum += Wi@us
+        sum += alpha2*(hs-r1s)*ht
+        #sum += alpha2*hp
+        sum += Wi@(2*us-1)
         sum += Wr@(2*hs-1)
         if mode == 0:
             sum += Wb@ys
@@ -223,10 +248,9 @@ def run_network(mode):
 
         hsign = 1 - 2*hs
         hx = hx + hsign*(1.0+np.exp(hsign*sum/Temp))*dt
+        hs_prev = hs.copy()
         update_s(hx,hs,Nh)
-        hc += hs
-abc
-        #print(n,n%NN,sum[0],hs[0])
+        #hc += hs
 
         sum = np.zeros(Ny)
         sum += Wo@hs
@@ -235,18 +259,31 @@ abc
         update_s(yx,ys,Ny)
         yc += ys
 
-        # compute duty ratio
-        if n%NN == 0 :
-            hp=hc/NN
+        if n>0 and R1s[n-1]==0 and R1s[n]==1:
+            l=0
+
+        for i in range(Nh):
+            if hs_prev[i]==1 and hs[i]==0:
+                hc[i]=l
+
+        #print(n,n%NN,l,hs_prev[0],hs[0],hc[0])
+        l=l+1
+
+        # compute phase difference
+        if n>0 and R1s[n-1]==0 and R1s[n]==1:
+            hp=2*hc/NN-1
             hc=np.zeros(Nh)
+            ht=2*hs-1
+
             yp=yc/NN
             yc=np.zeros(Ny)
 
-            y2p=fsgm(Wo@hp)
+            #y2p=fsgm(Wo@hp)
+            y2p=fy(Wo@hp)
 
             if m==0:
-                hp=0.5
-                yp=0.5
+                hp=0.0
+                yp=0.0
 
 
             #print(hp[0])
@@ -272,6 +309,9 @@ def train_network():
     invD = fyi(Dp)
     G = invD[MM0:, :]
 
+    print("Hp\n",Hp)
+    print("M\n",M)
+
     ### Ridge regression
     E = np.identity(Nh)
     TMP1 = inv(M.T@M + lambda0 * E)
@@ -288,9 +328,46 @@ def plot(data):
     ax.plot(data)
     plt.show()
 
+def plot1():
+    fig=plt.figure(figsize=(20, 12))
+    Nr=6
+    ax = fig.add_subplot(Nr,1,1)
+    ax.cla()
+    ax.set_title("Up")
+    ax.plot(Up)
+
+    ax = fig.add_subplot(Nr,1,2)
+    ax.cla()
+    ax.set_title("Us")
+    ax.plot(Us)
+    ax.plot(R1s,"r:")
+    #ax.plot(R2s,"b:")
+
+    ax = fig.add_subplot(Nr,1,3)
+    ax.cla()
+    ax.set_title("Hx")
+    ax.plot(Hx)
+
+    ax = fig.add_subplot(Nr,1,4)
+    ax.cla()
+    ax.set_title("Hp")
+    ax.plot(Hp)
+
+    ax = fig.add_subplot(Nr,1,5)
+    ax.cla()
+    ax.set_title("Y2p")
+    ax.plot(Y2p)
+
+    ax = fig.add_subplot(Nr,1,6)
+    ax.cla()
+    ax.set_title("Dp")
+    ax.plot(Dp)
+
+    plt.show()
+
 def plot2():
     fig=plt.figure(figsize=(20, 12))
-    Nr=5
+    Nr=6
     ax = fig.add_subplot(Nr,1,1)
     ax.cla()
     ax.set_title("Up")
@@ -301,21 +378,20 @@ def plot2():
     ax.set_title("Hp")
     ax.plot(Hp)
 
-    ax = fig.add_subplot(Nr,1,3)
-    ax.cla()
-    ax.set_title("Yp")
-    ax.plot(Yp)
-
     ax = fig.add_subplot(Nr,1,4)
+    ax.cla()
+    ax.set_title("Hx")
+    ax.plot(Hx)
+
+    ax = fig.add_subplot(Nr,1,5)
     ax.cla()
     ax.set_title("Y2p")
     ax.plot(Y2p)
 
-    ax = fig.add_subplot(Nr,1,5)
+    ax = fig.add_subplot(Nr,1,6)
     ax.cla()
     ax.set_title("Dp")
     ax.plot(Dp)
-
 
     plt.show()
 
@@ -327,7 +403,7 @@ def plot3():
     ax.cla()
     ax.set_title("Us")
     ax.plot(Us)
-    ax.plot(Rs,":")
+    ax.plot(R1s,":")
 
     ax = fig.add_subplot(Nr,1,2)
     ax.cla()
@@ -347,15 +423,16 @@ def plot3():
     plt.show()
 
 def execute():
-    global D,Ds,Dp,U,Us,Up,Rs
+    global D,Ds,Dp,U,Us,Up,R1s,R2s
     global RMSE1,RMSE2
     generate_weight_matrix()
     D, U = generate_data_sequence()
     Dp = np.tanh(D)
     Up = np.tanh(U)
     Ds = generate_s_sequence(Dp, Ny)
-    Us = generate_s_sequence(Up, Nu)
-    Rs = generate_ref()
+    Us = generate_s_sequence2(Up, Nu)
+    R1s = generate_ref()
+    R2s = generate_ref2()
 
     train_network()
     test_network()
@@ -375,8 +452,9 @@ def execute():
     print(RMSE1,RMSE2)
 
     if display :
-        plot2()
-        plot3()
+        plot1()
+        #plot2()
+        #plot3()
 
 if __name__ == "__main__":
     config()
