@@ -228,7 +228,7 @@ def run_network(mode):
     ys = np.zeros(Ny)
     yc = np.zeros(Ny)
 
-    l=0
+    count=0
     m=0
     for n in range(NN*MM):
         us = Us[n]
@@ -259,15 +259,18 @@ def run_network(mode):
         update_s(yx,ys,Ny)
         yc += ys
 
-        if n>0 and R1s[n-1]==0 and R1s[n]==1:
-            l=0
 
+        # ref. clock の立ち上がりで　count をリセット
+        if n>0 and R1s[n-1]==0 and R1s[n]==1:
+            count=0
+
+        # hs の立ち下がりで count の値を hc に保持する。
         for i in range(Nh):
             if hs_prev[i]==1 and hs[i]==0:
-                hc[i]=l
+                hc[i]=count
 
         #print(n,n%NN,l,hs_prev[0],hs[0],hc[0])
-        l=l+1
+        count = count + 1
 
         # compute phase difference
         if n>0 and R1s[n-1]==0 and R1s[n]==1:
