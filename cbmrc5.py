@@ -205,95 +205,66 @@ def update_s(x,s,N):
             s[i]=0
 
 def run_network(mode):
-    global Hx, Hs, Hp, Y, Yx, Ys, Yp, Y,Y2p
+    global Hx, Hs, Hp, Y, Yx, Ys, Yp, Y
     Hp = np.zeros((MM, Nh))
     Hx = np.zeros((MM*NN, Nh))
     Hs = np.zeros((MM*NN, Nh))
+    hsign = np.zeros(Nh)
+    #hx = np.zeros(Nh)
+    hx = np.random.uniform(0,1,Nh) # [0,1]の連続値
+    hs = np.zeros(Nh) # {0,1}の２値
+    hs_prev = np.zeros(Nh)
+    hc = np.zeros(Nh) # ref.clockに対する位相差を求めるためのカウント
+    hp = np.zeros(Nh) # [-1,1]の連続値
+    ht = np.zeros(Nh) # {0,1}
+
     Yp = np.zeros((MM, Ny))
     Yx = np.zeros((MM*NN, Ny))
     Ys = np.zeros((MM*NN, Ny))
-    Y2p = np.zeros((MM, Ny))
-
-    hsign = np.zeros(Nh)
-    #hx = np.zeros(Nh)
-    hx = np.random.uniform(0,1,Nh)
-    hs = np.zeros(Nh)
-    hs_prev = np.zeros(Nh)
-    hc = np.zeros(Nh)
-    hp = np.zeros(Nh)
-    ht = np.zeros(Nh)
-
-    ysign = np.zeros(Ny)
+    #ysign = np.zeros(Ny)
+    yp = np.zeros(Ny)
     yx = np.zeros(Ny)
     ys = np.zeros(Ny)
-    yc = np.zeros(Ny)
+    #yc = np.zeros(Ny)
 
     count=0
     m=0
     for n in range(NN*MM):
         us = Us[n]
         ds = Ds[n]
-        r1s = R1s[n]
-        r2s = R2s[n]
-
+        rs = Rs[n]
+        rs_prev = Rs[n-1] if n>0 else 0
         sum = np.zeros(Nh)
-        sum += alpha2*(hs-r1s)*ht
-        #sum += alpha2*hp
-        sum += Wi@(2*us-1)
-        sum += Wr@(2*hs-1)
-        if mode == 0:
-            sum += Wb@ys
-        if mode == 1:  # teacher forcing
-            sum += Wb@ds
-
+        sum += alpha2*(hs-rs)*ht # ref.clockと同期させるための結合
+        sum += Wi@(2*us-1) # 外部入力
+        sum += Wr@(2*hs-1) # リカレント結合
+        #if mode == 0:
+        #    sum += Wb@ys
+        #if mode == 1:  # teacher forcing
+        #    sum += Wb@ds
         hsign = 1 - 2*hs
         hx = hx + hsign*(1.0+np.exp(hsign*sum/Temp))*dt
         hs_prev = hs.copy()
         update_s(hx,hs,Nh)
-        #hc += hs
-
-        sum = np.zeros(Ny)
-        sum += Wo@hs
-        ysign = 1 - 2*ys
-        yx = yx + ysign*(1.0+np.exp(ysign*sum/Temp))*dt
-        update_s(yx,ys,Ny)
-        yc += ys
-
-
-        # ref. clock の立ち上がりで　count をリセット
-        if n>0 and R1s[n-1]==0 and R1s[n]==1:
-            count=0
 
         # hs の立ち下がりで count の値を hc に保持する。
         for i in range(Nh):
             if hs_prev[i]==1 and hs[i]==0:
                 hc[i]=count
-
         #print(n,n%NN,l,hs_prev[0],hs[0],hc[0])
         count = count + 1
 
-        # compute phase difference
-        if n>0 and R1s[n-1]==0 and R1s[n]==1:
-            hp=2*hc/NN-1
-            hc=np.zeros(Nh)
-            ht=2*hs-1
+        # ref.clockの立ち上がり
+        if rs_prev==0 and rs==1:
+            hp = 2*hc/NN-1
+            ht = 2*hs-1
+            yp = fy(Wo@hp)
+            #yp=fsgm(Wo@hp)
+            count=0
 
-            yp=yc/NN
-            yc=np.zeros(Ny)
-
-            #y2p=fsgm(Wo@hp)
-            y2p=fy(Wo@hp)
-
-            if m==0:
-                hp=0.0
-                yp=0.0
-
-
-            #print(hp[0])
-            #record
+            # record
             Hp[m]=hp
             Yp[m]=yp
-            Y2p[m]=y2p
             m+=1
 
         # record
@@ -343,7 +314,7 @@ def plot1():
     ax.cla()
     ax.set_title("Us")
     ax.plot(Us)
-    ax.plot(R1s,"r:")
+    ax.plot(Rs,"r:")
     #ax.plot(R2s,"b:")
 
     ax = fig.add_subplot(Nr,1,3)
@@ -358,8 +329,8 @@ def plot1():
 
     ax = fig.add_subplot(Nr,1,5)
     ax.cla()
-    ax.set_title("Y2p")
-    ax.plot(Y2p)
+    ax.set_title("Yp")
+    ax.plot(Yp)
 
     ax = fig.add_subplot(Nr,1,6)
     ax.cla()
@@ -388,8 +359,8 @@ def plot2():
 
     ax = fig.add_subplot(Nr,1,5)
     ax.cla()
-    ax.set_title("Y2p")
-    ax.plot(Y2p)
+    ax.set_title("Yp")
+    ax.plot(Yp)
 
     ax = fig.add_subplot(Nr,1,6)
     ax.cla()
@@ -406,7 +377,7 @@ def plot3():
     ax.cla()
     ax.set_title("Us")
     ax.plot(Us)
-    ax.plot(R1s,":")
+    ax.plot(Rs,":")
 
     ax = fig.add_subplot(Nr,1,2)
     ax.cla()
@@ -426,7 +397,7 @@ def plot3():
     plt.show()
 
 def execute():
-    global D,Ds,Dp,U,Us,Up,R1s,R2s
+    global D,Ds,Dp,U,Us,Up,Rs,R2s
     global RMSE1,RMSE2
     generate_weight_matrix()
     D, U = generate_data_sequence()
@@ -434,8 +405,8 @@ def execute():
     Up = np.tanh(U)
     Ds = generate_s_sequence(Dp, Ny)
     Us = generate_s_sequence2(Up, Nu)
-    R1s = generate_ref()
-    R2s = generate_ref2()
+    Rs = generate_ref()
+    #R2s = generate_ref2()
 
     train_network()
     test_network()
@@ -444,15 +415,9 @@ def execute():
     for j in range(MM0,MM):
         sum += (Yp[j] - Dp[j])**2
     SUM=np.sum(sum)
-    RMSE1=np.sqrt(SUM/Ny/(MM-MM0))
-
-    sum=0
-    for j in range(MM0,MM):
-        sum += (Y2p[j] - Dp[j])**2
-    SUM=np.sum(sum)
-    RMSE2=np.sqrt(SUM/Ny/(MM-MM0))
-
-    print(RMSE1,RMSE2)
+    RMSE1 = np.sqrt(SUM/Ny/(MM-MM0))
+    RMSE2 = 0
+    print(RMSE1)
 
     if display :
         plot1()
