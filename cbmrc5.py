@@ -255,7 +255,7 @@ def run_network(mode):
         count = count + 1
 
         # ref.clockの立ち上がり
-        if n>0 and Rs[n-1]==0 and Rs[n]==1:
+        if rs_prev==0 and rs==1:
             hp = 2*hc/NN-1
             ht = 2*hs-1
             yp = fy(Wo@hp)
@@ -265,7 +265,6 @@ def run_network(mode):
             # record
             Hp[m]=hp
             Yp[m]=yp
-
             m+=1
 
         # record
