@@ -249,10 +249,10 @@ def run_network(mode):
         sum += Wi@(2*us-1) # 外部入力
         sum += Wr@(2*hs-1) # リカレント結合
 
-        if mode == 0:
-            sum += Wb@ys
-        if mode == 1:  # teacher forcing
-            sum += Wb@ds
+        #if mode == 0:
+        #    sum += Wb@ys
+        #if mode == 1:  # teacher forcing
+        #    sum += Wb@ds
 
         hsign = 1 - 2*hs
         hx = hx + hsign*(1.0+np.exp(hsign*sum/Temp))*dt
