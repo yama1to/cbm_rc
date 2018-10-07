@@ -85,42 +85,6 @@ def generate_data_sequence():
         U[n, :] = u
     return (D, U)
 
-    #print("WoT\n", WoT)
-def generate_s_sequence(p, u):
-    s = np.zeros((MM*NN, u))
-    for m in range(MM):
-        pm=p[m]
-        for i in range(u):
-            for n in range(NN):
-                if n < NN*pm[i] :
-                    s[m*NN + n][i]=1
-    return s
-
-def generate_s_sequence2(p, N):
-    s = np.zeros((MM*NN, N))
-    for m in range(MM):
-        pm=p[m]
-        for i in range(N):
-            for n in range(NN):
-                if ( pm[i]/2 < n/NN and n/NN < (pm[i]+1)/2 ) or pm[i]/2+1 < n/NN:
-                    s[m*NN + n][i]=1
-    return s
-
-def generate_ref():
-    s = np.zeros(MM*NN)
-    for m in range(MM):
-        for n in range(NN):
-            if n < NN/2 :
-                s[m*NN + n]=1
-    return s
-
-def generate_ref2():
-    s = np.zeros(MM*NN)
-    for m in range(MM):
-        for n in range(NN):
-            if 0.25*NN <= n and n <0.75*NN :
-                s[m*NN + n]=1
-    return s
 
 def generate_weight_matrix():
     global Wr, Wb, Wo, Wi
@@ -174,8 +138,6 @@ def generate_weight_matrix():
     Wo = Wo
     # print(Wo)
 
-
-
 def fx(h):
     return np.tanh(h)
 
@@ -207,7 +169,7 @@ def p2s(theta,p):
     return np.heaviside( np.sin(np.pi*(2*theta-p)),1)
 
 def run_network(mode):
-    global Hx, Hs, Hp, Y, Yx, Ys, Yp, Y
+    global Hx, Hs, Hp, Y, Yx, Ys, Yp, Y, Us, Ds,Rs
     Hp = np.zeros((MM, Nh))
     Hx = np.zeros((MM*NN, Nh))
     Hs = np.zeros((MM*NN, Nh))
@@ -228,15 +190,16 @@ def run_network(mode):
     yx = np.zeros(Ny)
     ys = np.zeros(Ny)
     #yc = np.zeros(Ny)
+
+    Us = np.zeros((MM*NN, Nu))
+    Ds = np.zeros((MM*NN, Ny))
+    Rs = np.zeros((MM*NN, 1))
+
     rs = 1
     rs_prev = 0
     count=0
     m=0
     for n in range(NN*MM):
-        #us = Us[n]
-        #ds = Ds[n]
-        #rs = Rs[n]
-        #rs_prev = Rs[n-1] if n>0 else 0
         theta = np.mod(n/NN,1) # (0,1)
         rs_prev = rs
         rs = p2s(theta,0)
@@ -264,6 +227,8 @@ def run_network(mode):
             if hs_prev[i]==1 and hs[i]==0:
                 hc[i]=count
         #print(n,n%NN,l,hs_prev[0],hs[0],hc[0])
+        #if m<3 or m>298:print("%3d %3d %d %d %3d %f"%(n,m,rs,rs_prev,count,theta))
+
         count = count + 1
 
         # ref.clockの立ち上がり
@@ -273,18 +238,19 @@ def run_network(mode):
             yp = fy(Wo@hp)
             #yp=fsgm(Wo@hp)
             count=0
-
             # record
             Hp[m]=hp
             Yp[m]=yp
             m+=1
 
         # record
+        Rs[n]=rs
         Hx[n]=hx
         Hs[n]=hs
         Yx[n]=yx
         Ys[n]=ys
-        if m<3 or m>298:print("%3d %3d %d %d %3d %f"%(n,m,rs,rs_prev,count,theta))
+        Us[n]=us
+        Ds[n]=ds
 
 def train_network():
     global Wo
@@ -351,62 +317,6 @@ def plot1():
 
     plt.show()
 
-def plot2():
-    fig=plt.figure(figsize=(20, 12))
-    Nr=6
-    ax = fig.add_subplot(Nr,1,1)
-    ax.cla()
-    ax.set_title("Up")
-    ax.plot(Up)
-
-    ax = fig.add_subplot(Nr,1,2)
-    ax.cla()
-    ax.set_title("Hp")
-    ax.plot(Hp)
-
-    ax = fig.add_subplot(Nr,1,4)
-    ax.cla()
-    ax.set_title("Hx")
-    ax.plot(Hx)
-
-    ax = fig.add_subplot(Nr,1,5)
-    ax.cla()
-    ax.set_title("Yp")
-    ax.plot(Yp)
-
-    ax = fig.add_subplot(Nr,1,6)
-    ax.cla()
-    ax.set_title("Dp")
-    ax.plot(Dp)
-
-    plt.show()
-
-def plot3():
-    fig=plt.figure(figsize=(20, 12))
-    Nr=4
-
-    ax = fig.add_subplot(Nr,1,1)
-    ax.cla()
-    ax.set_title("Us")
-    ax.plot(Us)
-    ax.plot(Rs,":")
-
-    ax = fig.add_subplot(Nr,1,2)
-    ax.cla()
-    ax.set_title("Hx")
-    ax.plot(Hx)
-
-    ax = fig.add_subplot(Nr,1,3)
-    ax.cla()
-    ax.set_title("Ys")
-    ax.plot(Ys)
-
-    ax = fig.add_subplot(Nr,1,4)
-    ax.cla()
-    ax.set_title("Ds")
-    ax.plot(Ds)
-
-    plt.show()
 
 def execute():
     global D,Ds,Dp,U,Us,Up,Rs,R2s
@@ -415,10 +325,6 @@ def execute():
     D, U = generate_data_sequence()
     Dp = np.tanh(D)
     Up = np.tanh(U)
-    Ds = generate_s_sequence(Dp, Ny)
-    Us = generate_s_sequence2(Up, Nu)
-    Rs = generate_ref()
-    #R2s = generate_ref2()
 
     train_network()
     test_network()
@@ -433,8 +339,6 @@ def execute():
 
     if display :
         plot1()
-        #plot2()
-        #plot3()
 
 if __name__ == "__main__":
     config()
