@@ -10,6 +10,9 @@ NN=200
 MM=300
 MM0 = 50
 
+T1 = 200
+T0 = 5 # transient
+
 Nu = 2   #size of input
 Nh = 100 #size of dynamical reservior
 Ny = 2   #size of output
@@ -85,6 +88,19 @@ def generate_data_sequence():
         U[n, :] = u
     return (D, U)
 
+def generate_data(MM):
+    D = np.zeros(MM)
+    #U = np.zeros((MM, Nu))
+    #cy = np.linspace(0, 1, Ny)
+    #cu = np.linspace(0, 1, Nu)
+    for n in range(MM):
+        t = 0.25 * n #0.5*n
+        d = np.sin(t) * 0.8
+        # d=np.sin(t+c)*np.exp(-0.1*(t-10)**2)*0.5
+        #u = np.sin(t*0.5 + cu) * 0.8
+        D[n] = d
+        #U[n, :] = u
+    return D
 
 def generate_weight_matrix():
     global Wr, Wb, Wo, Wi
@@ -130,7 +146,7 @@ def generate_weight_matrix():
     # print("Wi:")
     # print("WoT\n", WoT)
     # print(Wi)Ds = np.zeros((MM*NN, Ny))
-    Us = np.zeros((MM*NN, Nu))
+    #Us = np.zeros((MM*NN, Nu))
 
     ### Wo
     Wo = np.zeros(Nh * Ny)
@@ -168,7 +184,7 @@ def update_s(x,s,N):
 def p2s(theta,p):
     return np.heaviside( np.sin(np.pi*(2*theta-p)),1)
 
-def run_network(mode):
+def run_network(MM,Ttf):
     global Hx, Hs, Hp, Y, Yx, Ys, Yp, Y, Us, Ds,Rs
     Hp = np.zeros((MM, Nh))
     Hx = np.zeros((MM*NN, Nh))
@@ -203,7 +219,7 @@ def run_network(mode):
         theta = np.mod(n/NN,1) # (0,1)
         rs_prev = rs
         rs = p2s(theta,0)
-        us = p2s(theta,Up[m])
+        #us = p2s(theta,Up[m])
         ds = p2s(theta,Dp[m])
         ys = p2s(theta,yp)
 
@@ -212,10 +228,10 @@ def run_network(mode):
         #sum += Wi@(2*us-1) # 外部入力
         sum += Wr@(2*hs-1) # リカレント結合
 
-        if mode == 0:
+        if n < NN*Ttf:
+            sum += Wb@ds# teacher forcing
+        else:
             sum += Wb@ys
-        if mode == 1:  # teacher forcing
-            sum += Wb@ds
 
         hsign = 1 - 2*hs
         hx = hx + hsign*(1.0+np.exp(hsign*sum/Temp))*dt
@@ -255,11 +271,11 @@ def run_network(mode):
 def train_network():
     global Wo
 
-    run_network(1) # run netwrok with teacher forcing
+    run_network(T1,T1) # run netwrok with teacher forcing
 
-    M = Hp[MM0:, :]
+    M = Hp[T0:, :]
     invD = fyi(Dp)
-    G = invD[MM0:, :]
+    G = invD[T0:, :]
 
     print("Hp\n",Hp)
     print("M\n",M)
@@ -272,7 +288,7 @@ def train_network():
     #print("WoT\n", WoT)
 
 def test_network():
-    run_network(0)
+    run_network(T2,T0)
 
 def plot(data):
     fig, ax = plt.subplots(1,1)
@@ -321,21 +337,37 @@ def plot1():
 def execute():
     global D,Ds,Dp,U,Us,Up,Rs,R2s
     global RMSE1,RMSE2
+    global T0,T1,T2
+
     generate_weight_matrix()
-    D, U = generate_data_sequence()
-    Dp = np.tanh(D)
-    Up = np.tanh(U)
 
+    T0 = 10 # length of transient,
+    T1 = 200 # length of training data
+    Ntest = 2
+    Nstep = 3
+    interval = 50
+    T2 = T0 + interval*(Nstep-1) # length of test data
+    Tdata = T1 + T2*Ntest # total length of data (training and test data)
+
+    y = generate_data(Tdata)
+    DD = np.zeros((Tdata,1))
+    DD[:,0]=np.tanh(y)
+
+    ### train network
+    Dp = DD[:T1]
     train_network()
-    test_network()
 
-    sum=0
-    for j in range(MM0,MM):
-        sum += (Yp[j] - Dp[j])**2
-    SUM=np.sum(sum)
-    RMSE1 = np.sqrt(SUM/Ny/(MM-MM0))
-    RMSE2 = 0
-    print(RMSE1)
+    ### test network
+    SUM = np.zeros(Nstep)
+    for i in range(Ntest):
+        Dp = DD[T1 + T2*i : T1 + T2*(i+1)]
+        test_network()
+        for j in range(Nstep):
+            SUM[j] += (Y[T0-1+interval*j] - D[T0-1+interval*j])**2
+        #print("SUM:",SUM[0],SUM[1],SUM[2],SUM[3],SUM[4],SUM[5])
+    # mean squre error
+    RMSE = np.sqrt(SUM/Ntest)
+    print(RMSE[0],RMSE[1],RMSE[2],RMSE[3],RMSE[4],RMSE[5])
 
     if display :
         plot1()
