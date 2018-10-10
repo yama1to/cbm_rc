@@ -15,15 +15,15 @@ T0 = 5 # transient
 
 Nu = 2   #size of input
 Nh = 100 #size of dynamical reservior
-Ny = 2   #size of output
+Ny = 1   #size of output
 
 Temp=1
 dt=1.0/NN #0.01
 
 #sigma_np = -5
 alpha_i = 0.2
-alpha_r = 0.25
-alpha_b = 0.
+alpha_r = 0.2
+alpha_b = 1.5
 
 alpha0 = 0#0.1
 alpha1 = 0#-5.8
@@ -42,13 +42,13 @@ seed=0
 display=1
 
 def config():
-    global id,ex,seed,display,NN,Nh,alpha_i,alpha_r,alpha_b,alpha0,alpha1,alpha2,beta_i,beta_r,beta_b,Temp,lambda0
+    global ex,display,seed,id,NN,Nh,alpha_i,alpha_r,alpha_b,alpha0,alpha1,alpha2,beta_i,beta_r,beta_b,Temp,lambda0
     args = sys.argv
     for s in args:
-        id      = arg2i(id,"id=",s)
         ex      = arg2a(ex, 'ex=', s)
-        seed    = arg2i(seed,"seed=",s)
         display = arg2i(display,"display=",s)
+        seed    = arg2i(seed,"seed=",s)
+        id      = arg2i(id,"id=",s)
 
         NN      = arg2i(NN, 'NN=', s)
         Nh      = arg2i(Nh, 'Nh=', s)
@@ -65,14 +65,13 @@ def config():
         lambda0 = arg2f(lambda0, 'lambda0=', s)
 
 def output():
-    str="%d,%d,%d,%d,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n" \
-    % (id,seed,NN,Nh,alpha_i,alpha_r,alpha_b,alpha0,alpha1,beta_i,beta_r,beta_b,Temp,lambda0,RMSE1,RMSE2)
+    str="%d,%d,%d,%d,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n" \
+    % (seed,id,NN,Nh,alpha_i,alpha_r,alpha_b,alpha0,alpha1,alpha2,beta_i,beta_r,beta_b,Temp,lambda0,RMSE[0],RMSE[1],RMSE[2])
     #print(str)
-    filename= 'data_cbmrc3_' + ex + '.csv'
+    filename= 'data_cbmrc7_' + ex + '.csv'
     f=open(filename,"a")
     f.write(str)
     f.close()
-
 
 def generate_data_sequence():
     D = np.zeros((MM, Ny))
@@ -133,8 +132,7 @@ def generate_weight_matrix():
     np.random.shuffle(Wb)
     Wb = Wb.reshape((Nh, Ny))
     Wb = Wb * alpha_b
-    # print("Wb:")
-    # print(Wb)
+    #print("Wb:",Wb)
 
     ### Wi
     Wi = np.zeros(Nh * Nu)
@@ -215,6 +213,8 @@ def run_network(MM,Ttf):
     rs_prev = 0
     count=0
     m=0
+    Hp[m]=hp
+    Yp[m]=yp
     for n in range(NN*MM):
         theta = np.mod(n/NN,1) # (0,1)
         rs_prev = rs
@@ -229,7 +229,7 @@ def run_network(MM,Ttf):
         sum += Wr@(2*hs-1) # リカレント結合
 
         if n < NN*Ttf:
-            sum += Wb@ds# teacher forcing
+            sum += Wb@ds # teacher forcing
         else:
             sum += Wb@ys
 
@@ -255,8 +255,8 @@ def run_network(MM,Ttf):
             #yp=fsgm(Wo@hp)
             count=0
             # record
-            Hp[m]=hp
-            Yp[m]=yp
+            Hp[m+1]=hp
+            Yp[m+1]=yp
             m+=1
 
         # record
@@ -265,8 +265,16 @@ def run_network(MM,Ttf):
         Hs[n]=hs
         Yx[n]=yx
         Ys[n]=ys
-        Us[n]=us
+        #Us[n]=us
         Ds[n]=ds
+
+    # 不連続な値の変化を検出する。
+    global count_gap
+    count_gap = 0
+    for m in range(2,MM-1):
+        tmp = np.sum( np.heaviside( np.fabs(Hp[m+1]-Hp[m]) - 0.6 ,0))
+        count_gap += tmp
+        #print(tmp)
 
 def train_network():
     global Wo
@@ -277,8 +285,8 @@ def train_network():
     invD = fyi(Dp)
     G = invD[T0:, :]
 
-    print("Hp\n",Hp)
-    print("M\n",M)
+    #print("Hp\n",Hp)
+    #print("M\n",M)
 
     ### Ridge regression
     E = np.identity(Nh)
@@ -302,7 +310,7 @@ def plot1():
     ax = fig.add_subplot(Nr,1,1)
     ax.cla()
     ax.set_title("Up")
-    ax.plot(Up)
+    #ax.plot(Up)
 
     ax = fig.add_subplot(Nr,1,2)
     ax.cla()
@@ -336,13 +344,14 @@ def plot1():
 
 def execute():
     global D,Ds,Dp,U,Us,Up,Rs,R2s
-    global RMSE1,RMSE2
+    global RMSE
     global T0,T1,T2
 
+    np.random.seed(seed)
     generate_weight_matrix()
 
-    T0 = 10 # length of transient,
-    T1 = 200 # length of training data
+    T0 = 100 # length of transient,
+    T1 = 400 # length of training data
     Ntest = 2
     Nstep = 3
     interval = 50
@@ -354,21 +363,24 @@ def execute():
     DD[:,0]=np.tanh(y)
 
     ### train network
+    #print("Train network")
     Dp = DD[:T1]
     train_network()
+    #plot1()
 
     ### test network
+    #print("Test network")
     SUM = np.zeros(Nstep)
     for i in range(Ntest):
         Dp = DD[T1 + T2*i : T1 + T2*(i+1)]
         test_network()
         for j in range(Nstep):
-            SUM[j] += (Y[T0-1+interval*j] - D[T0-1+interval*j])**2
+            SUM[j] += (Yp[T0-1+interval*j] - Dp[T0-1+interval*j])**2
         #print("SUM:",SUM[0],SUM[1],SUM[2],SUM[3],SUM[4],SUM[5])
     # mean squre error
     RMSE = np.sqrt(SUM/Ntest)
-    print(RMSE[0],RMSE[1],RMSE[2],RMSE[3],RMSE[4],RMSE[5])
-
+    #print(RMSE[0],RMSE[1],RMSE[2],RMSE[3],RMSE[4],RMSE[5])
+    print(RMSE,count_gap)
     if display :
         plot1()
 
