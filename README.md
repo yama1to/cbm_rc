@@ -21,6 +21,7 @@ cbmrc6b2.pyのコピー。新しいテストコードに対応した。
 
 cbmrc6b3.pyのコピー。Phi()という関数を使う。内容はcbmrc6b3.pyと同じ。
 
+
 #### cbmrc6c.py [nolatch]
 nolatch
 
@@ -29,6 +30,7 @@ cbmrc6c.pyのコピー。データセットを選択できるように変更
 
 ### cbmrc6c3.py
 cbmrc6c2.pyのコピー。新しいテストコードに対応した。
+
 
 #### cbmrc7.py
 予測タスクを実装、
