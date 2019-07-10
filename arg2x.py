@@ -1,5 +1,5 @@
 # Copyright (c) 2018 Katori lab. All Rights Reserved
-# NOTE: arg2f, 引数によりパラメータ値を変更、計算結果をCSVでファイルに保存する。
+# NOTE: arg2f,arg2i,arg2a, 引数によってパラメータ値を変更するための関数群
 """
 test_arg2x.py を参考にして使用する。
 
@@ -23,7 +23,8 @@ def arg2i(x,r,s):
     return x
 
 def arg2a(x,r,s):
-    tmp = "(\w*)" # regular expression of a-z,A-Z,0-9,and _
+    #tmp = "(\w*)" # regular expression of a-z,A-Z,0-9,and _
+    tmp = "([a-zA-Z0-9_\.\/]*)"
     m=re.findall(r+tmp,s)
     if m : x=m[0]
     return x

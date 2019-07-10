@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import sys
 import copy
 from arg2x import *
+from generate_data_sequence import *
 
 NN=200
 MM=300
@@ -37,14 +38,16 @@ lambda0 = 0.1
 
 id = 0
 ex = 'ex'
+file = "data_cbmrc6b.csv"
 seed=0
 display=1
 
 def config():
-    global ex,display,seed,id,NN,Nh,alpha_i,alpha_r,alpha_b,alpha_s,alpha0,alpha1,beta_i,beta_r,beta_b,Temp,lambda0
+    global ex,file,display,seed,id,NN,Nh,alpha_i,alpha_r,alpha_b,alpha_s,alpha0,alpha1,beta_i,beta_r,beta_b,Temp,lambda0
     args = sys.argv
     for s in args:
         ex      = arg2a(ex, 'ex=', s)
+        file    = arg2a(file,"file=",s)
         display = arg2i(display,"display=",s)
 
         seed    = arg2i(seed,"seed=",s)
@@ -66,28 +69,9 @@ def config():
 def output():
     str="%d,%d,%d,%d,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n" \
     % (seed,id,NN,Nh,alpha_i,alpha_r,alpha_b,alpha_s,alpha0,alpha1,beta_i,beta_r,beta_b,Temp,lambda0,RMSE1,RMSE2,count_gap)
-       
-    #print(str)
-    filename= 'data_cbmrc6b_' + ex + '.csv'
-    f=open(filename,"a")
+    f=open(file,"a")
     f.write(str)
     f.close()
-
-
-def generate_data_sequence():
-    D = np.zeros((MM, Ny))
-    U = np.zeros((MM, Nu))
-    cy = np.linspace(0, 1, Ny)
-    cu = np.linspace(0, 1, Nu)
-    for n in range(MM):
-        t = 0.25 * n #0.5*n
-        d = np.sin(t + cy) * 0.8
-        # d=np.sin(t+c)*np.exp(-0.1*(t-10)**2)*0.5
-        u = np.sin(t*0.5 + cu) * 0.8
-        D[n, :] = d
-        U[n, :] = u
-    return (D, U)
-
 
 def generate_weight_matrix():
     global Wr, Wb, Wo, Wi
@@ -230,7 +214,7 @@ def run_network(mode):
             if hs_prev[i]==1 and hs[i]==0:
                 hc[i]=count
         #print(n,n%NN,l,hs_prev[0],hs[0],hc[0])
-        #if m<3 or m>298:print("%3d %3d %d %d %3d %f"%(n,m,rs,rs_prev,count,theta))
+        #if m<3 or (m>198 and m<204):print("n=%3d m=%3d rs=%d rs_prev=%d %3d theta=%f MM=%d"%(n,m,rs,rs_prev,count,theta,MM))
 
         count = count + 1
 
@@ -272,8 +256,8 @@ def train_network():
     invD = fyi(Dp)
     G = invD[MM0:, :]
 
-    print("Hp\n",Hp)
-    print("M\n",M)
+    #print("Hp\n",Hp)
+    #print("M\n",M)
 
     ### Ridge regression
     E = np.identity(Nh)
@@ -330,16 +314,37 @@ def plot1():
 
 
 def execute():
-    global D,Ds,Dp,U,Us,Up,Rs,R2s
+    global D,Ds,Dp,U,Us,Up,Rs,R2s,MM
     global RMSE1,RMSE2
     generate_weight_matrix()
-    D, U = generate_data_sequence()
-    Dp = np.tanh(D)
-    Up = np.tanh(U)
 
+    ### generate data
+    MM1=300 # length of training data
+    MM2=400 # length of test data
+    MMtotal=MM1+MM2
+    #D, U = generate_simple_sinusoidal(MMtotal)
+    D, U = generate_complex_sinusoidal(MMtotal)
+    #D, U = generate_coupled_lorentz(MMtotal)
+    D1 = D[0:MM1]
+    U1 = U[0:MM1]
+    D2 = D[MM1:MM1+MM2]
+    U2 = U[MM1:MM1+MM2]
+
+    ### training
+    #print("training...")
+    MM=MM1
+    Dp = np.tanh(D1)
+    Up = np.tanh(U1)
     train_network()
+
+    ### test
+    #print("test...")
+    MM=MM2
+    Dp = np.tanh(D2)
+    Up = np.tanh(U2)
     test_network()
 
+    ### evaluation
     sum=0
     for j in range(MM0,MM):
         sum += (Yp[j] - Dp[j])**2

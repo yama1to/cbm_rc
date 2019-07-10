@@ -1,15 +1,25 @@
 # Copyright (c) 2017-2018 Katori Lab. All Rights Reserved
-# Author: Yuichi Katori (yuichi.katori@gmail.com)
 # NOTE:ESNによる時系列の生成
-
 import numpy as np
 import scipy.linalg
 from numpy.linalg import svd, inv, pinv
+
+import matplotlib as mpl
+mpl.use('Agg')## サーバ上で画像を出力するための設定。ローカルで表示する際はコメントアウトする
 import matplotlib.pyplot as plt
+
 import sys
-#import copy
+import copy
 from arg2x import *
 from generate_data_sequence import *
+
+file_csv = "data_esn1.csv"
+file_fig1 = "data_esn1_fig1.png"
+display = 1
+
+dataset = 3
+seed=-1 # 乱数生成のためのシード
+id=0
 
 MM = 200
 MM0 = 50
@@ -21,7 +31,7 @@ Ny = 2   #size of output
 
 sigma_np = -5
 alpha_r = 0.8
-alpha_b = 0.8
+alpha_b = 0.0 # 0.8
 alpha_i = 0.8
 beta_r = 0.1
 beta_b = 0.1
@@ -30,17 +40,12 @@ alpha0 = 0.7
 tau = 2
 lambda0 = 0.1
 
-dataset = 2
-file = "data_esn1.csv"
-display=1
-seed=-1
-id = 0
-
 def config():
-    global file,display,dataset,seed,id,Nx,alpha_i,alpha_r,alpha_b,alpha0,tau,beta_i,beta_r,beta_b,lambda0
+    global file_csv,file_fig1,display,dataset,seed,id,Nx,alpha_i,alpha_r,alpha_b,alpha0,tau,beta_i,beta_r,beta_b,lambda0
     args = sys.argv
     for s in args:
-        file    = arg2a(file,"file=",s)
+        file_csv= arg2a(file_csv,"file_csv=",s)
+        file_fig1=arg2a(file_fig1,"file_fig1=",s)
         display = arg2i(display,"display=",s)
         dataset = arg2i(dataset,"dataset=",s)
         seed    = arg2i(seed,"seed=",s)
@@ -60,7 +65,7 @@ def output():
     str="%d,%d,%d,%d,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n" \
     % (dataset,seed,id,Nx,alpha_i,alpha_r,alpha_b,alpha0,tau,beta_i,beta_r,beta_b,lambda0,RMSE1,RMSE2)
 
-    f=open(file,"a")
+    f=open(file_csv,"a")
     f.write(str)
     f.close()
 
@@ -191,6 +196,31 @@ def plot1():
     ax.set_title("Y")
 
     plt.show()
+    plt.savefig(file_fig1)
+
+def plot2():
+    fig=plt.figure(figsize=(20, 12))
+    Nr=3
+    t1=100
+    ax = fig.add_subplot(Nr,1,1)
+    ax.cla()
+    ax.set_title("U")
+    ax.plot(Up[t1:])
+
+    ax = fig.add_subplot(Nr,1,2)
+    ax.cla()
+    ax.set_title("X")
+    ax.plot(X[t1:,:100])
+
+    ax = fig.add_subplot(Nr,1,3)
+    ax.cla()
+    ax.set_title("Y, Ytarget")
+    ax.set_ylim(-1,1)
+    ax.plot(Y[t1:])
+    ax.plot(Dp[t1:],'--')
+
+    plt.show()
+    plt.savefig(file_fig1)
 
 def execute():
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM
@@ -241,7 +271,7 @@ def execute():
     print(RMSE1)
 
     if display :
-        plot1()
+        plot2()
 
 if __name__ == "__main__":
     config()

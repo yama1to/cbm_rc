@@ -34,7 +34,6 @@ def plot1(filename,key):
     plt.xlabel(key)
     plt.show()
 
-
 #plot1("data_cbmrc6b_scan1_alpha_r.csv","alpha_r")
 #plot1("data_cbmrc6b_scan1_alpha_b.csv","alpha_b")
 #plot1("data_cbmrc6b_scan1_alpha_s.csv","alpha_s")

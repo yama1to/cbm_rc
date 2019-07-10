@@ -19,8 +19,8 @@ for s in args:
 ### 共通設定
 columns=['dataset','seed','id','NN','Nh','alpha_i','alpha_r','alpha_b','alpha_s','alpha0','alpha1','beta_i','beta_r','beta_b','Temp','lambda0','RMSE1','RMSE2','count_gap']
 exe = "python cbmrc6c3.py display=0 dataset=%d " % (dataset)
-report = "data20181217_cbmrc6c3_dataset%d.md" % (dataset)
-prefix = "data20181217_cbmrc6c3_dataset%d" % (dataset)
+report = "data20181218_cbmrc6c3.md"
+prefix = "data20181218_cbmrc6c3_dataset%d" % (dataset)
 
 st.exe = exe
 st.columns = columns
@@ -58,9 +58,16 @@ st.exe = exe
 png = prefix+"_test.png"
 st.execute1(exe,file_fig1=png)
 
-def plot1dsA(file_csv,X1,fig=''):
+def gridsearch(X1,min=0,max=1,num=41,samples=10):
+    '''
+    cbmrc6 についてグリッドサーチを行う
+    '''
 
-    df = pd.read_csv(file_csv,sep=',',names=columns)
+    csv = prefix+"_scan1ds_"+X1+".csv"
+    png = prefix+"_scan1ds_"+X1+".png"
+    st.scan1ds(csv,X1,min=min,max=max,num=num,samples=samples,run=1,list=0)
+
+    df = pd.read_csv(csv,sep=',',names=columns)
 
     plt.figure()
 
@@ -76,28 +83,11 @@ def plot1dsA(file_csv,X1,fig=''):
 
     plt.xlabel(X1)
 
-    st.plt_output(fig)
+    st.plt_output(png)
 
-def gs1():
-    csv = prefix+"_scan1ds_alpha_r.csv"
-    png = prefix+"_scan1ds_alpha_r.png"
-    st.scan1ds(csv,"alpha_r",min=0,max=1,num=41,samples=20,run=1,list=0)
-    #st.plot1ds(csv,"alpha_r","RMSE1",fig=png)
-    plot1dsA(csv,"alpha_r",fig=png)
-gs1()
-
-def gs2():
-    csv = prefix+"_scan1ds_alpha_i.csv"
-    png = prefix+"_scan1ds_alpha_i.png"
-    st.scan1ds(csv,"alpha_i",min=0,max=1,num=41,samples=20,run=1,list=0)
-    #st.plot1ds(csv,"alpha_i","RMSE1",fig=png)
-    plot1dsA(csv,"alpha_i",fig=png)
-gs2()
-
-def gs3():
-    csv = prefix+"_scan1ds_alpha_s.csv"
-    png = prefix+"_scan1ds_alpha_s.png"
-    st.scan1ds(csv,"alpha_s",min=0,max=1,num=41,samples=20,run=1,list=0)
-    #st.plot1ds(csv,"alpha_s","RMSE1",fig=png)
-    plot1dsA(csv,"alpha_s",fig=png)
-gs3()
+gridsearch("alpha_r",min=0,max=1,num=51,samples=20)
+gridsearch("alpha_i",min=0,max=1,num=51,samples=20)
+gridsearch("alpha_s",min=0,max=2,num=51,samples=20)
+gridsearch("beta_i",min=0,max=1,num=51,samples=20)
+gridsearch("beta_r",min=0,max=1,num=51,samples=20)
+gridsearch("Temp",min=0.01,max=2,num=51,samples=20)
