@@ -1,5 +1,7 @@
 # Copyright (c) 2018 Katori lab. All Rights Reserved
 # NOTE:
+import os
+import datetime
 import numpy as np
 import pandas as pd
 import matplotlib as mpl
@@ -17,11 +19,14 @@ for s in args:
     dataset = arg2i(dataset,"dataset=",s)
 
 ### 共通設定
+string_now = datetime.datetime.now().strftime("%Y%m%d") # 年月日
 exe = "python esn1.py display=0 dataset=%d " % (dataset)
-report = "data20190113_esn1.md"
-prefix = "data20190113_esn1_ds%d" % (dataset)
+prefix = "data%s_esn1" % (string_now) # 実験名(data[日付]_[実験番号]_[モデル名])
+path = prefix # 実験データを出力するディレクトリのパス
+report = prefix + ".md" # マークダウンファイルを名前
 columns=['dataset','seed','id','Nx','alpha_i','alpha_r','alpha_b','alpha0','tau','beta_i','beta_r','beta_b','lambda0','RMSE1','RMSE2']
 
+st.set_path(path)
 st.exe = exe
 st.columns = columns
 st.file_md = report
@@ -34,6 +39,7 @@ def func(row):
 
 def optimize():
     opt.exe=exe
+    opt.set_path(path)
     opt.columns=columns
     opt.parallel=45
     opt.file_md = report
@@ -65,7 +71,8 @@ def gridsearch(X1,min=0,max=1,num=41,samples=10):
     print("scaning...")
     st.scan1ds(csv,X1,min=min,max=max,num=num,samples=samples,run=1,list=0)
 
-    df = pd.read_csv(csv,sep=',',names=columns)
+    #df = pd.read_csv(csv,sep=',',names=columns)
+    df = st.load_dataframe(csv)
 
     print("ploting...")
     plt.figure()
@@ -87,7 +94,7 @@ def gridsearch(X1,min=0,max=1,num=41,samples=10):
 #gridsearch("alpha_r",min=0,max=2,num=51,samples=20)
 #gridsearch("alpha_i",min=0,max=1,num=51,samples=20)
 #gridsearch("alpha0" ,min=0,max=1,num=51,samples=20)
-gridsearch("tau"    ,min=1,max=10,num=51,samples=20)
+gridsearch("tau"    ,min=1,max=10,num=11,samples=2)
 #gridsearch("beta_i" ,min=0,max=1,num=51,samples=20)
 #gridsearch("beta_r" ,min=0,max=1,num=51,samples=20)
 """

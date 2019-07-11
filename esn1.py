@@ -242,6 +242,10 @@ def execute():
         MM1=1000 # length of training data
         MM2=1000 # length of test data
         D, U = generate_coupled_lorentz(MM1+MM2)
+    if dataset==4:
+        MM1=1000 # length of training data
+        MM2=1000 # length of test data
+        D, U = generate_random_spike(MM1+MM2,Nu=1)
     D1 = D[0:MM1]
     U1 = U[0:MM1]
     D2 = D[MM1:MM1+MM2]

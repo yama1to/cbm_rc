@@ -128,10 +128,30 @@ def generate_coupled_lorentz2(MM, Nu=1, Ny=2, K=8,tau1=1.0,tau2=1.0):
         i += 1
     return (D, U)
 
+def generate_random_spike(MM, Nu=2):
+    D = np.zeros((MM, Nu))
+    U = np.zeros((MM, Nu))
+    u = np.zeros(Nu)
+    d = np.zeros(Nu)
+
+    for n in range(MM):
+        for i in range(Nu):
+            p = np.random.uniform(0,1)
+            if p<0.5:
+                u[i]=1
+            else:
+                u[i]=0
+
+        #print(u)
+        D[n, :] = u
+        U[n, :] = u
+    return (D, U)
+
 if __name__ == "__main__":
     #D, U = generate_simple_sinusoidal(500)
     #D, U = generate_complex_sinusoidal(500)
-    D, U = generate_coupled_lorentz2(2000,K=1,tau1=4)
+    #D, U = generate_coupled_lorentz2(2000,K=1,tau1=4)
+    D, U = generate_random_spike(200)
 
     plt.subplot(2, 1, 1)
     plt.plot(U)
