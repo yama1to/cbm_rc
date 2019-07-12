@@ -1,11 +1,12 @@
 # Copyright (c) 2017-2018 Katori Lab. All Rights Reserved
-# NOTE:ESNによる時系列の生成, random spikeによる評価,
+# NOTE:ESNによる時系列の生成, random spikeによる評価, capacityの評価
+# Furuta (2018)にある性能評価指標のcapacityを実装した
 import numpy as np
 import scipy.linalg
 from numpy.linalg import svd, inv, pinv
 
 import matplotlib as mpl
-#mpl.use('Agg')## サーバ上で画像を出力するための設定。ローカルで表示する際はコメントアウトする
+mpl.use('Agg')## サーバ上で画像を出力するための設定。ローカルで表示する際はコメントアウトする
 import matplotlib.pyplot as plt
 
 import sys
@@ -21,7 +22,7 @@ dataset = 4
 seed=-1 # 乱数生成のためのシード
 id=0
 
-MM = 200
+MM = 100
 MM0 = 50
 T0 = 5
 
@@ -107,8 +108,8 @@ def generate_weight_matrix():
     # print(Wi)
 
     ### Wo
-    Wo = np.ones(Ny * Nx)
-    Wo = Wo.reshape((Ny, Nx))
+    Wo = np.ones(Ny * (Nx+1)) # Nx+1の１はバイアス項
+    Wo = Wo.reshape((Ny, Nx+1))
     Wo = Wo
     # print(Wo)
 
@@ -127,13 +128,14 @@ def fr(x):
 
 def run_network(mode):
     global X, Y
-    X = np.zeros((MM, Nx))
+    X = np.zeros((MM, Nx+1))
     Y = np.zeros((MM, Ny))
 
     n = 0
     x = np.random.uniform(-1, 1, Nx) * 0.2
+    xb = np.append(x,1) #バイアス項を追加
     y = np.zeros(Ny)
-    X[n, :] = x
+    X[n, :] = xb
     Y[n, :] = y
     for n in range(MM - 1):
         sum = np.zeros(Nx)
@@ -147,9 +149,10 @@ def run_network(mode):
         #    sum += Wb@d
         #x = x + 1.0 / tau * (-alpha0 * x + fx(sum))
         x = fx(sum)
-        y = fy(Wo@x)
+        xb = np.append(x,1) #バイアス項を追加
+        y = fy(Wo@xb)
 
-        X[n + 1, :] = x
+        X[n + 1, :] = xb
         Y[n + 1, :] = y
         # print(y)
         # print(X)
@@ -164,7 +167,7 @@ def train_network():
     G = invD[T0:, :]
 
     ### Ridge regression
-    E = np.identity(Nx)
+    E = np.identity(Nx+1)
     TMP1 = inv(M.T@M + lambda0 * E)
     WoT = TMP1@M.T@G
     Wo = WoT.T
@@ -223,30 +226,20 @@ def plot2():
     plt.show()
     plt.savefig(file_fig1)
 
-def execute():
+
+
+def evaluate(delay,u,MM1,MM2):
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM
     global RMSE1,RMSE2,capacity
-    if seed>=0:
-        np.random.seed(seed)
-    generate_weight_matrix()
 
-    ### generate data
-    if dataset==1:
-        MM1=300 # length of training data
-        MM2=400 # length of test data
-        D, U = generate_simple_sinusoidal(MM1+MM2)
-    if dataset==2:
-        MM1=300 # length of training data
-        MM2=300 # length of test data
-        D, U = generate_complex_sinusoidal(MM1+MM2)
-    if dataset==3:
-        MM1=1000 # length of training data
-        MM2=1000 # length of test data
-        D, U = generate_coupled_lorentz(MM1+MM2)
-    if dataset==4:
-        MM1=1000 # length of training data
-        MM2=1000 # length of test data
-        D, U = generate_random_spike(MM1+MM2,Nu=1)
+    #データの準備
+    d = np.zeros(MM1+MM2)
+    d[delay:]=u[:len(u)-delay] # 入力の時間遅れ時系列を出力とする
+
+    U = np.zeros((MM1+MM2,1))
+    D = np.zeros((MM1+MM2,1))
+    U[:,0] = u
+    D[:,0] = d
 
     D1 = D[0:MM1]
     U1 = U[0:MM1]
@@ -272,25 +265,44 @@ def execute():
     for j in range(MM0,MM):
         sum += (Y[j] - Dp[j])**2
     SUM=np.sum(sum)
-    RMSE1 = np.sqrt(SUM/Ny/(MM-MM0))
-    RMSE2 = 0
-    print("RMSE1:",RMSE1)
+    rmse = np.sqrt(SUM/Ny/(MM-MM0))
+    #print("RMSE1:",RMSE1)
 
-    ### capacity
+    ### capacity (correlation)
     y1=Y[:,0]
     y2=Dp[:,0]
+    cor=np.corrcoef(y1,y2)
+    cor=cor[0,1]
+
+    #print("cor:",cor)
+    return rmse,cor
+
+def execute():
+    #global D,Ds,Dp,U,Us,Up,Rs,R2s,MM
+    global RMSE1,RMSE2
+    global capacity
+    if seed>=0:
+        np.random.seed(seed)
+    generate_weight_matrix()
+
+    ### generate data
+    MM1=2000 # length of training data
+    MM2=2000 # length of test data
+    u = generate_random_spike1(MM1+MM2)
+    d = np.zeros(MM1+MM2)
+
+    ### evaluate capacity
     sum=0
-    for delay in range(1,10):
-        y1b=y1[:len(y1)-delay]
-        y2b=y2[delay:]
-        cor=np.corrcoef(y1b,y2b)
-        cor=cor[0,1]
-        cor2=cor**2
-        sum+=cor2
-        #print(cor2)
-        #print(delay,cor2)
+    for delay in range(1,30):
+        rmse,cor = evaluate(delay,u,MM1,MM2)
+        #print("delay:%d rmse:%f cor:%f " % (delay,rmse,cor))
+        sum += cor**2
     capacity = sum
-    print("capacity:",capacity)
+
+    rmse,cor = evaluate(1,u,MM1,MM2)
+    RMSE1 = rmse
+    RMSE2 = 0
+    print("rmse: %f capacity: %f" % (rmse,capacity))
 
     if display :
         plot2()

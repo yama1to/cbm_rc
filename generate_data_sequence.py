@@ -147,11 +147,42 @@ def generate_random_spike(MM, Nu=2):
         U[n, :] = u
     return (D, U)
 
+def generate_random_spike1(MM):
+    u = np.zeros(MM)
+    for n in range(MM):
+        p = np.random.uniform(0,1)
+        if p<0.5:
+            u[n]=1
+        else:
+            u[n]=0
+    return u
+
+def generate_random_spike2(MM,delay=1):
+    D = np.zeros((MM, 1))
+    U = np.zeros((MM, 1))
+    u = np.zeros(MM)
+    d = np.zeros(MM)
+
+    for n in range(MM):
+        p = np.random.uniform(0,1)
+        if p<0.5:
+            u[n]=1
+        else:
+            u[n]=0
+    d[delay:]=u[:len(u)-delay]
+
+    print(u)
+    print(d)
+    U[:,0] = u
+    D[:,0] = d
+    return (D, U)
+
 if __name__ == "__main__":
     #D, U = generate_simple_sinusoidal(500)
     #D, U = generate_complex_sinusoidal(500)
     #D, U = generate_coupled_lorentz2(2000,K=1,tau1=4)
-    D, U = generate_random_spike(200)
+    D, U = generate_random_spike2(40)
+    #U = generate_random_spike1(40)
 
     plt.subplot(2, 1, 1)
     plt.plot(U)
