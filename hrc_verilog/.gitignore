@@ -1,0 +1,29 @@
+# Ignore All
+*
+!*/
+
+# Git
+!.gitignore
+!README.md
+
+# VScode
+!/.vscode/**/*
+
+# Documents
+!/doc/**/*.md
+!/doc/images/**/*.svg
+
+# Vivado
+!/project/Alramech.xpr
+
+!/constraint/**/*.xdc
+!/resource/waves/**/*.wcfg
+!/resource/mems/**/*.mem
+
+# Verilog
+!/include/**/*.vh
+!/src/**/*.v
+!/test/**/*.v
+
+# Haskell
+!/script/**/*.hs
