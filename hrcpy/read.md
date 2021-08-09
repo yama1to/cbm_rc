@@ -7,3 +7,6 @@ data_generator.py
 
 main.py
 modelを呼び出す
+
+test.py
+作ったモジュールを試す
