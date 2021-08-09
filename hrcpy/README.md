@@ -14,5 +14,5 @@ HRC
 #### [main.py](https://github.com/katorilab/cbm_rc/blob/master/hrcpy/main.py)
 modelを呼び出す
 
-#### test.py
+#### [test.py](https://github.com/katorilab/cbm_rc/blob/master/hrcpy/test.py)
 作ったモジュールを試す
