@@ -19,11 +19,11 @@ class Input:
         x,y = u.shape
         n=200
         u_s = np.zeros((x,y*n))
-        print(u_s.shape)
+        #print(u_s.shape)
         for t in range(y*n):
-            print(t)
-            t_ = t/n
-            u_s[0,t] = phi(t_-u[0,int(np.floor(t_))]/2)
+            for udim in range(u.shape[0]):
+                t_ = t/n
+                u_s[0,t] = phi(t_ -u[0,int(np.floor(t_))]/2)
 
         return u_s
 
@@ -40,12 +40,23 @@ class Reservoir:
         self.x =np.zeros(N_x)
         self.s =np.zeros(N_x)
         self.activation= activation_func
+        self.density = density
+        self.rho = rho
+        self.N_x = N_x
         self.alpha = leaking_rate
         
 
-    def make_connection(self,):
+    def make_connection(self,N_x,density,rho):
+        w_rec_0 = np.zeros((N_x,N_x))
+        ran = (density * (N_x**2))
+        half = int(ran/2)
+        w_rec_0[:half] = 1
+        w_rec_0[half:int(ran)] = -1
+        np.random.shuffle(w_rec_0)
+        value , _ = np.linalg.eig(w_rec_0)#　固有値
+        w_rec = w_rec_0 * (rho/max(abs(value)))
         
-        return self.W
+        return w_rec #(r_num,r_num)
 
     def __call__(self):
         I = self.W   @ (2*self.s - 1)
@@ -57,7 +68,7 @@ class Reservoir:
 
 
 
-""" 
+"""
 class Output:
     def __init__():
     
@@ -69,6 +80,4 @@ class Output:
     
 class HypercubeReservoirComputing:
     def __init__():
-
-
 """
