@@ -29,39 +29,44 @@ class Input:
 
     def __call__(self,u):
         u_s = self.encode(u)
-        return u_s
+        #return u_s
+        return self.Win @ (2*u_s - 1)
 
 
 class Reservoir:
-    #重み初期化
     def __init__(self,N_x,density,rho,activation_func,leaking_rate,seed=0):
         self.seed = seed 
-        self.W = self.make_connection(N_x,density,rho) 
+        self.N_x = N_x
+        
         self.x =np.zeros(N_x)
         self.s =np.zeros(N_x)
+
         self.activation= activation_func
         self.density = density
         self.rho = rho
-        self.N_x = N_x
         self.alpha = leaking_rate
-        
 
-    def make_connection(self,N_x,density,rho):
-        w_rec_0 = np.zeros((N_x,N_x))
-        ran = (density * (N_x**2))
+        self.W = self.make_connection() 
+
+    def make_connection(self,):
+        #ランダムかつスパースな重み生成
+        w_rec_0 = np.zeros((self.N_x,self.N_x))
+        ran = (self.density * (self.N_x **2))
         half = int(ran/2)
         w_rec_0[:half] = 1
         w_rec_0[half:int(ran)] = -1
         np.random.shuffle(w_rec_0)
+
+        #スペクトル半径を決める
         value , _ = np.linalg.eig(w_rec_0)#　固有値
-        w_rec = w_rec_0 * (rho/max(abs(value)))
-        
+        w_rec = w_rec_0 * (self.rho/max(abs(value)))
+
         return w_rec #(r_num,r_num)
 
-    def __call__(self):
+    def __call__(self,Input):
         I = self.W   @ (2*self.s - 1)
-        J = Input.Win @ (2*self.u_s - 1)
-        T=1
+        J = Input.__call__()
+        T = 1
         self.x = self.x + (1-2*self.s)(1+np.exp((1-2*self.s)(I+J)/T))
 
         return self.x
