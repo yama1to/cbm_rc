@@ -11,16 +11,17 @@ if  __name__ == '__main__':
     
     data = Data.sinwave(L=50,X=2,Y=2000)
     #print(data)
-    Input= Input(N_u = 2,
-                N_x=200, 
-                input_scale= 1, 
-                seed=0)
-    u_s = Input.__call__(data)
+    input= Input(N_u = 2,
+                 N_x = 200, 
+                 input_scale= 1, 
+                 seed=0)
+    u_s = input.encode(data)
     print(u_s.shape)
 
-    x = list(range(10000))
-    plt.plot(x,u_s[0,:10000])
+    x = list(range(u_s.shape[1]))
+    plt.plot(x,u_s[0,:])
     plt.show()
+
 #==============================================================#
 #------------ RESERVOIR TEST ------------#
     reservoir = Reservoir(
@@ -32,9 +33,14 @@ if  __name__ == '__main__':
                         seed=0
                         )
 
-    W = reservoir.make_connection()
+    W = reservoir.W
+
+    J = input(data)
+
+    next_x = reservoir(J)
+
     pprint(W)
-    
+
 
 #==============================================================#
 #------------ OUTPUT TEST ------------#
