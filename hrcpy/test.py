@@ -20,7 +20,7 @@ if  __name__ == '__main__':
 
     x = list(range(u_s.shape[1]))
     plt.plot(x,u_s[0,:])
-    plt.show()
+    #plt.show()
 
 #==============================================================#
 #------------ RESERVOIR TEST ------------#
@@ -28,6 +28,8 @@ if  __name__ == '__main__':
                         N_x=200,
                         density=0.1,
                         rho=0.5,
+                        U=data,
+                        step=200,
                         activation_func=np.tanh,
                         leaking_rate=0.1,
                         seed=0
@@ -37,9 +39,9 @@ if  __name__ == '__main__':
 
     J = input(data)
 
-    next_x = reservoir(J)
+    next_x = reservoir(1,J)
 
-    pprint(W)
+    pprint(next_x)
 
 
 #==============================================================#

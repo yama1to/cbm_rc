@@ -4,7 +4,7 @@ def phi(t):
     return np.heaviside(np.sin(2*np.pi*t),1)
 
 def clock(num_u_y,n):
-    clock = np.zeros(num_u_y,n)
+    clock = np.zeros((num_u_y*n))
     for t in range(num_u_y*n):
         t_ = t/n
         clock[t] = phi(t_)
@@ -31,7 +31,7 @@ class Input:
         for t in range(y*n):
             for udim in range(x):
                 t_ = t/n
-                u_s[udim,t] = phi(t_ - u[udim,np.floor(t_)]/2)
+                u_s[udim,t] = phi(t_ - u[udim,int(np.floor(t_))]/2)
                 #print(t_,u[udim,int(np.floor(t_))]/2,t_ - u[udim,int(np.floor(t_))]/2)
         return u_s
 
@@ -56,8 +56,11 @@ class Reservoir:
         self.seed = seed 
         self.N_x = N_x
         
-        self.x =np.zeros(N_x,U.shape[1]*step)
-        self.s =np.zeros(N_x,U.shape[1]*step)
+        self.Ushape = U.shape
+
+        self.step = step
+        self.x =np.zeros((N_x,U.shape[1]*self.step))
+        self.s =np.zeros((N_x,U.shape[1]*self.step))
 
         self.activation= activation_func
         self.density = density
@@ -65,7 +68,7 @@ class Reservoir:
         self.alpha = leaking_rate
 
         self.W = self.make_connection()
-        self.clock = clock(self.N_x,self.density)
+        self.clock = clock(self.N_x,self.step)
 
     def make_connection(self,):
         #ランダムかつスパースな重み生成
@@ -82,29 +85,48 @@ class Reservoir:
 
         return w_rec #(r_num,r_num)
 
-    def update_r_s(self,):
+    def update_r_s(self,t):
         """
         param r_x: 内部状態
         """
-        r_s = self.r_s
-        r_x = self.r_x
+        r_s = self.s[:,t]
+        r_x = self.x[:,t]
         
-        if r_x >= 1:
-            r_s = 1
-            r_x = 1
+        for i in range(r_s.shape[0]):
+            if r_x[i] >= 1:
+                r_s[i] = 1
+                r_x[i] = 1
 
-        if r_x <= 0:
-            r_s = 0
-            r_x = 0
+            if r_x[i] <= 0:
+                r_s[i] = 0
+                r_x[i] = 0
 
         return r_s,r_x
 
-    def __call__(self,x):
+    def update_r_x(self,input):
+        _,ulen = self.Ushape
+
+        #for t in range(1,ulen*self.step):
+        for t in range(1,2):
+            t_ = t/self.step
+            I = self.W @ (2 * self.s[:,t] - 1) + input[:,t]
+            
+            J = self.alpha * (self.s[:,t] -  self.clock([t])) * (2 * self.s[np.floor(t_)] - 1)
+            dx = (1-2*self.s[:,t])(1+np.exp((1-2*self.s[:,t])(I+J)/self.T))
+            self.x[:,t] = self.x[:,t-1] + dx
+
+            #デコードしてrを求める
+            
+
+    def decode_r(self,):
+        self.r[:,t] = 2(t_r - t_c) -1 
+
+    def __call__(self,t,input):
         """
         param x: 更新後の内部状態
         """
-        return self.update_r_s()
-
+        self.update_r_x(input)
+        return self.update_r_s(t)
 
 
 
@@ -161,21 +183,7 @@ class HypercubeReservoirComputing:
             param optimizer: 最適化手法
 
             """
-            _,ulen = U.shape
-            input =self.Input(U)
-
-            for t in range(1,ulen*step):
-                t_ = t/step
-                I = self.W @ (2 * self.s[:,t] - 1) + input[:,t]
-                J = self.alpha * (self.s[:,t] -  clock([t])) * (2 * self.s[np.floor(t_)] - 1)
-                dx = (1-2*self.s[:,t])(1+np.exp((1-2*self.s[:,t])(I+J)/T))
-                self.x[:,t] = self.x[:,t-1] + dx
-
-
-                #xとsを求める
-                self.x[:,t],self.s[:,t] = self.Reservoir(self.x[:,t])
-                #デコードしてrを求める
-                self.r[:,t] = self.Output(self.x[:,t])
+            
 
                 #
 
