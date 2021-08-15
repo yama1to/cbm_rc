@@ -43,7 +43,7 @@ if __name__=='__main__':
                  alpha_i = alpha_i,
                  beta_i = beta_i,
                  seed=seed)
-
+    
     reservoir = Reservoir(N_x,
                         data,
                         step,
@@ -83,9 +83,9 @@ if __name__=='__main__':
     print(rmse)
 
 
-    
+    u_s = input.u_s[0]
     #plot
-    plot1(u=data[0],u_s=encode(data,step),r_x=reservoir.x,r_s=reservoir.s,
+    plot1(u=data[0],u_s=u_s,r_x=reservoir.x,
             r_decoded=r, output=y[0,T0:],target=target[0])
 
 
