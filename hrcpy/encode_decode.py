@@ -26,7 +26,7 @@ def encode(u,step=200):
 def decode(u_s,step):
     x,y = u_s.shape
     t = y//step
-    print(x,t)
+    #print(x,t)
     dec = np.zeros((x,t))
     for X in range(x):
         for i in range(t):

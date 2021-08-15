@@ -50,7 +50,7 @@ class Reservoir:
         """
         r_s = self.s[t]
         r_x = self.x[t]
-        
+        #print(r_s.shape)
         for i in range(r_s.shape[0]):
             if r_x[i] >= 1:
                 r_s[i] = 1
@@ -59,17 +59,22 @@ class Reservoir:
             if r_x[i] <= 0:
                 r_s[i] = 0
                 r_x[i] = 0
-
+        #print(r_s,r_x)
         return r_s,r_x
 
     def update_r_x(self,t,input):
-
+        """
+        1<=t<=39999
+        dt = t/200
+        """
         dt = t/self.step
+
         I = self.W @ (2 * self.s[t] - 1) + input(t)
-        J = self.alpha * (self.s[t] -  self.clock[t]) * (2 * self.s[np.floor(t+dt).astype(int)] - 1)
+        J = self.alpha * (self.s[t] -  self.clock[t]) * (2 * self.s[np.floor(dt).astype(int)*self.step] - 1)
+
         h = (1-2*self.s[t])*(I+J)
         dx = (1-2*self.s[t])*(1+np.exp(h/self.T))
-        self.x[t] = self.x[t-1] + dx
+        self.x[t+1] = self.x[t] + dx
 
             #デコードしてrを求める
     
@@ -113,5 +118,21 @@ if __name__ == "__main__":
                         T = 1,
                         seed=seed)
 
-    for i in range(1):
-        print(reservoir(i,input)[1])
+    time = step * data.shape[1]
+    #print(reservoir.s.shape)
+    #print(reservoir.x.shape)
+    #print(reservoir.clock.shape)
+    for i in range(0,time-1):
+        reservoir(i,input)
+    
+    
+    s = reservoir.s
+    x = reservoir.x
+    c = reservoir.clock
+    print(s.shape,x.shape,c.shape)
+    #plt.plot(s[:2000,0])
+    plt.plot(x[:2000,:])
+    plt.plot(c[:2000])
+    plt.show()
+#    plt.plot(reservoir.x[:time])
+#    plt.show()

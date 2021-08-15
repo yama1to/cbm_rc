@@ -20,7 +20,7 @@ class Input:
         """
         param u: 入力ベクトル
         """
-
+        #print(self.output.shape)
         return self.output[:,i]
 
 if __name__ == '__main__':
