@@ -24,16 +24,20 @@ if __name__=='__main__':
     T0 = 50
 
     lam = 0.1
+    
+    
+    alpha0  = 0.0
+    alpha1  = 0.0
     alpha_i = 0.2
-    beta_i  = 0.2
-    alpha0  = 0.6
-    alpha1  = 0.1
-    alpha_r = 0.2
+    alpha_r = 0.25
     alpha_s = 0.6
-    beta_r  = 0.3
+
+    beta_i  = 0.1
+    beta_r  = 0.1
 
     # generate data
     data = Data.sinwave(L=50,X=N_u,Y=leaningTime)
+    #data[1] = Data.sinwave(L=30,X=N_u-1,Y=leaningTime)
     target = Data.sinwave(L=50,X=N_y,Y=leaningTime-T0)
 
     input = Input(N_u = N_u,
@@ -83,10 +87,13 @@ if __name__=='__main__':
     print(rmse)
 
 
-    u_s = input.u_s[0]
+    u_s = input.u_s
     #plot
-    plot1(u=data[0],u_s=u_s,r_x=reservoir.x,
-            r_decoded=r, output=y[0,T0:],target=target[0])
+    #print(reservoir.x.shape,r.T.shape,target.T.shape)
+    plot1(u=data.T,u_s=u_s.T,r_x=reservoir.x.T,
+            r_decoded=r.T, output=y[:,T0:].T,target=target.T)
+    
+
 
 
    

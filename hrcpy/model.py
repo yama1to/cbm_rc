@@ -3,6 +3,7 @@ from reservoir import Reservoir
 from output import Output
 from input import Input
 
+
 class HypercubeReservoirComputing:
     def __init__(self,N_u,N_x,N_y,input_scale,
                 density,rho,leaking_rate,U,D,step,

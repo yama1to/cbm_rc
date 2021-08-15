@@ -85,13 +85,16 @@ class Reservoir:
         dt = t/self.step
 
         I = self.W @ (2 * self.s[t] - 1) + input(t)
-        J = self.alpha_s * (self.s[t] -  self.clock[t]) * (2 * self.s[np.floor(dt).astype(int)*self.step-1] - 1)
+        
+
+        #floor_t = np.floor(dt).astype(int)*self.step
+        floor_t = t - t%self.step
+        #print(t,dt,floor_t,floor_t)
+        J = self.alpha_s * (self.s[t] -  self.clock[t]) * (2 * self.clock[floor_t] - 1)
 
         h = (1-2*self.s[t])*(I+J)
-        dx = (1-2*self.s[t])*(1+np.exp(h/self.T))
+        dx = (1-2*self.s[t])*(1+np.exp(h/self.T))*dt
         self.x[t+1] = self.x[t] + dx
-        #print(self.s[t])
-            #デコードしてrを求める
     
     def __call__(self,t,input):
         """
