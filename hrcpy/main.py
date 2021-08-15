@@ -63,7 +63,7 @@ if __name__=='__main__':
                         seed=seed)
 
     #print(max(abs(np.linalg.eigvals(reservoir.W))))
-    time = step * data.shape[1]
+    time = step * leaningTime
 
     # train
     for i in range(0,time-1):
@@ -89,7 +89,6 @@ if __name__=='__main__':
 
     u_s = input.u_s
     #plot
-    #print(reservoir.x.shape,r.T.shape,target.T.shape)
     plot1(u=data.T,u_s=u_s.T,r_x=reservoir.x.T,
             r_decoded=r.T, output=y[:,T0:].T,target=target.T)
     
