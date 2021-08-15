@@ -5,13 +5,14 @@ from input import Input
 from reservoir import Reservoir
 
 class Output:
-    def __init__(self,r,N_x,target,labmda,T0,fy = np.tanh,seed=0):
+    def __init__(self,r,N_x,target,labmda,T0,fy = np.tanh,fyi=np.arctanh,seed=0):
         """
         param N_x: リザバーのノード数
         param N_y: 出力次元
 
         """
         self.fy = fy
+        self.fyi = fyi
         np.random.seed(seed=seed)
         
         
@@ -25,7 +26,7 @@ class Output:
 
     def setweight(self,target):
         M = self.r[:,self.T0:].T        #M(data-T0,  N_x)
-        G = self.fy( - target).T    #G(Tdata-T0 ,N_y)
+        G = self.fyi(target).T    #G(Tdata-T0 ,N_y)
         #print((M.T@M ).shape)
         #print((M.T@G ).shape)
         #print(M.shape,G.shape)

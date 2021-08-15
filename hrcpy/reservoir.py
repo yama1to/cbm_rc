@@ -6,7 +6,7 @@ import scipy
 
 
 class Reservoir:
-    def __init__(self,N_x,U,step,density,rho,activation_func,
+    def __init__(self,N_x,U,step,rho,activation_func,
                 alpha0,alpha1,alpha_r,alpha_s,beta_r,T,seed=0):
         """
         param N_x: リザバーのノード数
@@ -23,7 +23,6 @@ class Reservoir:
         self.s = np.zeros((U.shape[1]*self.step,N_x))
 
         self.activation= activation_func
-        self.density = density
         self.rho = rho
 
         self.alpha0 = alpha0
@@ -57,7 +56,9 @@ class Reservoir:
 
         Wr = Wr + self.alpha1/self.N_x
 
-        #sp = np.max(abs(np.linalg.eigvals(Wr)))
+        sp = np.max(abs(np.linalg.eigvals(Wr)))
+        Wr *= self.rho/sp
+        print("スペクトル半径:",str(np.max(abs(np.linalg.eigvals(Wr)))))
 
         return Wr #(r_num,r_num)
 
@@ -140,7 +141,6 @@ if __name__ == "__main__":
     reservoir = Reservoir(N_x,
                         data,
                         step,
-                        density,
                         rho,
                         activation_func,
                         alpha0=alpha0,
