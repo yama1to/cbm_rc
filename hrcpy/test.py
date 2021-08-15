@@ -3,7 +3,8 @@ from data_generater import Data
 import matplotlib.pyplot as plt 
 from pprint import pprint
 import numpy as np
-
+from encode_decode import encode,decode
+from eval import RMSE
 
 if  __name__ == '__main__':
 #==============================================================#
@@ -15,15 +16,25 @@ if  __name__ == '__main__':
                  N_x = 200, 
                  input_scale= 1, 
                  seed=0)
-    u_s = input.encode(data)
-    print(u_s.shape)
+    
+    step = 200
+    x,y = data.shape
+    print(x,y)
+    u_s = encode(data[0],y,step=step)
 
-    x = list(range(u_s.shape[1]))
-    plt.plot(x,u_s[0,:])
-    #plt.show()
+    print(u_s.shape)
+    dec = decode(u_s,y,step=step)
+    plt.plot(data[0])
+    plt.plot(dec)
+    plt.show()
+    rmse = RMSE(data[0],dec)
+    print(rmse)
+
+
 
 #==============================================================#
 #------------ RESERVOIR TEST ------------#
+    """
     reservoir = Reservoir(
                         N_x=200,
                         density=0.1,
@@ -42,6 +53,7 @@ if  __name__ == '__main__':
     next_x = reservoir(1,J)
 
     pprint(next_x)
+    """
 
 
 #==============================================================#
