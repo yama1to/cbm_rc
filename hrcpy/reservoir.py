@@ -57,6 +57,8 @@ class Reservoir:
 
         Wr = Wr + self.alpha1/self.N_x
 
+        #sp = np.max(abs(np.linalg.eigvals(Wr)))
+
         return Wr #(r_num,r_num)
 
     def update_r_s(self,t):
@@ -82,18 +84,17 @@ class Reservoir:
         1<=t<=39999
         dt = t/200
         """
-        dt = t/self.step
+        #dt = t/self.step
 
         I = self.W @ (2 * self.s[t] - 1) + input(t)
-        
-
         #floor_t = np.floor(dt).astype(int)*self.step
         floor_t = t - t%self.step
-        #print(t,dt,floor_t,floor_t)
         J = self.alpha_s * (self.s[t] -  self.clock[t]) * (2 * self.clock[floor_t] - 1)
 
         h = (1-2*self.s[t])*(I+J)
-        dx = (1-2*self.s[t])*(1+np.exp(h/self.T))*dt
+        #print(h)
+        dx = (1-2*self.s[t])*(1+np.exp(h/self.T))/self.step
+        #print(dx)
         self.x[t+1] = self.x[t] + dx
     
     def __call__(self,t,input):
@@ -108,7 +109,7 @@ if __name__ == "__main__":
 
 
     N_u = 1
-    N_x = 200
+    N_x = 100
     leaningTime = 200
     step = 200
     density = 0.5
