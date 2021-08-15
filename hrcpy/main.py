@@ -7,7 +7,7 @@ from output import Output
 from data_generater import Data
 from encode_decode import *
 from eval import *
-
+from plot1 import plot1
 
 if __name__=='__main__':
     N_u = 1
@@ -58,6 +58,7 @@ if __name__=='__main__':
                         T = 1,
                         seed=seed)
 
+    #print(max(abs(np.linalg.eigvals(reservoir.W))))
     time = step * data.shape[1]
 
     # train
@@ -81,16 +82,11 @@ if __name__=='__main__':
     rmse = RMSE(y[0,T0:],target[0])
     print(rmse)
 
+
+    
     #plot
-    for i in range(N_x):
-        plt.plot(reservoir.x[:1000,i])
-    #plt.legend()
-    plt.title("resevoir x")
-    plt.show()
+    plot1(u=data[0],u_s=encode(data,step),r_x=reservoir.x,r_s=reservoir.s,
+            r_decoded=r, output=y[0,T0:],target=target[0])
 
 
-    plt.plot(y[0,T0:],label='prediction')
-    plt.plot(target[0],label='target')
-    plt.legend()
-    plt.show()
-
+   
