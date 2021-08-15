@@ -20,6 +20,7 @@ def encode(u,step=200):
             temp = np.sin(2*np.pi*(dt-u[X,np.floor(dt).astype(int)]/2))
             #temp = np.sin(2*np.pi*(dt-u[np.floor(dt).astype(int)]))
             u_s[X,i] = np.heaviside(temp,1)
+            #print(X,i)
     return u_s
 
 
@@ -40,7 +41,8 @@ def decode(u_s,step):
                 #print(i,j,step,i*step+j)
                 if u_s[X,i*step+j] == 1:
                     R = 1
-            dec[X,i] = 2*(fallingTime) - 1
+
+            dec[X,i] = 2*fallingTime - 1
     return dec 
 
 

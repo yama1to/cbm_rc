@@ -1,9 +1,13 @@
 import numpy as np
 from encode_decode import clock
 from input import *
+from data_generater import *
+import scipy
+
 
 class Reservoir:
-    def __init__(self,N_x,U,step,density,rho,activation_func,leaking_rate,T,seed=0):
+    def __init__(self,N_x,U,step,density,rho,activation_func,
+                alpha0,alpha1,alpha_r,alpha_s,beta_r,T,seed=0):
         """
         param N_x: リザバーのノード数
         param density: 内部状態の濃度
@@ -21,28 +25,39 @@ class Reservoir:
         self.activation= activation_func
         self.density = density
         self.rho = rho
-        self.alpha = leaking_rate
 
-        self.W = self.make_connection()
+        self.alpha0 = alpha0
+        self.alpha1 = alpha1
+        self.alpha_r = alpha_r
+        self.beta_r = beta_r
+        
+        self.alpha_s = alpha_s
+        self.W = self.Wrec()
         self.clock = clock(U.shape[1],self.step)
         self.T = T
 
 
 
-    def make_connection(self,):
+    def Wrec(self,):
         #ランダムかつスパースな重み生成
-        w_rec_0 = np.zeros((self.N_x,self.N_x))
-        ran = (self.density * (self.N_x **2))
-        half = int(ran/2)
-        w_rec_0[:half] = 1
-        w_rec_0[half:int(ran)] = -1
-        np.random.shuffle(w_rec_0)
+        Wr0 = np.zeros(self.N_x * self.N_x)
+        nonzeros = self.N_x * self.N_x * self.beta_r
+        Wr0[0:int(nonzeros / 2)] = 1
+        Wr0[int(nonzeros / 2):int(nonzeros)] = -1
+        np.random.shuffle(Wr0)
 
-        #スペクトル半径を決める
-        value , _ = np.linalg.eig(w_rec_0)#　固有値
-        w_rec = w_rec_0 * (self.rho/max(abs(value)))
+        Wr0 = Wr0.reshape((self.N_x, self.N_x))
+        v = scipy.linalg.eigvals(Wr0)
+        lambda_max = max(abs(v))
 
-        return w_rec #(r_num,r_num)
+        Wr = Wr0 / lambda_max * self.alpha_r
+        E = np.identity(self.N_x)
+        Wr = Wr + self.alpha0*E
+        #Wr = Wr + alpha1
+
+        Wr = Wr + self.alpha1/self.N_x
+
+        return Wr #(r_num,r_num)
 
     def update_r_s(self,t):
         """
@@ -70,12 +85,12 @@ class Reservoir:
         dt = t/self.step
 
         I = self.W @ (2 * self.s[t] - 1) + input(t)
-        J = self.alpha * (self.s[t] -  self.clock[t]) * (2 * self.s[np.floor(dt).astype(int)*self.step] - 1)
+        J = self.alpha_s * (self.s[t] -  self.clock[t]) * (2 * self.s[np.floor(dt).astype(int)*self.step-1] - 1)
 
         h = (1-2*self.s[t])*(I+J)
         dx = (1-2*self.s[t])*(1+np.exp(h/self.T))
         self.x[t+1] = self.x[t] + dx
-
+        #print(self.s[t])
             #デコードしてrを求める
     
     def __call__(self,t,input):
@@ -83,7 +98,7 @@ class Reservoir:
         param x: 更新後の内部状態
         """
         self.update_r_x(t,input)
-        return self.update_r_s(t) #r_s,r_x
+        return self.update_r_s(t+1) #r_s,r_x
 
 
 if __name__ == "__main__":
@@ -91,30 +106,44 @@ if __name__ == "__main__":
 
     N_u = 1
     N_x = 200
+    leaningTime = 200
     step = 200
     density = 0.5
     rho = 0.5
     activation_func = "tanh"
-    leaking_rate = 0.1
     seed = 0
+    
     T = 1
 
-    data = Data.sinwave(L=50,X=N_u,Y=200)
+    alpha_i = 0.2
+    beta_i  = 0.2
+    alpha0  = 0.6
+    alpha1  = 0.1
+    alpha_r = 0.2
+    alpha_s = 0.6
+    beta_r  = 0.3
+
+    data = Data.sinwave(L=50,X=N_u,Y=leaningTime)
 
     input = Input(N_u = N_u,
                  N_x = N_x, 
                  u = data,
                  step = step,
-                 input_scale= 1, 
+                 alpha_i = alpha_i,
+                 beta_i = beta_i,
                  seed=seed)
-
+    
     reservoir = Reservoir(N_x,
                         data,
                         step,
                         density,
                         rho,
                         activation_func,
-                        leaking_rate,
+                        alpha0=alpha0,
+                        alpha1 = alpha1,
+                        alpha_r=alpha_r,
+                        alpha_s=alpha_s,
+                        beta_r=beta_r,
                         T = 1,
                         seed=seed)
 
@@ -130,9 +159,9 @@ if __name__ == "__main__":
     x = reservoir.x
     c = reservoir.clock
     print(s.shape,x.shape,c.shape)
-    #plt.plot(s[:2000,0])
-    plt.plot(x[:2000,:])
-    plt.plot(c[:2000])
+    plt.plot(s[:200,0])
+    plt.plot(x[:200,0])
+    #plt.plot(c[:2000])
+    #plt.show()
+#   plt.plot(reservoir.x[:time])
     plt.show()
-#    plt.plot(reservoir.x[:time])
-#    plt.show()
