@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 
 def plot1(u,u_s,r_x,r_decoded, output,target):
     #fig=plt.figure(figsize=(20, 12))
-    fig=plt.figure(figsize=(10, 6))
+    fig=plt.figure(figsize=(10, 7))
     Nr=6
     ax = fig.add_subplot(Nr,1,1)
     ax.cla()

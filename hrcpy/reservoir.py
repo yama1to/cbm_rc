@@ -21,7 +21,7 @@ class Reservoir:
         self.step = step
         self.x = np.random.uniform(0,1,(U.shape[1]*self.step,N_x))
         self.s = np.zeros((U.shape[1]*self.step,N_x))
-
+        #self.s = np.ones((U.shape[1]*self.step,N_x))
         self.activation= activation_func
         self.rho = rho
 
@@ -66,19 +66,20 @@ class Reservoir:
         """
         param r_x: 内部状態
         """
-        r_s = self.s[t]
-        r_x = self.x[t]
-        #print(r_s.shape)
-        for i in range(r_s.shape[0]):
-            if r_x[i] >= 1:
-                r_s[i] = 1
-                r_x[i] = 1
+        c0,c1 = 0,0
+        for i in range(self.N_x):
+            if self.x[t,i] >= 1:
+                self.x[t,i] = 1
+                self.s[t,i] = 1
+                c1+=1
 
-            if r_x[i] <= 0:
-                r_s[i] = 0
-                r_x[i] = 0
-        #print(r_s,r_x)
-        return r_s,r_x
+            if self.x[t,i] <= 0:
+                self.x[t,i] = 0
+                self.s[t,i] = 0
+                c0+=1
+        #print(c0,c1)
+     
+        
 
     def update_r_x(self,t,input):
         """
@@ -91,19 +92,23 @@ class Reservoir:
         #floor_t = np.floor(dt).astype(int)*self.step
         floor_t = t - t%self.step
         J = self.alpha_s * (self.s[t] -  self.clock[t]) * (2 * self.clock[floor_t] - 1)
-
+        #print(t,floor_t)
         h = (1-2*self.s[t])*(I+J)
         #print(h)
         dx = (1-2*self.s[t])*(1+np.exp(h/self.T))/self.step
         #print(dx)
         self.x[t+1] = self.x[t] + dx
+        #print(self.s[t])
+        
     
     def __call__(self,t,input):
         """
         param x: 更新後の内部状態
         """
         self.update_r_x(t,input)
-        return self.update_r_s(t+1) #r_s,r_x
+        self.update_r_s(t+1) 
+        
+
 
 
 if __name__ == "__main__":
@@ -162,7 +167,7 @@ if __name__ == "__main__":
     s = reservoir.s
     x = reservoir.x
     c = reservoir.clock
-    print(s.shape,x.shape,c.shape)
+   #print(s.shape,x.shape,c.shape)
     plt.plot(s[:200,0])
     plt.plot(x[:200,0])
     #plt.plot(c[:2000])

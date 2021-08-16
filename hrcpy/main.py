@@ -33,7 +33,8 @@ if __name__=='__main__':
     beta_i  = 0.1
     beta_r  = 0.1
 
-    # generate data
+    # generate data-------------------------------------#
+
     data = Data.sinwave(L=50,X=N_u,Y=learningTime)
     #data[1] = Data.sinwave(L=30,X=N_u-1,Y=leaningTime)
     target = Data.sinwave(L=50,X=N_y,Y=learningTime-T0)
@@ -45,6 +46,7 @@ if __name__=='__main__':
                  alpha_i = alpha_i,
                  beta_i = beta_i,
                  seed=seed)
+    
     
     reservoir = Reservoir(N_x,
                         data,
@@ -59,14 +61,13 @@ if __name__=='__main__':
                         T = 1,
                         seed=seed)
 
-    #print(max(abs(np.linalg.eigvals(reservoir.W))))
     time = step * learningTime
 
-    # train
+    #train----------------------------------------------------#
     for i in range(0,time-1):
         reservoir(i,input)
     
-    #decode
+    #decode---------------------------------------------------#
     r = decode(reservoir.s.T,step)
     
 
@@ -76,17 +77,20 @@ if __name__=='__main__':
                     labmda=lam,
                     T0=T0)
     
-    # output
+    #output---------------------------------------------------#
     y = output()
 
-    # eval
+
+    #eval-----------------------------------------------------#
     rmse = RMSE(y[0,T0:],target[0])
     print("rmse:",str(rmse))
 
 
     u_s = input.u_s
-    #plot
-    plot1(u=data.T,u_s=u_s.T,r_x=reservoir.x.T,
+    #plot-----------------------------------------------------#
+
+    print(reservoir.x.shape)
+    plot1(u=data.T,u_s=u_s.T,r_x=reservoir.x[:1000],
             r_decoded=r.T, output=y[:,T0:].T,target=target.T)
     
 
