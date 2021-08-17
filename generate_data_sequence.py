@@ -5,6 +5,33 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+def generate_XOR(MM,Nu=1,Ny=1):
+    np.random.seed(0)
+    #MM=MM+2
+    D = np.zeros((MM, Ny))
+    U = np.random.randint(0,2,(MM, Nu))
+
+    tau = 2
+
+    for n in range(tau,MM):
+        D[n] = U[n-1]^U[n-2]
+        #print(D[n],U[n-1],U[n-2])
+
+
+    U = U.astype(np.float)
+    D = D.astype(np.float)
+
+    # 学習用情報
+    trainU = U[tau:MM].reshape(-1, 1)
+    trainD = D[tau:MM].reshape(-1, 1)
+    
+    print(U.shape,D.shape,trainU.shape,trainD.shape)
+
+    return (trainD,trainU,D,U)
+
+
+
+
 def generate_simple_sinusoidal(MM, Nu=2, Ny=2):
     D = np.zeros((MM, Ny))
     U = np.zeros((MM, Nu))
@@ -181,8 +208,10 @@ if __name__ == "__main__":
     #D, U = generate_simple_sinusoidal(500)
     #D, U = generate_complex_sinusoidal(500)
     #D, U = generate_coupled_lorentz2(2000,K=1,tau1=4)
-    D, U = generate_random_spike2(40)
+    #D, U = generate_random_spike2(40)
     #U = generate_random_spike1(40)
+
+    D,U,d,u = generate_XOR(52)
 
     plt.subplot(2, 1, 1)
     plt.plot(U)
@@ -192,4 +221,5 @@ if __name__ == "__main__":
     plt.plot(D)
     plt.ylabel('D')
     plt.show()
+    
     # plt.savefig("test.png")
