@@ -18,9 +18,10 @@ cbmrc6b.pyのコピー。データセットを選択できるように変更
 cbmrc6b2.pyのコピー。新しいテストコードに対応した。
 
 #### cbmrc6b4.py (IJCNNの論文はこのコードを使用する。)
-
 cbmrc6b3.pyのコピー。Phi()という関数を使う。内容はcbmrc6b3.pyと同じ。
 
+#### cbmrc6b5.py
+cbmrc6b4.pyのコピー、積和演算を状態が更新されたときに限定する。
 
 #### cbmrc6c.py [nolatch]
 nolatch
@@ -31,10 +32,16 @@ cbmrc6c.pyのコピー。データセットを選択できるように変更
 ### cbmrc6c3.py
 cbmrc6c2.pyのコピー。新しいテストコードに対応した。
 
+### cbmrc6e.py
+cbmrc6c3.pyのコピー、　explore2用のテストコードを組み込む。
+
 
 #### cbmrc7.py
 予測タスクを実装、
 count_gap　不連続、オーバーフローになる回数をカウントする。
 
-#### cbmrc7b.py
+#### cbmrc7c.py
 予測タスクを実装、count_gap　をouputで出力する。
+
+#### cbmrc8.py
+cbmrc6b4.pyのコピー、STMタスクとcapacityの評価を実装する。

@@ -1,5 +1,9 @@
-# Copyright (c) 2018 Katori lab. All Rights Reserved
-# NOTE:
+# Copyright (c) 2018-2021 Katori lab. All Rights Reserved
+"""
+NOTE: cbm_rc　時系列生成 explorer2に対応
+
+"""
+import argparse
 import numpy as np
 import scipy.linalg
 from numpy.linalg import svd, inv, pinv
@@ -10,83 +14,101 @@ import matplotlib.pyplot as plt
 
 import sys
 import copy
-from arg2x import *
+from explorer import common
 from generate_data_sequence import *
 
-file_csv = "data_cbmrc6c3.csv"
-file_fig1 = "data_cbmrc6c3_fig1.png"
-display = 1
-dataset = 1
-seed=0 # 乱数生成のためのシード
-id=0
+class Config():#Configクラスによりテストとメインの間で設定と結果をやりとりする。
+    def __init__(self):
+        # columns, csv, id: データの管理のために必須の変数
+        self.columns = None # 結果をCSVに保存する際のコラム
+        self.csv = None # 結果を保存するファイル
+        self.id  = None
+        self.plot = True # 図の出力のオンオフ
+        self.show = True # 図の表示（plt.show()）のオンオフ、explorerは実行時にこれをオフにする。
+        self.savefig = True
+        # NOTE: optimization, gridsearch, randomsearchは、実行時にplot,show,savefig属性をFalseに設定する。
+        self.fig1 = "data_cbmrc6e_fig1.png" ### 画像ファイル名
 
-NN=200
-MM=300
-MM0 = 50
+        ### config
+        self.dataset=1
+        self.seed=10 # 乱数生成のためのシード
+        self.NN=200
+        self.MM=300
+        self.MM0 = 50
 
-Nu = 2   #size of input
-Nh = 100 #size of dynamical reservior
-Ny = 2   #size of output
+        self.Nu = 2   #size of input
+        self.Nh = 100 #size of dynamical reservior
+        self.Ny = 2   #size of output
 
-Temp=1
-dt=1.0/NN #0.01
+        self.Temp=1
+        self.dt=1.0/self.NN #0.01
 
-#sigma_np = -5
-alpha_i = 0.2
-alpha_r = 0.25
-alpha_b = 0.
-alpha_s = 0.6
+        #sigma_np = -5
+        self.alpha_i = 0.2
+        self.alpha_r = 0.25
+        self.alpha_b = 0.
+        self.alpha_s = 0.6
 
-alpha0 = 0#0.1
-alpha1 = 0#-5.8
+        self.alpha0 = 0#0.1
+        self.alpha1 = 0#-5.8
 
-beta_i = 0.1
-beta_r = 0.1
-beta_b = 0.1
+        self.beta_i = 0.1
+        self.beta_r = 0.1
+        self.beta_b = 0.1
 
-#tau = 2
-lambda0 = 0.1
+        #tau = 2
+        self.lambda0 = 0.1
 
-def config():
-    global file_csv,file_fig1,display,dataset,seed,id,NN,Nh,alpha_i,alpha_r,alpha_b,alpha_s,alpha0,alpha1,beta_i,beta_r,beta_b,Temp,lambda0
-    args = sys.argv
-    for s in args:
-        file_csv= arg2a(file_csv,"file_csv=",s)
-        file_fig1=arg2a(file_fig1,"file_fig1=",s)
-        display = arg2i(display,"display=",s)
-        dataset = arg2i(dataset,"dataset=",s)
-        seed    = arg2i(seed,"seed=",s)
-        id      = arg2i(id,"id=",s)
-        NN      = arg2i(NN, 'NN=', s)
-        Nh      = arg2i(Nh, 'Nh=', s)
-        alpha_i = arg2f(alpha_i,"alpha_i=",s)
-        alpha_r = arg2f(alpha_r,"alpha_r=",s)
-        alpha_b = arg2f(alpha_b,"alpha_b=",s)
-        alpha_s = arg2f(alpha_s,"alpha_s=",s)
-        alpha0  = arg2f(alpha0,"alpha0=",s)
-        alpha1  = arg2f(alpha1,"alpha1=",s)
-        beta_i  = arg2f(beta_i,"beta_i=",s)
-        beta_r  = arg2f(beta_r,"beta_r=",s)
-        beta_b  = arg2f(beta_b,"beta_b=",s)
-        Temp    = arg2f(Temp,"Temp=",s)
-        lambda0 = arg2f(lambda0, 'lambda0=', s)
 
-def output():
-    str="%d,%d,%d,%d,%d,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n" \
-    % (dataset,seed,id,NN,Nh,alpha_i,alpha_r,alpha_b,alpha_s,alpha0,alpha1,beta_i,beta_r,beta_b,Temp,lambda0,RMSE1,RMSE2,count_gap)
-    f=open(file_csv,"a")
-    f.write(str)
-    f.close()
+def config(c):
+    global dataset,seed
+    global NN,MM,MM0,Nu,Nh,Ny,Temp,dt
+    global alpha_i,alpha_r,alpha_b,alpha_s,alpha0,alpha1
+    global beta_i,beta_r,beta_b
+    global lambda0
+
+    dataset = c.dataset
+    seed = int(c.seed) # 乱数生成のためのシード
+    NN = int(c.NN)
+    MM = int(c.MM)
+    MM0 = int(c.MM0)
+
+    Nu = int(c.Nu)   #size of input
+    Nh = int(c.Nh) #size of dynamical reservior
+    Ny = int(c.Ny)   #size of output
+
+    Temp=c.Temp
+    dt=1.0/c.NN #0.01
+
+    #sigma_np = -5
+    alpha_i = c.alpha_i
+    alpha_r = c.alpha_r
+    alpha_b = c.alpha_b
+    alpha_s = c.alpha_s
+
+    alpha0 = c.alpha0
+    alpha1 = c.alpha1
+
+    beta_i = c.beta_i
+    beta_r = c.beta_r
+    beta_b = c.beta_b
+
+    #tau = 2
+    lambda0 = c.lambda0
+
+def generate_random_matrix(n,m,beta):
+    W = np.zeros(n*m)
+    nonzeros = n * m * beta
+    W[0:int(nonzeros / 2)] = 1
+    W[int(nonzeros / 2):int(nonzeros)] = -1
+    np.random.shuffle(W)
+    W = W.reshape((n,m))
+    return W
 
 def generate_weight_matrix():
     global Wr, Wb, Wo, Wi
     ### Wr
-    Wr0 = np.zeros(Nh * Nh)
-    nonzeros = Nh * Nh * beta_r
-    Wr0[0:int(nonzeros / 2)] = 1
-    Wr0[int(nonzeros / 2):int(nonzeros)] = -1
-    np.random.shuffle(Wr0)
-    Wr0 = Wr0.reshape((Nh, Nh))
+    Wr0=generate_random_matrix(Nh,Nh,beta_r)
     v = scipy.linalg.eigvals(Wr0)
     lambda_max = max(abs(v))
     #print("WoT\n", WoT)
@@ -94,40 +116,18 @@ def generate_weight_matrix():
     E = np.identity(Nh)
     Wr = Wr + alpha0*E
     #Wr = Wr + alpha1
-
     Wr = Wr + alpha1/Nh
-    #Wr = Wr -0.06#/Nh
-
-    # print("lamda_max",lambda_max)
-    # print("Wr:")
-    # print(Wr)
 
     ### Wb
-    Wb = np.zeros(Nh * Ny)
-    Wb[0:int(Nh * Ny * beta_b / 2)] = 1
-    Wb[int(Nh * Ny * beta_b / 2):int(Nh * Ny * beta_b)] = -1
-    np.random.shuffle(Wb)
-    Wb = Wb.reshape((Nh, Ny))
+    Wb = generate_random_matrix(Nh,Ny,beta_b)
     Wb = Wb * alpha_b
-    # print("Wb:")
-    # print(Wb)
 
     ### Wi
-    Wi = np.zeros(Nh * Nu)
-    Wi[0:int(Nh * Nu * beta_i / 2)] = 1
-    Wi[int(Nh * Nu * beta_i / 2):int(Nh * Nu * beta_i)] = -1
-    np.random.shuffle(Wi)
-    Wi = Wi.reshape((Nh, Nu))
+    Wi = generate_random_matrix(Nh,Nu,beta_i)
     Wi = Wi * alpha_i
-    # print("Wi:")
-    # print("WoT\n", WoT)
-    # print(Wi)Ds = np.zeros((MM*NN, Ny))
-    Us = np.zeros((MM*NN, Nu))
 
     ### Wo
-    Wo = np.zeros(Nh * Ny)
-    Wo = Wo.reshape((Ny, Nh))
-    Wo = Wo
+    Wo = np.zeros(Nh * Ny).reshape((Ny, Nh))
     # print(Wo)
 
 def fx(h):
@@ -146,17 +146,6 @@ def fr(h):
 def fsgm(h):
     return 1.0/(1.0+np.exp(-h))
 
-def flgt(h):
-    return np.log(1/(1-h))
-
-def update_s(x,s,N):
-    for i in range(N):
-        if x[i]>=1:
-            x[i]=1
-            s[i]=1
-        if x[i]<=0:
-            x[i]=0
-            s[i]=0
 def p2s(theta,p):
     return np.heaviside( np.sin(np.pi*(2*theta-p)),1)
 
@@ -194,6 +183,8 @@ def run_network(mode):
     for n in range(NN*MM):
         theta = np.mod(n/NN,1) # (0,1)
         rs_prev = rs
+        hs_prev = hs.copy()
+
         rs = p2s(theta,0)
         us = p2s(theta,Up[m])
         ds = p2s(theta,Dp[m])
@@ -212,21 +203,10 @@ def run_network(mode):
 
         hsign = 1 - 2*hs
         hx = hx + hsign*(1.0+np.exp(hsign*sum/Temp))*dt
-        hs_prev = hs.copy()
-        update_s(hx,hs,Nh)
+        hs = np.heaviside(hx+hs-1,0)
+        hx = np.fmin(np.fmax(hx,0),1)
 
-        # hs の立ち下がりで count の値を hc に保持する。
-        #for i in range(Nh):
-        #    if hs_prev[i]==1 and hs[i]==0:
-        #        hc[i]=count
-        #print(n,n%NN,l,hs_prev[0],hs[0],hc[0])
-        #if m<3 or m>298:print("%3d %3d %d %d %3d %f"%(n,m,rs,rs_prev,count,theta))
-
-        #ref.clockとhsのANDを取って1ならばカウントアップ
-        for i in range(Nh):
-            if rs==1 and hs[i]==1:
-                hc[i]=hc[i] + 1
-
+        if rs==1: hc+=hs # デコードのためのカウンタ、ref.clockとhsのANDでカウントアップ
         count = count + 1
 
         # ref.clockの立ち上がり
@@ -234,7 +214,7 @@ def run_network(mode):
             hp = 2*hc/NN-1
             hc = np.zeros(Nh) #カウンタをリセット
             #ht = 2*hs-1 リファレンスクロック同期用ラッチ動作をコメントアウト
-            yp = fy(Wo@hp)
+            yp = np.tanh(Wo@hp)
             #yp=fsgm(Wo@hp)
             count=0
             # record
@@ -323,13 +303,13 @@ def plot1():
     ax.plot(Dp)
 
     plt.show()
-    plt.savefig(file_fig1)
+    plt.savefig(c.fig1)
 
 def execute():
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM
     global RMSE1,RMSE2
-    if seed>=0:
-        np.random.seed(seed)
+    
+    np.random.seed(seed)
     generate_weight_matrix()
 
     ### generate data
@@ -371,12 +351,19 @@ def execute():
     SUM=np.sum(sum)
     RMSE1 = np.sqrt(SUM/Ny/(MM-MM0))
     RMSE2 = 0
-    print(RMSE1)
+    #print(RMSE1)
+    c.RMSE1=RMSE1
+    c.RMSE2=RMSE2
 
-    if display :
-        plot1()
+    if c.plot :plot1()
 
 if __name__ == "__main__":
-    config()
+    ap = argparse.ArgumentParser()
+    ap.add_argument("-config", type=str)
+    a = ap.parse_args()
+
+    c=Config()
+    if a.config: c=common.load_config(a)
+    config(c)
     execute()
-    output()
+    if a.config: common.save_config(c)
