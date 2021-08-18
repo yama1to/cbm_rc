@@ -293,4 +293,8 @@ if __name__ == "__main__":
     c=Config()
     if a.config: c=common.load_config(a)
     execute()
+<<<<<<< HEAD
     if a.config: common.save_config(c)
+=======
+    if a.config: common.save_config(c)
+>>>>>>> 0d7bb30d168ed9a4475d32d5ff93c14e7adce14f

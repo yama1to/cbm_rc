@@ -5,6 +5,34 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+def generate_PARITY(T,delay,k,Nu=1,Ny=1):
+    
+    # 時系列入力データ
+    d = np.zeros((T, Ny))
+    u = np.random.randint(0,2,(T, Nu))
+    #print(u)
+
+    # 時系列出力データ
+    tau = delay  # delay
+    k = k # 3-bit
+    for n in range(tau+k-1, T):
+        tmp = u[n-tau]+u[n-tau-1]+u[n-tau-2]  # 3-bit PARITY関数
+        if tmp % 2 == 0:
+            d[n] = 0  # 1の数が偶数なら0
+        else:
+            d[n] = 1  # 1の数が奇数なら1
+
+     # 実数に変換
+    u = u.astype(np.float)
+    d = d.astype(np.float)
+
+    # 学習用情報
+    train_U = u[tau+k-1:T].reshape(-1, 1)
+    train_D = d[tau+k-1:T].reshape(-1, 1)
+
+    return train_U,train_D, u,d 
+
+
 def generate_XOR(MM,Nu=1,Ny=1):
     np.random.seed(0)
     #MM=MM+2
@@ -25,7 +53,7 @@ def generate_XOR(MM,Nu=1,Ny=1):
     trainU = U[tau:MM].reshape(-1, 1)
     trainD = D[tau:MM].reshape(-1, 1)
     
-    print(U.shape,D.shape,trainU.shape,trainD.shape)
+    #print(U.shape,D.shape,trainU.shape,trainD.shape)
 
     return (trainD,trainU,D,U)
 
@@ -211,7 +239,7 @@ if __name__ == "__main__":
     #D, U = generate_random_spike2(40)
     #U = generate_random_spike1(40)
 
-    D,U,d,u = generate_XOR(52)
+    D,U,d,u = generate_PARITY(10,1,1)
 
     plt.subplot(2, 1, 1)
     plt.plot(U)
