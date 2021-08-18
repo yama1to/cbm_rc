@@ -244,14 +244,14 @@ def execute(c):
     dataset=c.dataset
     
     seed=int(c.seed) # 乱数生成のためのシード
-    c.NN=int(c.NN) # １サイクルあたりの時間ステップ
-    c.MM=int(c.MM) # サイクル数
-    c.MM0 = int(c.MM0) #
+    NN=c.NN # １サイクルあたりの時間ステップ
+    MM=c.MM # サイクル数
+    MM0 = c.MM0 #
    
 
-    c.Nu = int(c.Nu)   #size of input
-    c.Nh = int(c.Nh) #size of dynamical reservior
-    c.Ny = int(c.Ny)   #size of output
+    Nu = c.Nu   #size of input
+    Nh = c.Nh #size of dynamical reservior
+    Ny = c.Ny   #size of output
     #print("--------------------------------------------")
  
     #print("--------------------------------------------")

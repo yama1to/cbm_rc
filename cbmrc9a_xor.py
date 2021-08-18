@@ -242,15 +242,15 @@ def execute():
 
     dataset=c.dataset
     
-    seed=int(c.seed) # 乱数生成のためのシード
-    c.NN=int(c.NN) # １サイクルあたりの時間ステップ
-    c.MM=int(c.MM) # サイクル数
-    c.MM0 = int(c.MM0) #
+    seed=int(c.seed)# 乱数生成のためのシード
+    NN=c.NN         # １サイクルあたりの時間ステップ
+    MM=c.MM         # サイクル数
+    MM0 = c.MM0     #
    
 
-    c.Nu = int(c.Nu)   #size of input
-    c.Nh = int(c.Nh) #size of dynamical reservior
-    c.Ny = int(c.Ny)   #size of output
+    Nu = c.Nu  #size of input
+    Nh = c.Nh  #size of dynamical reservior
+    Ny = c.Ny  #size of output
     #print("--------------------------------------------")
  
     #print("--------------------------------------------")
@@ -275,7 +275,7 @@ def execute():
 
     t_start=time.time()
     #if c.seed>=0:
-    np.random.seed(int(c.seed))
+    np.random.seed(seed)
 
 
     generate_weight_matrix()
@@ -294,14 +294,14 @@ def execute():
 
     ### training
     print("training...")
-    c.MM=MM1
+    MM=MM1
     Dp = np.tanh(D1)
     Up = np.tanh(U1)
     train_network()
 
     ### test
     print("test...")
-    c.MM=MM2
+    MM=MM2
     Dp = np.tanh(D2)
     Up = np.tanh(U2)
     test_network()
