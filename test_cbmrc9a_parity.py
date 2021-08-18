@@ -42,11 +42,11 @@ def exe2():# 基本設定を編集してから実行
 def gs1():
     gs.scan1d("alpha_r",min=0,max=1,num=51)
     vs.plot1d("alpha_r","BER")
-gs1()
+#gs1()
 
 def gs2a():
-    gs.scan2d("x1","x2",min1=-5,max1=5,min2=-5,max2=5)
-    vs.plot2d("x1","x2","y3")
+    gs.scan2d("alpha_i","alpha_r",min1=0,max1=1,min2=0,max2=1)
+    vs.plot2d("alpha_i","alpha_r","BER")
     #vs.plot2d_pcolor("x1","x2","y3")
 #gs2a()
 
@@ -58,26 +58,26 @@ def gs2b():
 ### ランダムサーチ
 def rs1():
     rs.clear()
-    rs.append("x1",min=-5,max=5)
-    rs.append("x2",min=-5,max=5)
+    rs.append("alpha_r",min=0,max=1)
+    rs.append("alpha_s",min=0,max=2)
     rs.random(num=2000,samples=2)
     df = common.load_dataframe() # 直前に保存されたcsvファイルをデータフレーム(df)に読み込む
-    df = df[['x1','x2','y1','y2']] # 指定した列のみでデータフレームを構成する
-    df = df[(df['y1']<=10.0)] # 条件を満たすデータについてデータフレームを構成する。
+    df = df[['alpha_r','alpha_s','BER','']] # 指定した列のみでデータフレームを構成する
+    df = df[(df['BER']<=0.4)] # 条件を満たすデータについてデータフレームを構成する。
     #print(df)
     scatter_matrix(df, alpha=0.8, figsize=(6, 6), diagonal='kde')
     fig=common.name_file(common.prefix+"_random.png")
     vs.savefig(fig)
-#rs1()
+rs1()
 
 ### 最適化
 def func(row):# 関数funcでtargetを指定する。
-    return row['y1'] + 0.3*row['y2']
+    return row['BER']# + 0.3*row['y2']
 
 def optimize():
     opt.clear()#設定をクリアする
     opt.appendid()#id:必ず加える
     opt.appendseed()# 乱数のシード（０から始まる整数値）
-    opt.append("x1",value=1.0,min=-5,max=5,round=3)# 変数の追加([変数名],[基本値],[下端],[上端],[まるめの桁数])
-    opt.append("x2",value=1.0,min=-5,max=5)
-    opt.minimize(target="y1",iteration=10,population=10,samples=4)
+    opt.append("alpha_r",value=1.0,min=0,max=1,round=3)# 変数の追加([変数名],[基本値],[下端],[上端],[まるめの桁数])
+    opt.append("alpha_s",value=1.0,min=0,max=2)
+    opt.minimize(target="BER",iteration=10,population=10,samples=4)
