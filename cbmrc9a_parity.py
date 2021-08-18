@@ -11,7 +11,7 @@ import scipy.linalg
 import matplotlib.pyplot as plt
 import copy
 import time
-#from explorer import common
+from explorer import common
 from generate_data_sequence import *
 from generate_matrix import *
 
@@ -21,15 +21,15 @@ class Config():
         self.columns = None # 結果をCSVに保存する際のコラム
         self.csv = None # 結果を保存するファイル
         self.id  = None
-        self.plot = True # 図の出力のオンオフ
-        self.show = True # 図の表示（plt.show()）のオンオフ、explorerは実行時にこれをオフにする。
-        self.savefig = True
+        self.plot = False # 図の出力のオンオフ
+        self.show = False # 図の表示（plt.show()）のオンオフ、explorerは実行時にこれをオフにする。
+        self.savefig = False
         self.fig1 = "fig1.png" ### 画像ファイル名
 
         # config
         self.dataset=5
         self.seed:int=0 # 乱数生成のためのシード
-        self.NN=256 # １サイクルあたりの時間ステップ
+        self.NN=200 # １サイクルあたりの時間ステップ
         self.MM=50 # サイクル数
         self.MM0 = 0 #
 
@@ -42,9 +42,9 @@ class Config():
 
         #sigma_np = -5
         self.alpha_i = 0.1
-        self.alpha_r = 0.25
+        self.alpha_r = 0.9
         self.alpha_b = 0.
-        self.alpha_s = 0.65
+        self.alpha_s = 0.6
 
         self.alpha0 = 0#0.1
         self.alpha1 = 0#-5.8
@@ -59,6 +59,7 @@ class Config():
         self.RMSE1=None
         self.RMSE2=None
         self.cnt_overflow=None
+        self.BER = None 
 
 def generate_weight_matrix():
     global Wr, Wb, Wo, Wi
@@ -216,44 +217,89 @@ def plot1():
     ax = fig.add_subplot(Nr,1,5)
     ax.cla()
     ax.set_title("Yp")
-    ax.plot(Yp)
+    ax.plot(Yp[0:50-2-3+1])
+    ax.plot(y)
 
     ax = fig.add_subplot(Nr,1,6)
     ax.cla()
     ax.set_title("Dp")
-    ax.plot(Dp)
-    ax.plot(train_Y_binary)
+    ax.plot(d)
+    ax.plot(y)
     ax.plot()
 
     plt.show()
     plt.savefig(c.fig1)
 
-def execute():
+def execute(c):
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM
     global RMSE1,RMSE2
-    global train_Y_binary
+    global train_Y_binary ,y, d
+
+########################################################################################\
+    global dataset,seed,NN,MM,MM0,Nu,Nh,Ny,Temp,dt
+    global alpha_i,alpha_b,alpha_r,alpha_s,alpha0,alpha1
+    global beta_i,beta_r,beta_b,lambda0
+
+
+    dataset=c.dataset
+    
+    seed=int(c.seed) # 乱数生成のためのシード
+    c.NN=int(c.NN) # １サイクルあたりの時間ステップ
+    c.MM=int(c.MM) # サイクル数
+    c.MM0 = int(c.MM0) #
+   
+
+    c.Nu = int(c.Nu)   #size of input
+    c.Nh = int(c.Nh) #size of dynamical reservior
+    c.Ny = int(c.Ny)   #size of output
+    #print("--------------------------------------------")
+ 
+    #print("--------------------------------------------")
+
+    Temp=c.Temp
+    dt=c.dt #0.01
+
+    #sigma_np = -5
+    alpha_i = c.alpha_i
+    alpha_r = c.alpha_r
+    alpha_b = c.alpha_b
+    alpha_s = c.alpha_s
+
+    alpha0 = c.alpha0#0.1
+    alpha1 = c.alpha1#-5.8
+
+    beta_i = c.beta_i
+    beta_r = c.beta_r
+    beta_b = c.beta_b
+
+    lambda0 = c.lambda0
+
+
+########################################################################################
+
+
+
     t_start=time.time()
     #if c.seed>=0:
-    np.random.seed(int(c.seed))
+    #np.random.seed(int(c.seed))
     
     generate_weight_matrix()
+
+
     ### generate data
     
     if c.dataset==5:
-        MM1 = 50
-        MM2 = 50
+        MM1 = c.MM
+        MM2 = c.MM
         T = MM1 +MM2 +4
         tau = 2         #delay
         k = 3           #3bit
-        D,U,_,_ = generate_PARITY(T,tau,k)
-        print(D.shape,U.shape)
+        D,U,d,_ = generate_PARITY(T,tau,k)
 
     D1 = D[0:MM1]
     U1 = U[0:MM1]
     D2 = D[MM1:MM1+MM2]
     U2 = U[MM1:MM1+MM2]
-    print(D1.shape,U1.shape,D2.shape,U2.shape)
-
     ### training
     print("training...")
     c.MM=MM1
@@ -273,26 +319,36 @@ def execute():
     # 評価（ビット誤り率, BER）
     train_Y_binary = np.zeros(T-tau-k+1)
 
-    train_Y = Yp
-
+    train_Y1 = Yp
     rang = 1
     train_Y_binary = np.zeros(T-tau-k+1)
 
-    for n in range(T-tau-k+1):
-        if train_Y[n, 0] <= rang/2:
-            train_Y_binary[n] = 0
-        else:
-            train_Y_binary[n] = rang
+    def ber(train_Y):
+        global y,d
+        for n in range(T-tau-k+1):
+            if train_Y[n, 0] <= rang/2:
+                train_Y_binary[n] = 0
+            else:
+                train_Y_binary[n] = 0.75
+            
+
+        Ybin = train_Y_binary
+        y = Ybin[0:T-tau-k+1]
+        #d = d[tau+k-1:T,0]
+        d = Dp[tau+k-1:T,0]
+        BER = np.linalg.norm(y-d,1)/(T-tau-k+1)
         
+        print('BER =', BER)
+        return BER
 
-    Ybin = train_Y_binary
-    y = Ybin[0:T-tau-k+1]
-    d = Dp[tau+k-1:T,0]
-    BER = np.linalg.norm(y-d,1)/(T-tau-k+1)
-    
-    print('BER =', BER)
-
-
+    BER = ber(train_Y1)
+######################################################################################
+     # Results
+    c.RMSE1=None
+    c.RMSE2=None
+    c.cnt_overflow=None
+    c.BER = BER
+#####################################################################################
 
     if c.plot: plot1()
 
@@ -303,5 +359,5 @@ if __name__ == "__main__":
 
     c=Config()
     if a.config: c=common.load_config(a)
-    execute()
+    execute(c)
     if a.config: common.save_config(c)

@@ -11,7 +11,7 @@ import scipy.linalg
 import matplotlib.pyplot as plt
 import copy
 import time
-#from explorer import common
+from explorer import common
 from generate_data_sequence import *
 from generate_matrix import *
 
@@ -21,9 +21,9 @@ class Config():
         self.columns = None # 結果をCSVに保存する際のコラム
         self.csv = None # 結果を保存するファイル
         self.id  = None
-        self.plot = True # 図の出力のオンオフ
-        self.show = True # 図の表示（plt.show()）のオンオフ、explorerは実行時にこれをオフにする。
-        self.savefig = True
+        self.plot = False # 図の出力のオンオフ
+        self.show = False # 図の表示（plt.show()）のオンオフ、explorerは実行時にこれをオフにする。
+        self.savefig = False
         self.fig1 = "fig1.png" ### 画像ファイル名
 
         # config
@@ -59,6 +59,7 @@ class Config():
         self.RMSE1=None
         self.RMSE2=None
         self.cnt_overflow=None
+        self.BER = None
 
 def generate_weight_matrix():
     global Wr, Wb, Wo, Wi
@@ -232,6 +233,46 @@ def execute():
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM
     global RMSE1,RMSE2
     global train_Y_binary
+
+
+    global dataset,seed,NN,MM,MM0,Nu,Nh,Ny,Temp,dt
+    global alpha_i,alpha_b,alpha_r,alpha_s,alpha0,alpha1
+    global beta_i,beta_r,beta_b,lambda0
+
+
+    dataset=c.dataset
+    
+    seed=int(c.seed) # 乱数生成のためのシード
+    c.NN=int(c.NN) # １サイクルあたりの時間ステップ
+    c.MM=int(c.MM) # サイクル数
+    c.MM0 = int(c.MM0) #
+   
+
+    c.Nu = int(c.Nu)   #size of input
+    c.Nh = int(c.Nh) #size of dynamical reservior
+    c.Ny = int(c.Ny)   #size of output
+    #print("--------------------------------------------")
+ 
+    #print("--------------------------------------------")
+
+    Temp=c.Temp
+    dt=c.dt #0.01
+
+    #sigma_np = -5
+    alpha_i = c.alpha_i
+    alpha_r = c.alpha_r
+    alpha_b = c.alpha_b
+    alpha_s = c.alpha_s
+
+    alpha0 = c.alpha0#0.1
+    alpha1 = c.alpha1#-5.8
+
+    beta_i = c.beta_i
+    beta_r = c.beta_r
+    beta_b = c.beta_b
+
+    lambda0 = c.lambda0
+
     t_start=time.time()
     #if c.seed>=0:
     np.random.seed(int(c.seed))
@@ -241,8 +282,8 @@ def execute():
 
     ### generate data
     if c.dataset==4:
-        MM1=50
-        MM2=50
+        MM1=c.MM
+        MM2=c.MM
         D,U,_,_ = generate_XOR(MM1+MM2+2)
 
 
@@ -252,14 +293,14 @@ def execute():
     U2 = U[MM1:MM1+MM2]
 
     ### training
-    #print("training...")
+    print("training...")
     c.MM=MM1
     Dp = np.tanh(D1)
     Up = np.tanh(U1)
     train_network()
 
     ### test
-    #print("test...")
+    print("test...")
     c.MM=MM2
     Dp = np.tanh(D2)
     Up = np.tanh(U2)
@@ -283,6 +324,14 @@ def execute():
             train_Y_binary[n] = 0
     BER = np.linalg.norm(train_Y_binary[0:T-tau]-Dp[tau:T,0], 1)/(T-tau)
     print('BER =', BER)
+    ######################################################################################
+     # Results
+    c.RMSE1=None
+    c.RMSE2=None
+    c.cnt_overflow=None
+    c.BER = BER
+#####################################################################################
+
 
     if c.plot: plot1()
 
