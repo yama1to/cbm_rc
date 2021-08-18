@@ -11,7 +11,7 @@ import scipy.linalg
 import matplotlib.pyplot as plt
 import copy
 import time
-#from explorer import common
+from explorer import common
 from generate_data_sequence import *
 from generate_matrix import *
 
@@ -34,10 +34,10 @@ class Config():
         self.MM0 = 50 #
 
         self.Nu = 2   #size of input
-        self.Nh:int = 100 #size of dynamical reservior
+        self.Nh = 100 #size of dynamical reservior
         self.Ny = 2   #size of output
 
-        self.Temp=1
+        self.Temp=1.0
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
@@ -45,9 +45,6 @@ class Config():
         self.alpha_r = 0.25
         self.alpha_b = 0.
         self.alpha_s = 0.6
-
-        self.alpha0 = 0#0.1
-        self.alpha1 = 0#-5.8
 
         self.beta_i = 0.1
         self.beta_r = 0.1
@@ -65,7 +62,7 @@ def generate_weight_matrix():
     Wr = generate_random_matrix(c.Nh,c.Nh,c.alpha_r,c.beta_r,distribution="one",normalization="sr")
     Wb = generate_random_matrix(c.Nh,c.Ny,c.alpha_b,c.beta_b,distribution="one",normalization="none")
     Wi = generate_random_matrix(c.Nh,c.Nu,c.alpha_i,c.beta_i,distribution="one",normalization="none")
-    Wo = np.zeros(c.Nh * c.Ny).reshape((c.Ny, c.Nh))
+    Wo = np.zeros(c.Nh * c.Ny).reshape(c.Ny, c.Nh)
 
 def fy(h):
     return np.tanh(h)
@@ -293,8 +290,4 @@ if __name__ == "__main__":
     c=Config()
     if a.config: c=common.load_config(a)
     execute()
-<<<<<<< HEAD
     if a.config: common.save_config(c)
-=======
-    if a.config: common.save_config(c)
->>>>>>> 0d7bb30d168ed9a4475d32d5ff93c14e7adce14f

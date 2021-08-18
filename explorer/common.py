@@ -223,7 +223,13 @@ def config2series(config):
 def series2config(cnf,s,columns):
     #print("columns in series2config:",s.columns)
     for i,col in enumerate(columns): # XXX
-        setattr(cnf,col,s[col])
+        #print(col, type(getattr(cnf,col)), type(s[col]))# XXX
+        v=s[col]
+        if type(getattr(cnf,col)) == type(0):# int
+            v=int(v)
+        if type(getattr(cnf,col)) == type(0.):#float
+            v=float(v)
+        setattr(cnf,col,v)
     return cnf
 
 def name_file(filename,path=True,directory=None):

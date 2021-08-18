@@ -1,7 +1,6 @@
 # Copyright (c) 2018-2021 Katori lab. All Rights Reserved
 """
 
-
 """
 import os
 import numpy as np
@@ -20,10 +19,10 @@ from explorer import optimization as opt
 from cbmrc6f2 import Config
 config = Config()
 common.config  = config
-common.prefix  = "data%s_cbmrc6f2" % common.string_today() # 実験名（ファイルの接頭辞）
-common.dir_path= "data/data%s_cbmrc6f2" % common.string_today() # 実験データを出力するディレクトリのパス
+common.prefix  = "data%s_cbmrc6f2" % common.string_now() # 実験名（ファイルの接頭辞）
+common.dir_path= "data/data%s_cbmrc6f2" % common.string_now() # 実験データを出力するディレクトリのパス
 common.exe     = "python cbmrc6f2.py " # 実行されるプログラム
-common.columns=['dataset','seed','id','NN','Nh','alpha_i','alpha_r','alpha_b','alpha_s','alpha0','alpha1','beta_i','beta_r','beta_b','Temp','lambda0','RMSE1','RMSE2','cnt_overflow']
+common.columns=['dataset','seed','id','NN','Nh','alpha_i','alpha_r','alpha_b','alpha_s','beta_i','beta_r','beta_b','Temp','lambda0','RMSE1','RMSE2','cnt_overflow']
 
 common.parallel= 4
 common.setup()
@@ -48,12 +47,6 @@ def gs1():
     vs.plot1d("alpha_r","RMSE1")
 gs1()
 
-def gs1d():# 文字列リストによるグリッドサーチ
-    a = ['rel','tanh','sin']
-    gs.scan1d("f1",array=a)
-    vs.plot1d("f1","y3")
-#gs1d()
-
 def gs2a():
     gs.scan2d("x1","x2",min1=-5,max1=5,min2=-5,max2=5)
     vs.plot2d("x1","x2","y3")
@@ -64,7 +57,6 @@ def gs2b():
     gs.scan2d("x1","x2",min1=-5,max1=5,min2=-5,max2=5,samples=3)
     vs.plot2d("x1","x2","y3")
 #gs2b()
-
 
 ### ランダムサーチ
 def rs1():
