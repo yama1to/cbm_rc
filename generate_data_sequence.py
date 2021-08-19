@@ -5,6 +5,18 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+def generate_WHITENOISE(T=500,delay=20):
+    # 時系列入力データ生成
+    #T = 500  # 長さ
+    u = np.random.rand(T,1)-0.5  # 区間[-0.5, 0.5]の乱数系列
+
+    d = np.empty((T, len(delay)))
+    for k in range(len(delay)):
+        for t in range(T):
+            d[t, k] = u[t-delay[k]]  # 遅延系列
+
+    return u,d
+
 def generate_PARITY(T,delay,k,Nu=1,Ny=1):
     
     # 時系列入力データ
