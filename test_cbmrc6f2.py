@@ -23,54 +23,23 @@ common.prefix  = "data%s_cbmrc6f2" % common.string_now() # 実験名（ファイ
 common.dir_path= "data/data%s_cbmrc6f2" % common.string_now() # 実験データを出力するディレクトリのパス
 common.exe     = "python cbmrc6f2.py " # 実行されるプログラム
 common.columns=['dataset','seed','id','NN','Nh','alpha_i','alpha_r','alpha_b','alpha_s','beta_i','beta_r','beta_b','Temp','lambda0','RMSE1','RMSE2','cnt_overflow']
-
-common.parallel= 4
+common.parallel= 12
 common.setup()
 common.report_common()
 common.report_config(config)
 
-### 単体実行
-def exe1():# 基本設定で実行
-    gs.execute()
-#exe1()
-
-def exe2():# 基本設定を編集してから実行
-    cnf=copy.copy(config) #設定(config)のコピーを作成する
-    cnf.x1 = 1.234 # 設定を書き換える
-    #cnf.f1 = 'tanh'
-    gs.execute(config=cnf) # 新しい設定(cnf)を反映させて実行する。
-#exe2()
-
-### １変数グリッドサーチ
-def gs1():
-    gs.scan1d("alpha_r",min=0,max=5,num=51)
-    vs.plot1d("alpha_r","RMSE1")
-gs1()
-
-def gs2a():
-    gs.scan2d("x1","x2",min1=-5,max1=5,min2=-5,max2=5)
-    vs.plot2d("x1","x2","y3")
-    #vs.plot2d_pcolor("x1","x2","y3")
-#gs2a()
-
-def gs2b():
-    gs.scan2d("x1","x2",min1=-5,max1=5,min2=-5,max2=5,samples=3)
-    vs.plot2d("x1","x2","y3")
-#gs2b()
-
 ### ランダムサーチ
 def rs1():
     rs.clear()
-    rs.append("x1",min=-5,max=5)
-    rs.append("x2",min=-5,max=5)
-    rs.random(num=2000,samples=2)
+    rs.append("alpha_r",min=0,max=5)
+    rs.append("alpha_i",min=0,max=5)
+    rs.random(num=60,samples=2)
     df = common.load_dataframe() # 直前に保存されたcsvファイルをデータフレーム(df)に読み込む
-    df = df[['x1','x2','y1','y2']] # 指定した列のみでデータフレームを構成する
-    df = df[(df['y1']<=10.0)] # 条件を満たすデータについてデータフレームを構成する。
+    df = df[['alpha_r','alpha_i','RMSE1','cnt_overflow']] # 指定した列のみでデータフレームを構成する
+    #df = df[(df['y1']<=10.0)] # 条件を満たすデータについてデータフレームを構成する。
     #print(df)
     scatter_matrix(df, alpha=0.8, figsize=(6, 6), diagonal='kde')
-    fig=common.name_file(common.prefix+"_random.png")
-    vs.savefig(fig)
+    vs.savefig()
 #rs1()
 
 ### 最適化
@@ -85,4 +54,45 @@ def optimize():
     opt.append("x2",value=1.0,min=-5,max=5)
     opt.minimize(target="y1",iteration=10,population=10,samples=4)
     #opt.minimize(TARGET=func,iteration=5,population=10,samples=4)
+    common.config = opt.best_config # 最適化で得られた設定を基本設定とする
 #optimize()
+
+def plot1(x,y,ystd,ymin,ymax,color=None,width=1,label=None):
+    # エラーバーをつけてグラフを描画、平均、標準偏差、最大値、最小値をプロットする。
+    #ax.errorbar(x,y,yerr=ystd,fmt='o',color=color,capsize=2,label="xxxx")
+    plt.plot(x,y,color=color,linestyle='-',linewidth=width,label=label)
+    plt.fill_between(x,y-ystd,y+ystd,color=color,alpha=.2)
+    plt.plot(x,ymin,color=color,linestyle=':',linewidth=1)
+    plt.plot(x,ymax,color=color,linestyle=':',linewidth=1)
+
+def gridsearch(X1,min=0,max=1,num=41,samples=10):
+    # 指定された変数(X1)についてグリッドサーチを行い、評価基準の変化をまとめてプロット
+
+    gs.scan1ds(X1,min=min,max=max,num=num,samples=samples)
+    df = common.load_dataframe()
+    #print(df)
+    cmap = plt.get_cmap("tab10")
+    plt.figure(figsize=(6,8))
+
+    plt.subplot(2,1,1)
+    x,ymean,ystd,ymin,ymax = vs.analyze(df,X1,"RMSE1")
+    plot1(x,ymean,ystd,ymin,ymax,color=cmap(1),label="RMSE1")
+    plt.ylabel("RMSE")
+    plt.grid(linestyle="dotted")
+
+    plt.subplot(2,1,2)
+    x,ymean,ystd,ymin,ymax = vs.analyze(df,X1,"cnt_overflow")
+    plot1(x,ymean,ystd,ymin,ymax,color=cmap(2),label="cnt_overflow")
+    plt.ylabel("overflow")
+    #plt.yscale('log')
+    plt.grid(linestyle="dotted")
+    #plt.ylim([0,1]) # y軸の範囲
+
+    plt.xlabel(X1)
+    vs.plt_output()
+
+def gs2():
+    ns=3
+    gridsearch("alpha_r",min=0.0,max=2,num=41,samples=ns)
+    gridsearch("alpha_i",min=0.0,max=1,num=41,samples=ns)
+gs2()
