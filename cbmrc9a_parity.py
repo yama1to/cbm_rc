@@ -41,10 +41,10 @@ class Config():
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 0.1
-        self.alpha_r = 0.9
+        self.alpha_i = 0.4
+        self.alpha_r = 0.4
         self.alpha_b = 0.
-        self.alpha_s = 0.6
+        self.alpha_s = 1.4
 
         self.alpha0 = 0#0.1
         self.alpha1 = 0#-5.8
@@ -338,7 +338,7 @@ def execute(c):
         d = Dp[tau+k-1:T,0]
         BER = np.linalg.norm(y-d,1)/(T-tau-k+1)
         
-        print('BER =', BER)
+        #print('BER =', BER)
         return BER
 
     BER = ber(train_Y1)
@@ -346,7 +346,7 @@ def execute(c):
      # Results
     c.RMSE1=None
     c.RMSE2=None
-    c.cnt_overflow=None
+    c.cnt_overflow=cnt_overflow
     c.BER = BER
 #####################################################################################
 

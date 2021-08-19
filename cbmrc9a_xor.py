@@ -328,7 +328,7 @@ def execute():
      # Results
     c.RMSE1=None
     c.RMSE2=None
-    c.cnt_overflow=None
+    c.cnt_overflow=cnt_overflow
     c.BER = BER
 #####################################################################################
 
