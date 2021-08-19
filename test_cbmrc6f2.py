@@ -95,4 +95,5 @@ def gs2():
     ns=3
     gridsearch("alpha_r",min=0.0,max=2,num=41,samples=ns)
     gridsearch("alpha_i",min=0.0,max=1,num=41,samples=ns)
+    gridsearch("alpha_s",min=0.0,max=1,num=41,samples=ns)
 gs2()
