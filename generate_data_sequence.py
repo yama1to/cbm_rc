@@ -45,14 +45,12 @@ def generate_parity(T,delay,k,Nu=1,Ny=1):
     return train_U,train_D, u,d 
 
 
-def generate_xor(MM,Nu=1,Ny=1):
+def generate_xor(MM,tau = 2,Nu=1,Ny=1):
     np.random.seed(0)
     #MM=MM+2
     D = np.zeros((MM, Ny))
     U = np.random.randint(0,2,(MM, Nu))
-
-    tau = 2
-
+    
     for n in range(tau,MM):
         D[n] = U[n-1]^U[n-2]
         #print(D[n],U[n-1],U[n-2])
@@ -62,12 +60,11 @@ def generate_xor(MM,Nu=1,Ny=1):
     D = D.astype(np.float)
 
     # 学習用情報
+
     trainU = U[tau:MM].reshape(-1, 1)
     trainD = D[tau:MM].reshape(-1, 1)
-    
-    #print(U.shape,D.shape,trainU.shape,trainD.shape)
-
-    return (trainD,trainU,D,U)
+    #print(trainU.T  == U[2:].T)
+    return trainU,trainD
 
 
 
@@ -251,8 +248,8 @@ if __name__ == "__main__":
     #D, U = generate_random_spike2(40)
     #U = generate_random_spike1(40)
 
-    D,U,d,u = generate_parity(10,1,1)
-
+    #D,U,d,u = generate_parity(10,1,1)
+    U,D= generate_xor(50)
     plt.subplot(2, 1, 1)
     plt.plot(U)
     plt.ylabel('U')
