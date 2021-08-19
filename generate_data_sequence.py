@@ -251,7 +251,7 @@ if __name__ == "__main__":
     #D, U = generate_random_spike2(40)
     #U = generate_random_spike1(40)
 
-    D,U,d,u = generate_PARITY(10,1,1)
+    D,U,d,u = generate_parity(10,1,1)
 
     plt.subplot(2, 1, 1)
     plt.plot(U)
