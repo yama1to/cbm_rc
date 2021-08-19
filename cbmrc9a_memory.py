@@ -59,6 +59,7 @@ class Config():
         self.RMSE1=None
         self.RMSE2=None
         self.MC = None 
+        self.DC = None
         self.cnt_overflow=None
         #self.BER = None
         
@@ -195,7 +196,7 @@ def test_network():
 
 def plot1():
     fig=plt.figure(figsize=(20, 12))
-    Nr=6
+    Nr=7
     ax = fig.add_subplot(Nr,1,1)
     ax.cla()
     ax.set_title("Up")
@@ -221,18 +222,26 @@ def plot1():
     ax = fig.add_subplot(Nr,1,5)
     ax.cla()
     ax.set_title("Yp")
-    ax.plot(Yp[0:50-2-3+1])
+    ax.plot(Yp.T)
     #ax.plot(y)
 
     ax = fig.add_subplot(Nr,1,6)
     ax.cla()
     ax.set_title("Dp")
-    #ax.plot(d)
+    ax.plot(Dp.T)
     #ax.plot(y)
     ax.plot()
 
-    plt.show()
-    plt.savefig(c.fig1)
+    ax = fig.add_subplot(Nr,1,7)
+    ax.cla()
+
+    ax.plot(c.DC)
+    ax.set_ylabel("determinant coefficient")
+    ax.set_xlabel("Delay k")
+    ax.set_title('MC ~ %3.2lf' % c.MC, x=0.8, y=0.9)
+
+    if c.show:plt.show()
+    if c.savefig:plt.savefig(c.fig1)
 
 def execute(c):
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM
@@ -324,7 +333,7 @@ def execute(c):
     DC = np.zeros((len(delay), 1))  # 決定係数
     MC = 0.0  # 記憶容量
     for k in range(len(delay)):
-        corr = np.corrcoef(np.vstack((D2.T[k, k:], Yp.T[k, k:])))
+        corr = np.corrcoef(np.vstack((Dp.T[k, k:], Yp.T[k, k:])))
         DC[k] = corr[0, 1] ** 2
         #MC += DC[k]
     MC = np.sum(DC)
@@ -344,9 +353,9 @@ def execute(c):
     c.RMSE2=None
     c.cnt_overflow=cnt_overflow
     #c.BER = None
-    #c.DC = DC 
+    c.DC = DC 
     c.MC = MC
-    print(c.MC,c.cnt_overflow)
+    #print(c.MC,c.cnt_overflow)
 
 #####################################################################################
 

@@ -218,6 +218,7 @@ def plot1():
     ax.cla()
     ax.set_title("Yp")
     ax.plot(Yp)
+    ax.plot(train_Y_binary)
 
     ax = fig.add_subplot(Nr,1,6)
     ax.cla()
@@ -226,8 +227,8 @@ def plot1():
     ax.plot(train_Y_binary)
     ax.plot()
 
-    plt.show()
-    plt.savefig(c.fig1)
+    if c.show:plt.show()
+    if c.savefig:plt.savefig(c.fig1)
 
 def execute():
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM
@@ -238,6 +239,7 @@ def execute():
     global dataset,seed,NN,MM,MM0,Nu,Nh,Ny,Temp,dt
     global alpha_i,alpha_b,alpha_r,alpha_s,alpha0,alpha1
     global beta_i,beta_r,beta_b,lambda0
+    global train_Y_binary
 
 
     dataset=c.dataset
@@ -284,7 +286,7 @@ def execute():
     if c.dataset==4:
         MM1=c.MM
         MM2=c.MM
-        D,U,_,_ = generate_xor(MM1+MM2+2)
+        U,D = generate_xor(MM1+MM2+2)
 
 
     D1 = D[0:MM1]
@@ -313,25 +315,28 @@ def execute():
     # 評価（ビット誤り率, BER）
     train_Y_binary = np.zeros(T-tau)
 
-    train_Y = Yp# * 1/0.75
-
-    rang = 0.75
+    rang = 1
     #plt.plot(train_Y)
     for n in range(T-tau):
-        if train_Y[n, 0] > rang/2:
-            train_Y_binary[n] = rang
+        if Yp[n, 0] > rang/2:
+            train_Y_binary[n] = np.tanh(rang)
         else:
             train_Y_binary[n] = 0
     BER = np.linalg.norm(train_Y_binary[0:T-tau]-Dp[tau:T,0], 1)/(T-tau)
-    print('BER =', BER)
+    #print(train_Y_binary.shape,Dp.shape)
+    #print('BER =', BER)
     ######################################################################################
      # Results
     c.RMSE1=None
     c.RMSE2=None
     c.cnt_overflow=cnt_overflow
     c.BER = BER
-#####################################################################################
-
+    #####################################################################################
+    #plt.plot(Dp[tau:T,0],label = "target")
+    #plt.plot(train_Y_binary[0:T-tau],label = "predict")
+    #plt.plot(Dp[tau:T,0])
+    #plt.legend()
+    #plt.show()
 
     if c.plot: plot1()
 

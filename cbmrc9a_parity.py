@@ -41,10 +41,10 @@ class Config():
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 0.4
-        self.alpha_r = 0.4
+        self.alpha_i = 0.2
+        self.alpha_r = 0.25
         self.alpha_b = 0.
-        self.alpha_s = 1.4
+        self.alpha_s = 0.6
 
         self.alpha0 = 0#0.1
         self.alpha1 = 0#-5.8
@@ -217,8 +217,9 @@ def plot1():
     ax = fig.add_subplot(Nr,1,5)
     ax.cla()
     ax.set_title("Yp")
-    ax.plot(Yp[0:50-2-3+1])
-    ax.plot(y)
+    ax.plot(Yp[0:T-tau-k+1])
+    #print(Yp.shape,Dp.shape)
+    ax.plot(train_Y_binary[0:T-tau-k+1])
 
     ax = fig.add_subplot(Nr,1,6)
     ax.cla()
@@ -226,14 +227,16 @@ def plot1():
     ax.plot(d)
     ax.plot(y)
     ax.plot()
-
-    plt.show()
-    plt.savefig(c.fig1)
+    
+    if c.show:
+        plt.show()
+    if c.savefig:
+        plt.savefig(c.fig1)
 
 def execute(c):
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM
     global RMSE1,RMSE2
-    global train_Y_binary ,y, d
+    global train_Y_binary ,y, d,tau,k,T
 
 ########################################################################################\
     global dataset,seed,NN,MM,MM0,Nu,Nh,Ny,Temp,dt
@@ -319,9 +322,8 @@ def execute(c):
     # 評価（ビット誤り率, BER）
     train_Y_binary = np.zeros(T-tau-k+1)
 
-    train_Y1 = Yp
+    train_Y = Yp
     rang = 1
-    train_Y_binary = np.zeros(T-tau-k+1)
 
     def ber(train_Y):
         global y,d
@@ -329,19 +331,23 @@ def execute(c):
             if train_Y[n, 0] <= rang/2:
                 train_Y_binary[n] = 0
             else:
-                train_Y_binary[n] = 0.75
+                train_Y_binary[n] = np.tanh(rang)
             
-
         Ybin = train_Y_binary
         y = Ybin[0:T-tau-k+1]
         #d = d[tau+k-1:T,0]
         d = Dp[tau+k-1:T,0]
         BER = np.linalg.norm(y-d,1)/(T-tau-k+1)
-        
+        #print(tau+k-1,T)
         #print('BER =', BER)
         return BER
 
-    BER = ber(train_Y1)
+    BER = ber(train_Y)
+    # plt.plot(y,label = "pred=bin")
+    # plt.plot(d,label="target")
+    # plt.plot(train_Y[0:T-tau-k+1],label = "pred")
+    # plt.legend()
+    # plt.show()
 ######################################################################################
      # Results
     c.RMSE1=None
