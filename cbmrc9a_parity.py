@@ -294,7 +294,7 @@ def execute(c):
         T = MM1 +MM2 +4
         tau = 2         #delay
         k = 3           #3bit
-        D,U,d,_ = generate_PARITY(T,tau,k)
+        D,U,d,_ = generate_parity(T,tau,k)
 
     D1 = D[0:MM1]
     U1 = U[0:MM1]

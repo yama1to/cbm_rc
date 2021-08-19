@@ -5,7 +5,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-def generate_WHITENOISE(T=500,delay=20):
+def generate_white_noise(T=500,delay=20):
     # 時系列入力データ生成
     #T = 500  # 長さ
     u = np.random.rand(T,1)-0.5  # 区間[-0.5, 0.5]の乱数系列
@@ -17,7 +17,7 @@ def generate_WHITENOISE(T=500,delay=20):
 
     return u,d
 
-def generate_PARITY(T,delay,k,Nu=1,Ny=1):
+def generate_parity(T,delay,k,Nu=1,Ny=1):
     
     # 時系列入力データ
     d = np.zeros((T, Ny))
@@ -45,7 +45,7 @@ def generate_PARITY(T,delay,k,Nu=1,Ny=1):
     return train_U,train_D, u,d 
 
 
-def generate_XOR(MM,Nu=1,Ny=1):
+def generate_xor(MM,Nu=1,Ny=1):
     np.random.seed(0)
     #MM=MM+2
     D = np.zeros((MM, Ny))

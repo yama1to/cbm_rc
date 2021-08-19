@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import copy
 import time
 from explorer import common
-from generate_data_sequence2 import *
+from generate_data_sequence import *
 from generate_matrix import *
 
 class Config():
@@ -58,9 +58,10 @@ class Config():
         # Results
         self.RMSE1=None
         self.RMSE2=None
+        self.MC = None 
         self.cnt_overflow=None
         #self.BER = None
-        self.MC = None 
+        
         #self.DC = None 
 
 
@@ -297,7 +298,7 @@ def execute(c):
 
         T = MM1 +MM2
         delay = np.arange(20)
-        U,D = generate_WHITENOISE(T=T,delay = delay)
+        U,D = generate_white_noise(T=T,delay = delay)
   
     D1 = D[0:MM1]
     U1 = U[0:MM1]
@@ -325,7 +326,8 @@ def execute(c):
     for k in range(len(delay)):
         corr = np.corrcoef(np.vstack((D2.T[k, k:], Yp.T[k, k:])))
         DC[k] = corr[0, 1] ** 2
-        MC += DC[k]
+        #MC += DC[k]
+    MC = np.sum(DC)
     """
     plt.plot(DC)
     plt.ylabel("determinant coefficient")
@@ -335,7 +337,7 @@ def execute(c):
     """
 
 
-    
+    #print(MC)
 ######################################################################################
      # Results
     c.RMSE1=None
@@ -343,7 +345,8 @@ def execute(c):
     c.cnt_overflow=cnt_overflow
     #c.BER = None
     #c.DC = DC 
-    c.MC = MC 
+    c.MC = MC
+    print(c.MC,c.cnt_overflow)
 
 #####################################################################################
 

@@ -284,7 +284,7 @@ def execute():
     if c.dataset==4:
         MM1=c.MM
         MM2=c.MM
-        D,U,_,_ = generate_XOR(MM1+MM2+2)
+        D,U,_,_ = generate_xor(MM1+MM2+2)
 
 
     D1 = D[0:MM1]
