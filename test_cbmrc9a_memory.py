@@ -44,7 +44,7 @@ def rs1():
 
 ### 最適化
 def func(row):# 関数funcでtargetを指定する。
-    return row['MC'] + 0.3*row['y2']
+    return row['y1'] + 0.3*row['y2']
 
 def optimize():
     opt.clear()#設定をクリアする
