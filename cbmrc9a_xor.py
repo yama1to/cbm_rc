@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import copy
 import time
 from explorer import common
-from generate_data_sequence import *
+from generate_data_sequence2 import *
 from generate_matrix import *
 
 class Config():
@@ -21,8 +21,8 @@ class Config():
         self.columns = None # 結果をCSVに保存する際のコラム
         self.csv = None # 結果を保存するファイル
         self.id  = None
-        self.plot = False # 図の出力のオンオフ
-        self.show = False # 図の表示（plt.show()）のオンオフ、explorerは実行時にこれをオフにする。
+        self.plot = 1#False # 図の出力のオンオフ
+        self.show = 1#False # 図の表示（plt.show()）のオンオフ、explorerは実行時にこれをオフにする。
         self.savefig = False
         self.fig1 = "fig1.png" ### 画像ファイル名
 
@@ -30,21 +30,21 @@ class Config():
         self.dataset=4
         self.seed:int=0 # 乱数生成のためのシード
         self.NN=200 # １サイクルあたりの時間ステップ
-        self.MM=300 # サイクル数
+        self.MM=50 # サイクル数
         self.MM0 = 0 #
 
         self.Nu = 1   #size of input
-        self.Nh:int = 100 #size of dynamical reservior
+        self.Nh:int = 40 #size of dynamical reservior
         self.Ny = 1   #size of output
 
         self.Temp=1
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 0.45
-        self.alpha_r = 0.15
+        self.alpha_i = 0.747
+        self.alpha_r = 0.526
         self.alpha_b = 0.
-        self.alpha_s = 1.65
+        self.alpha_s = 0.943
 
         self.alpha0 = 0#0.1
         self.alpha1 = 0#-5.8
@@ -217,8 +217,7 @@ def plot1():
     ax = fig.add_subplot(Nr,1,5)
     ax.cla()
     ax.set_title("Yp")
-    ax.plot(Yp)
-    ax.plot(train_Y_binary)
+    ax.plot(train_Y)
 
     ax = fig.add_subplot(Nr,1,6)
     ax.cla()
@@ -227,19 +226,18 @@ def plot1():
     ax.plot(train_Y_binary)
     ax.plot()
 
-    if c.show:plt.show()
-    if c.savefig:plt.savefig(c.fig1)
+    plt.show()
+    plt.savefig(c.fig1)
 
 def execute():
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM
     global RMSE1,RMSE2
-    global train_Y_binary
+    global train_Y_binary,train_Y
 
 
     global dataset,seed,NN,MM,MM0,Nu,Nh,Ny,Temp,dt
     global alpha_i,alpha_b,alpha_r,alpha_s,alpha0,alpha1
     global beta_i,beta_r,beta_b,lambda0
-    global train_Y_binary
 
 
     dataset=c.dataset
@@ -295,19 +293,23 @@ def execute():
     U2 = U[MM1:MM1+MM2]
 
     ### training
-    print("training...")
+    #print("training...")
     MM=MM1
     Dp = np.tanh(D1)
     Up = np.tanh(U1)
-    train_network()
+    train_network() #Up,Dpからネットワークを学習する
+
 
     ### test
-    print("test...")
+    #print("test...")
     MM=MM2
-    Dp = np.tanh(D2)
-    Up = np.tanh(U2)
-    test_network()
+    #Dp = np.tanh(D2)
+    #Up = np.tanh(U2)
 
+    test_network()  
+    #入力にUpがネットワークに入りYpに予測が出力される
+    
+    
     ### Bit error rate
     tau = 2
     T = c.MM
@@ -315,16 +317,21 @@ def execute():
     # 評価（ビット誤り率, BER）
     train_Y_binary = np.zeros(T-tau)
 
-    rang = 1
-    #plt.plot(train_Y)
+    train_Y = fyi(Yp)
+    Dp      = fyi(Dp)
+    rang    = 1
+
     for n in range(T-tau):
-        if Yp[n, 0] > rang/2:
-            train_Y_binary[n] = np.tanh(rang)
+        if train_Y[n, 0] > rang/2:
+            train_Y_binary[n] = rang
         else:
             train_Y_binary[n] = 0
-    BER = np.linalg.norm(train_Y_binary[0:T-tau]-Dp[tau:T,0], 1)/(T-tau)
-    #print(train_Y_binary.shape,Dp.shape)
-    #print('BER =', BER)
+    
+
+    Dp = Dp[:T-tau,0]
+    BER = np.linalg.norm(train_Y_binary-Dp, 1)/(T-tau)
+
+    print('BER ={:.3g}'.format(BER))
     ######################################################################################
      # Results
     c.RMSE1=None
@@ -332,12 +339,14 @@ def execute():
     c.cnt_overflow=cnt_overflow
     c.BER = BER
     #####################################################################################
-    #plt.plot(Dp[tau:T,0],label = "target")
-    #plt.plot(train_Y_binary[0:T-tau],label = "predict")
+    """
+    plt.plot(fyi(Up),label = "input")
+    plt.plot(Dp,label = "target")
+    plt.plot(train_Y_binary,label = "predict")
     #plt.plot(Dp[tau:T,0])
-    #plt.legend()
-    #plt.show()
-
+    plt.legend()
+    plt.show()
+    #"""
     if c.plot: plot1()
 
 if __name__ == "__main__":
