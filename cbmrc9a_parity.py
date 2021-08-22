@@ -29,7 +29,7 @@ class Config():
         # config
         self.dataset=5
         self.seed:int=0 # 乱数生成のためのシード
-        self.NN=200 # １サイクルあたりの時間ステップ
+        self.NN=256 # １サイクルあたりの時間ステップ
         self.MM=50 # サイクル数
         self.MM0 = 0 #
 
@@ -42,9 +42,9 @@ class Config():
 
         #sigma_np = -5
         self.alpha_i = 0.2
-        self.alpha_r = 0.25
+        self.alpha_r = 0.2
         self.alpha_b = 0.
-        self.alpha_s = 0.6
+        self.alpha_s = 1
 
         self.alpha0 = 0#0.1
         self.alpha1 = 0#-5.8
@@ -217,9 +217,10 @@ def plot1():
     ax = fig.add_subplot(Nr,1,5)
     ax.cla()
     ax.set_title("Yp")
-    ax.plot(Yp[0:T-tau-k+1])
+    ax.plot(fyi(Yp))
+    ax.plot(Yp)
     #print(Yp.shape,Dp.shape)
-    ax.plot(train_Y_binary[0:T-tau-k+1])
+    ax.plot(y)
 
     ax = fig.add_subplot(Nr,1,6)
     ax.cla()
@@ -236,7 +237,7 @@ def plot1():
 def execute(c):
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM
     global RMSE1,RMSE2
-    global train_Y_binary ,y, d,tau,k,T
+    global train_Y_binary,y, d,tau,k,T
 
 ########################################################################################\
     global dataset,seed,NN,MM,MM0,Nu,Nh,Ny,Temp,dt
@@ -283,8 +284,7 @@ def execute(c):
 
 
     t_start=time.time()
-    #if c.seed>=0:
-    #np.random.seed(int(c.seed))
+    np.random.seed(int(c.seed))
     
     generate_weight_matrix()
 
@@ -294,60 +294,49 @@ def execute(c):
     if c.dataset==5:
         MM1 = c.MM
         MM2 = c.MM
-        T = MM1 +MM2 +4
-        tau = 2         #delay
+
+        tau = 4         #delay
         k = 3           #3bit
-        D,U,d,_ = generate_parity(T,tau,k)
+        T = MM1 +(tau+k-1)#+MM2 
+        U,D,_,_ = generate_parity(T,tau,k)
 
     D1 = D[0:MM1]
     U1 = U[0:MM1]
-    D2 = D[MM1:MM1+MM2]
-    U2 = U[MM1:MM1+MM2]
+
     ### training
-    print("training...")
+    #print("training...")
     c.MM=MM1
     Dp = np.tanh(D1)
     Up = np.tanh(U1)
     train_network()
 
     ### test
-    print("test...")
+    #print("test...")
+
     c.MM=MM2
-    Dp = np.tanh(D2)
-    Up = np.tanh(U2)
     test_network()
 
     ### Bit error rate
     T =MM2
     # 評価（ビット誤り率, BER）
-    train_Y_binary = np.zeros(T-tau-k+1)
+    Dp = fyi(Dp)
+    train_Y = fyi(Yp)
+    train_Y_binary = np.zeros(T)
 
-    train_Y = Yp
     rang = 1
 
-    def ber(train_Y):
-        global y,d
-        for n in range(T-tau-k+1):
-            if train_Y[n, 0] <= rang/2:
-                train_Y_binary[n] = 0
-            else:
-                train_Y_binary[n] = np.tanh(rang)
-            
-        Ybin = train_Y_binary
-        y = Ybin[0:T-tau-k+1]
-        #d = d[tau+k-1:T,0]
-        d = Dp[tau+k-1:T,0]
-        BER = np.linalg.norm(y-d,1)/(T-tau-k+1)
-        #print(tau+k-1,T)
-        #print('BER =', BER)
-        return BER
+    for n in range(T):
+        if train_Y[n, 0] <= rang/2:
+            train_Y_binary[n] = 0
+        else:
+            train_Y_binary[n] = rang
+    
+    y = train_Y_binary
+    
+    d = Dp[:,0]
+    BER = np.linalg.norm(y-d,1)/T
+    print('BER =', BER)
 
-    BER = ber(train_Y)
-    # plt.plot(y,label = "pred=bin")
-    # plt.plot(d,label="target")
-    # plt.plot(train_Y[0:T-tau-k+1],label = "pred")
-    # plt.legend()
-    # plt.show()
 ######################################################################################
      # Results
     c.RMSE1=None

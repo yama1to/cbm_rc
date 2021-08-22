@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import copy
 import time
 from explorer import common
-from generate_data_sequence2 import *
+from generate_data_sequence import *
 from generate_matrix import *
 
 class Config():

@@ -21,15 +21,15 @@ class Config():
         self.columns = None # 結果をCSVに保存する際のコラム
         self.csv = None # 結果を保存するファイル
         self.id  = None
-        self.plot = False # 図の出力のオンオフ
+        self.plot = True # 図の出力のオンオフ
         self.show = False # 図の表示（plt.show()）のオンオフ、explorerは実行時にこれをオフにする。
         self.savefig = False
         self.fig1 = "fig1.png" ### 画像ファイル名
 
         # config
         self.dataset=6
-        self.seed:int=0 # 乱数生成のためのシード
-        self.NN=200 # １サイクルあたりの時間ステップ
+        self.seed:int=3 # 乱数生成のためのシード
+        self.NN=256 # １サイクルあたりの時間ステップ
         self.MM=500 # サイクル数
         self.MM0 = 200 #
 
@@ -41,10 +41,10 @@ class Config():
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 0.1
-        self.alpha_r = 0.2
+        self.alpha_i = 0.221
+        self.alpha_r = 0.261
         self.alpha_b = 0.
-        self.alpha_s = 0.65
+        self.alpha_s = 0.033
 
         self.alpha0 = 0#0.1
         self.alpha1 = 0#-5.8
@@ -53,13 +53,12 @@ class Config():
         self.beta_r = 0.1
         self.beta_b = 0.1
 
-        self.lambda0 = 0.1
+        self.lambda0 = 0.2
 
         # Results
         self.RMSE1=None
         self.RMSE2=None
         self.MC = None 
-        self.DC = None
         self.cnt_overflow=None
         #self.BER = None
         
@@ -196,7 +195,7 @@ def test_network():
 
 def plot1():
     fig=plt.figure(figsize=(20, 12))
-    Nr=7
+    Nr=6
     ax = fig.add_subplot(Nr,1,1)
     ax.cla()
     ax.set_title("Up")
@@ -222,31 +221,23 @@ def plot1():
     ax = fig.add_subplot(Nr,1,5)
     ax.cla()
     ax.set_title("Yp")
-    ax.plot(Yp.T)
+    ax.plot(Yp)
     #ax.plot(y)
 
     ax = fig.add_subplot(Nr,1,6)
     ax.cla()
-    ax.set_title("Dp")
-    ax.plot(Dp.T)
-    #ax.plot(y)
-    ax.plot()
-
-    ax = fig.add_subplot(Nr,1,7)
-    ax.cla()
-
-    ax.plot(c.DC)
+    ax.plot(DC)
     ax.set_ylabel("determinant coefficient")
     ax.set_xlabel("Delay k")
-    ax.set_title('MC ~ %3.2lf' % c.MC, x=0.8, y=0.9)
+    ax.set_title('MC ~ %3.2lf' % MC, x=0.8, y=0.7)
 
-    if c.show:plt.show()
-    if c.savefig:plt.savefig(c.fig1)
+    plt.show()
+    plt.savefig(c.fig1)
 
 def execute(c):
-    global D,Ds,Dp,U,Us,Up,Rs,R2s,MM
+    global D,Ds,Dp,U,Us,Up,Rs,R2s,MM,Yp
     global RMSE1,RMSE2
-    global train_Y_binary ,y, d
+    global train_Y_binary,MC,DC
 
 ########################################################################################\
     global dataset,seed,NN,MM,MM0,Nu,Nh,Ny,Temp,dt
@@ -265,9 +256,6 @@ def execute(c):
     Nu = c.Nu   #size of input
     Nh = c.Nh #size of dynamical reservior
     Ny = c.Ny   #size of output
-    #print("--------------------------------------------")
- 
-    #print("--------------------------------------------")
 
     Temp=c.Temp
     dt=c.dt #0.01
@@ -293,50 +281,49 @@ def execute(c):
 
 
     t_start=time.time()
-    #if c.seed>=0:
-    #np.random.seed(int(c.seed))
-    
+
     generate_weight_matrix()
 
 
     ### generate data
-    
     if c.dataset==6:
-        MM1 = c.MM
-        MM2 = c.MM
+        delay_s = 20
+        delay = np.arange(delay_s)
+        T = c.MM
+        U,D = generate_white_noise(T=T,delay_s = delay_s)
 
-        T = MM1 +MM2
-        delay = np.arange(20)
-        U,D = generate_white_noise(T=T,delay = delay)
-  
+        MM1 = c.MM
+        MM2 = c.MM -c.MM0
+        
     D1 = D[0:MM1]
     U1 = U[0:MM1]
-    D2 = D[MM1:MM1+MM2]
-    U2 = U[MM1:MM1+MM2]
+
     ### training
-    print("training...")
-    MM=MM1
+    #print("training...")
+    c.MM=MM1
     Dp = np.tanh(D1)
     Up = np.tanh(U1)
-    #print(Up.shape,Dp.shape)
 
     train_network()
 
     ### test
-    print("test...")
-    MM=MM2
-    Dp = np.tanh(D2)
-    Up = np.tanh(U2)
+    c.MM = MM2
+    Dp = np.tanh(D1[c.MM0:])
+    Up = np.tanh(U1[c.MM0:])
     test_network()
 
     # 忘却曲線
     DC = np.zeros((len(delay), 1))  # 決定係数
     MC = 0.0  # 記憶容量
+    Dp = fyi(Dp)
+    Yp = fyi(Yp)
+
     for k in range(len(delay)):
         corr = np.corrcoef(np.vstack((Dp.T[k, k:], Yp.T[k, k:])))
         DC[k] = corr[0, 1] ** 2
-        #MC += DC[k]
+
     MC = np.sum(DC)
+    #plt.show()
     """
     plt.plot(DC)
     plt.ylabel("determinant coefficient")
@@ -353,9 +340,9 @@ def execute(c):
     c.RMSE2=None
     c.cnt_overflow=cnt_overflow
     #c.BER = None
-    c.DC = DC 
+    #c.DC = DC 
     c.MC = MC
-    #print(c.MC,c.cnt_overflow)
+    print(c.MC)#c.cnt_overflow)
 
 #####################################################################################
 
