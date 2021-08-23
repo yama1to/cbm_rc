@@ -28,7 +28,7 @@ class Config():
 
         # config
         self.dataset=4
-        self.seed:int=0 # 乱数生成のためのシード
+        self.seed:int=1 # 乱数生成のためのシード
         self.NN=200 # １サイクルあたりの時間ステップ
         self.MM=50 # サイクル数
         self.MM0 = 0 #
@@ -41,10 +41,10 @@ class Config():
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 0.747
-        self.alpha_r = 0.526
+        self.alpha_i = 1.498
+        self.alpha_r = 0.892
         self.alpha_b = 0.
-        self.alpha_s = 0.943
+        self.alpha_s = 1.998
 
         self.alpha0 = 0#0.1
         self.alpha1 = 0#-5.8
@@ -53,7 +53,7 @@ class Config():
         self.beta_r = 0.1
         self.beta_b = 0.1
 
-        self.lambda0 = 0.1
+        self.lambda0 = 0.011
 
         # Results
         self.RMSE1=None
@@ -225,7 +225,7 @@ def plot1():
     ax.plot(Dp)
     ax.plot(train_Y_binary)
     ax.plot()
-
+    
     plt.show()
     plt.savefig(c.fig1)
 
@@ -234,11 +234,9 @@ def execute():
     global RMSE1,RMSE2
     global train_Y_binary,train_Y
 
-
     global dataset,seed,NN,MM,MM0,Nu,Nh,Ny,Temp,dt
     global alpha_i,alpha_b,alpha_r,alpha_s,alpha0,alpha1
     global beta_i,beta_r,beta_b,lambda0
-
 
     dataset=c.dataset
     
@@ -251,9 +249,6 @@ def execute():
     Nu = c.Nu  #size of input
     Nh = c.Nh  #size of dynamical reservior
     Ny = c.Ny  #size of output
-    #print("--------------------------------------------")
- 
-    #print("--------------------------------------------")
 
     Temp=c.Temp
     dt=c.dt #0.01
@@ -277,59 +272,44 @@ def execute():
     #if c.seed>=0:
     np.random.seed(seed)
 
-
     generate_weight_matrix()
 
     ### generate data
     if c.dataset==4:
-        MM1=c.MM
-        MM2=c.MM
-        U,D = generate_xor(MM1+MM2+2)
-
-
-    D1 = D[0:MM1]
-    U1 = U[0:MM1]
-    D2 = D[MM1:MM1+MM2]
-    U2 = U[MM1:MM1+MM2]
+        MM1=c.MM+2
+        U,D = generate_xor(MM1)
 
     ### training
     #print("training...")
     MM=MM1
-    Dp = np.tanh(D1)
-    Up = np.tanh(U1)
-    train_network() #Up,Dpからネットワークを学習する
-
+    Dp = np.tanh(D)
+    Up = np.tanh(U)
+    train_network()                     #Up,Dpからネットワークを学習する
 
     ### test
     #print("test...")
-    MM=MM2
-    #Dp = np.tanh(D2)
-    #Up = np.tanh(U2)
 
-    test_network()  
-    #入力にUpがネットワークに入りYpに予測が出力される
-    
-    
-    ### Bit error rate
+    test_network()                      #output = Yp
+
     tau = 2
-    T = c.MM
+    T = MM
     
     # 評価（ビット誤り率, BER）
     train_Y_binary = np.zeros(T-tau)
 
-    train_Y = fyi(Yp)
-    Dp      = fyi(Dp)
+    train_Y = fyi(Yp)       #(T-tau,1)
+    Dp      = fyi(Dp)       #(T-tau,1)
     rang    = 1
 
+    #閾値を0.5としてバイナリ変換する
     for n in range(T-tau):
         if train_Y[n, 0] > rang/2:
             train_Y_binary[n] = rang
         else:
             train_Y_binary[n] = 0
     
+    BER = np.linalg.norm(train_Y_binary-Dp[:,0], 1)/(T-tau)
 
-    Dp = Dp[:T-tau,0]
-    BER = np.linalg.norm(train_Y_binary-Dp, 1)/(T-tau)
 
     print('BER ={:.3g}'.format(BER))
     ######################################################################################
@@ -339,14 +319,7 @@ def execute():
     c.cnt_overflow=cnt_overflow
     c.BER = BER
     #####################################################################################
-    """
-    plt.plot(fyi(Up),label = "input")
-    plt.plot(Dp,label = "target")
-    plt.plot(train_Y_binary,label = "predict")
-    #plt.plot(Dp[tau:T,0])
-    plt.legend()
-    plt.show()
-    #"""
+
     if c.plot: plot1()
 
 if __name__ == "__main__":

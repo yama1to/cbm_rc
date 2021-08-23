@@ -5,18 +5,18 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-def generate_white_noise(T=500,delay=20):
+def generate_white_noise(T=500,delay_s=20):
     # 時系列入力データ生成
     #T = 500  # 長さ
     u = np.random.rand(T,1)-0.5  # 区間[-0.5, 0.5]の乱数系列
-
-    d = np.empty((T, len(delay)))
-    for k in range(len(delay)):
+    delay = np.arange(delay_s)
+    d = np.empty((T, delay_s))
+    for k in range(delay_s):
         for t in range(T):
             d[t, k] = u[t-delay[k]]  # 遅延系列
-
     return u,d
 
+    
 def generate_parity(T,delay,k,Nu=1,Ny=1):
     
     # 時系列入力データ
@@ -42,7 +42,7 @@ def generate_parity(T,delay,k,Nu=1,Ny=1):
     train_U = u[tau+k-1:T].reshape(-1, 1)
     train_D = d[tau+k-1:T].reshape(-1, 1)
 
-    return train_U,train_D, u,d 
+    return train_U,train_D
 
 
 def generate_xor(MM,tau = 2,Nu=1,Ny=1):
@@ -249,7 +249,8 @@ if __name__ == "__main__":
     #U = generate_random_spike1(40)
 
     #D,U,d,u = generate_parity(10,1,1)
-    U,D= generate_xor(50)
+    #U,D= generate_xor(50)
+    U,D = generate_white_noise()
     plt.subplot(2, 1, 1)
     plt.plot(U)
     plt.ylabel('U')

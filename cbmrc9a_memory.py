@@ -281,11 +281,14 @@ def execute(c):
 
 
     t_start=time.time()
-
+    #if c.seed>=0:
+    np.random.seed(int(c.seed))
+    
     generate_weight_matrix()
 
 
     ### generate data
+    
     if c.dataset==6:
         delay_s = 20
         delay = np.arange(delay_s)
@@ -293,47 +296,55 @@ def execute(c):
         U,D = generate_white_noise(T=T,delay_s = delay_s)
 
         MM1 = c.MM
-        MM2 = c.MM -c.MM0
-        
-    D1 = D[0:MM1]
-    U1 = U[0:MM1]
+    
+    """
+    書籍付随コードでは入力500を300にしてからネットワークに入れている。
+    これの意味がわからない。乱数系列に過渡応答もクソもないので
+
+    多分本来は入力を500いれて
+    過渡応答後(T>200)のレザバー状態収集行列Gを300にしてWoutの計算をするのではないか
+    と考えている。
+    """
+
+    D1 = D
+    U1 = U 
 
     ### training
     #print("training...")
     c.MM=MM1
-    Dp = np.tanh(D1)
-    Up = np.tanh(U1)
+    
+    #Scale to (-1,1) in R
+    Dp = np.tanh(D1)                # TARGET   #(MM,len(delay))   
+    Up = np.tanh(U1)                # INPUT    #(MM,1)
 
     train_network()
 
+    c.MM=MM1 - MM0
+    Dp = Dp[MM0:]
+    Up = Up[MM0:]
     ### test
-    c.MM = MM2
-    Dp = np.tanh(D1[c.MM0:])
-    Up = np.tanh(U1[c.MM0:])
-    test_network()
+    #print("test...")
+    test_network()                  #OUTPUT = Yp
 
-    # 忘却曲線
+    
     DC = np.zeros((len(delay), 1))  # 決定係数
-    MC = 0.0  # 記憶容量
-    Dp = fyi(Dp)
-    Yp = fyi(Yp)
+    MC = 0.0                        # 記憶容量
 
+    #inv scale
+    Dp = fyi(Dp)                    # TARGET    #(MM,len(delay))
+    Yp = fyi(Yp)                    # PRED      #(MM,len(delay))
+    
+    """
+    予測と目標から決定係数を求める。
+    決定係数の積分が記憶容量
+
+    """
     for k in range(len(delay)):
-        corr = np.corrcoef(np.vstack((Dp.T[k, k:], Yp.T[k, k:])))
-        DC[k] = corr[0, 1] ** 2
+        corr = np.corrcoef(np.vstack((Dp.T[k, k:], Yp.T[k, k:])))   #相関係数
+        DC[k] = corr[0, 1] ** 2                                     #決定係数 = 相関係数 **2
 
     MC = np.sum(DC)
-    #plt.show()
-    """
-    plt.plot(DC)
-    plt.ylabel("determinant coefficient")
-    plt.xlabel("Delay k")
-    plt.title('MC ~ %3.2lf' % MC, x=0.8, y=0.9)
-    plt.show()
-    """
-
-
-    #print(MC)
+   
 ######################################################################################
      # Results
     c.RMSE1=None

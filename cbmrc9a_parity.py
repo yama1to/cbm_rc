@@ -224,10 +224,11 @@ def plot1():
 
     ax = fig.add_subplot(Nr,1,6)
     ax.cla()
-    ax.set_title("Dp")
-    ax.plot(d)
-    ax.plot(y)
-    ax.plot()
+    ax.set_title("y-d")
+    ax.plot(y,label = "pred=bin")
+    ax.plot(d,label="target")
+    ax.legend()
+    
     
     if c.show:
         plt.show()
@@ -256,9 +257,6 @@ def execute(c):
     Nu = c.Nu   #size of input
     Nh = c.Nh #size of dynamical reservior
     Ny = c.Ny   #size of output
-    #print("--------------------------------------------")
- 
-    #print("--------------------------------------------")
 
     Temp=c.Temp
     dt=c.dt #0.01
@@ -281,9 +279,6 @@ def execute(c):
 
 ########################################################################################
 
-
-
-    t_start=time.time()
     np.random.seed(int(c.seed))
     
     generate_weight_matrix()
@@ -298,7 +293,7 @@ def execute(c):
         tau = 4         #delay
         k = 3           #3bit
         T = MM1 +(tau+k-1)#+MM2 
-        U,D,_,_ = generate_parity(T,tau,k)
+        U,D = generate_parity(T,tau,k)
 
     D1 = D[0:MM1]
     U1 = U[0:MM1]
@@ -312,19 +307,19 @@ def execute(c):
 
     ### test
     #print("test...")
-
     c.MM=MM2
-    test_network()
 
-    ### Bit error rate
+    test_network()                  #output = Yp
+
     T =MM2
     # 評価（ビット誤り率, BER）
-    Dp = fyi(Dp)
-    train_Y = fyi(Yp)
-    train_Y_binary = np.zeros(T)
+    Dp = fyi(Dp)                    #TARGET
+    train_Y = fyi(Yp)               #PRED
+    train_Y_binary = np.zeros(T)    #PRED binary
 
     rang = 1
 
+    #閾値を0.5としてバイナリ変換する
     for n in range(T):
         if train_Y[n, 0] <= rang/2:
             train_Y_binary[n] = 0
@@ -332,9 +327,9 @@ def execute(c):
             train_Y_binary[n] = rang
     
     y = train_Y_binary
-    
     d = Dp[:,0]
     BER = np.linalg.norm(y-d,1)/T
+
     print('BER =', BER)
 
 ######################################################################################
