@@ -238,46 +238,7 @@ def plot1():
 def execute(c):
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM
     global RMSE1,RMSE2
-    global train_Y_binary,y, d,tau,k,T
-
-########################################################################################\
-    global dataset,seed,NN,MM,MM0,Nu,Nh,Ny,Temp,dt
-    global alpha_i,alpha_b,alpha_r,alpha_s,alpha0,alpha1
-    global beta_i,beta_r,beta_b,lambda0
-
-
-    dataset=c.dataset
-    
-    seed=int(c.seed) # 乱数生成のためのシード
-    NN=c.NN # １サイクルあたりの時間ステップ
-    MM=c.MM # サイクル数
-    MM0 = c.MM0 #
-   
-
-    Nu = c.Nu   #size of input
-    Nh = c.Nh #size of dynamical reservior
-    Ny = c.Ny   #size of output
-
-    Temp=c.Temp
-    dt=c.dt #0.01
-
-    #sigma_np = -5
-    alpha_i = c.alpha_i
-    alpha_r = c.alpha_r
-    alpha_b = c.alpha_b
-    alpha_s = c.alpha_s
-
-    alpha0 = c.alpha0#0.1
-    alpha1 = c.alpha1#-5.8
-
-    beta_i = c.beta_i
-    beta_r = c.beta_r
-    beta_b = c.beta_b
-
-    lambda0 = c.lambda0
-
-
-########################################################################################
+    global train_Y_binary,y, d,tau,k,T 
 
     np.random.seed(int(c.seed))
     
@@ -307,9 +268,12 @@ def execute(c):
 
     ### test
     #print("test...")
+    c.MM=MM2
+
     test_network()                  #output = Yp
 
     T =MM2
+    
     # 評価（ビット誤り率, BER）
     Dp = fyi(Dp)                    #TARGET
     train_Y = fyi(Yp)               #PRED

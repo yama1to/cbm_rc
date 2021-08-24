@@ -239,53 +239,9 @@ def execute(c):
     global RMSE1,RMSE2
     global train_Y_binary,MC,DC
 
-########################################################################################\
-    global dataset,seed,NN,MM,MM0,Nu,Nh,Ny,Temp,dt
-    global alpha_i,alpha_b,alpha_r,alpha_s,alpha0,alpha1
-    global beta_i,beta_r,beta_b,lambda0
 
-
-    dataset=c.dataset
-    
-    seed=int(c.seed) # 乱数生成のためのシード
-    NN=c.NN # １サイクルあたりの時間ステップ
-    MM=c.MM # サイクル数
-    MM0 = c.MM0 #
-   
-
-    Nu = c.Nu   #size of input
-    Nh = c.Nh #size of dynamical reservior
-    Ny = c.Ny   #size of output
-
-    Temp=c.Temp
-    dt=c.dt #0.01
-
-    #sigma_np = -5
-    alpha_i = c.alpha_i
-    alpha_r = c.alpha_r
-    alpha_b = c.alpha_b
-    alpha_s = c.alpha_s
-
-    alpha0 = c.alpha0#0.1
-    alpha1 = c.alpha1#-5.8
-
-    beta_i = c.beta_i
-    beta_r = c.beta_r
-    beta_b = c.beta_b
-
-    lambda0 = c.lambda0
-
-
-########################################################################################
-
-
-
-    t_start=time.time()
-    #if c.seed>=0:
-    np.random.seed(int(c.seed))
-    
+    np.random.seed(int(c.seed))    
     generate_weight_matrix()
-
 
     ### generate data
     
@@ -295,8 +251,6 @@ def execute(c):
         T = c.MM
         U,D = generate_white_noise(T=T,delay_s = delay_s)
 
-        MM1 = c.MM
-    
     """
     書籍付随コードでは入力500を300にしてからネットワークに入れている。
     これの意味がわからない。乱数系列に過渡応答もクソもないので
@@ -305,17 +259,12 @@ def execute(c):
     過渡応答後(T>200)のレザバー状態収集行列Gを300にしてWoutの計算をするのではないか
     と考えている。
     """
-
-    D1 = D
-    U1 = U 
-
     ### training
     #print("training...")
-    c.MM=MM1
     
     #Scale to (-1,1) in R
-    Dp = np.tanh(D1)                # TARGET   #(MM,len(delay))   
-    Up = np.tanh(U1)                # INPUT    #(MM,1)
+    Dp = np.tanh(D)                # TARGET   #(MM,len(delay))   
+    Up = np.tanh(U)                # INPUT    #(MM,1)
 
     train_network()
 
@@ -349,10 +298,9 @@ def execute(c):
     c.RMSE1=None
     c.RMSE2=None
     c.cnt_overflow=cnt_overflow
-    #c.BER = None
-    #c.DC = DC 
+
     c.MC = MC
-    print(c.MC)#c.cnt_overflow)
+    print("MC =",c.MC)
 
 #####################################################################################
 
