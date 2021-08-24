@@ -307,8 +307,6 @@ def execute(c):
 
     ### test
     #print("test...")
-    c.MM=MM2
-
     test_network()                  #output = Yp
 
     T =MM2

@@ -319,9 +319,8 @@ def execute(c):
 
     train_network()
 
-    c.MM=MM1 - MM0
-    Dp = Dp[MM0:]
-    Up = Up[MM0:]
+    
+    
     ### test
     #print("test...")
     test_network()                  #OUTPUT = Yp
