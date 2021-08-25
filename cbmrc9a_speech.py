@@ -13,6 +13,7 @@ import copy
 import time
 from explorer import common
 from generate_data_sequence import *
+from generate_data_sequence_speech import generate_coch
 from generate_matrix import *
 
 class Config():
@@ -21,30 +22,30 @@ class Config():
         self.columns = None # 結果をCSVに保存する際のコラム
         self.csv = None # 結果を保存するファイル
         self.id  = None
-        self.plot = True # 図の出力のオンオフ
-        self.show = False # 図の表示（plt.show()）のオンオフ、explorerは実行時にこれをオフにする。
+        self.plot = 1#False # 図の出力のオンオフ
+        self.show = 1#False # 図の表示（plt.show()）のオンオフ、explorerは実行時にこれをオフにする。
         self.savefig = False
         self.fig1 = "fig1.png" ### 画像ファイル名
 
         # config
-        self.dataset=6
-        self.seed:int=3 # 乱数生成のためのシード
-        self.NN=256 # １サイクルあたりの時間ステップ
-        self.MM=500 # サイクル数
-        self.MM0 = 200 #
+        self.dataset=7
+        self.seed:int=1 # 乱数生成のためのシード
+        self.NN=200 # １サイクルあたりの時間ステップ
+        self.MM=250 # サイクル数
+        self.MM0 = 0 #
 
-        self.Nu = 1   #size of input
-        self.Nh:int = 20 #size of dynamical reservior
-        self.Ny = 20   #size of output
+        self.Nu = 195#86   #size of input
+        self.Nh:int = 100 #size of dynamical reservior
+        self.Ny = 10   #size of output
 
         self.Temp=1
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 0.221
-        self.alpha_r = 0.261
+        self.alpha_i = 1.498
+        self.alpha_r = 0.892
         self.alpha_b = 0.
-        self.alpha_s = 0.033
+        self.alpha_s = 1.998
 
         self.alpha0 = 0#0.1
         self.alpha1 = 0#-5.8
@@ -53,17 +54,13 @@ class Config():
         self.beta_r = 0.1
         self.beta_b = 0.1
 
-        self.lambda0 = 0.2
+        self.lambda0 = 0.011
 
         # Results
         self.RMSE1=None
         self.RMSE2=None
-        self.MC = None 
         self.cnt_overflow=None
-        #self.BER = None
-        
-        #self.DC = None 
-
+        self.WER = None
 
 def generate_weight_matrix():
     global Wr, Wb, Wo, Wi
@@ -107,11 +104,9 @@ def run_network(mode):
     Us = np.zeros((c.MM*c.NN, c.Nu))
     Ds = np.zeros((c.MM*c.NN, c.Ny))
     Rs = np.zeros((c.MM*c.NN, 1))
-
-    rs = 1
-    rs_prev = 0
-    any_hs_change = True
-    m=0
+    m = 0
+    rs = 0
+#  
     for n in range(c.NN * c.MM):
         theta = np.mod(n/c.NN,1) # (0,1)
         rs_prev = rs
@@ -221,88 +216,70 @@ def plot1():
     ax = fig.add_subplot(Nr,1,5)
     ax.cla()
     ax.set_title("Yp")
-    ax.plot(Yp)
-    #ax.plot(y)
+    ax.plot(train_Y)
 
     ax = fig.add_subplot(Nr,1,6)
     ax.cla()
-    ax.plot(DC)
-    ax.set_ylabel("determinant coefficient")
-    ax.set_xlabel("Delay k")
-    ax.set_title('MC ~ %3.2lf' % MC, x=0.8, y=0.7)
-
+    ax.set_title("Dp")
+    ax.plot(Dp)
+    ax.plot()
+    
     plt.show()
     plt.savefig(c.fig1)
 
-def execute(c):
-    global D,Ds,Dp,U,Us,Up,Rs,R2s,MM,Yp
+def execute():
+    global D,Ds,Dp,U,Us,Up,Rs,R2s,MM
     global RMSE1,RMSE2
-    global train_Y_binary,MC,DC
+    global train_Y
 
-    c.NN = int(c.NN)
-    np.random.seed(seed = int(c.seed))    
+    np.random.seed(c.seed)
+
     generate_weight_matrix()
 
     ### generate data
-    
-    if c.dataset==6:
-        delay_s = 20
-        delay = np.arange(delay_s)
-        T = c.MM
-        U,D = generate_white_noise(T=T,delay_s = delay_s)
+    #  時系列データをコクリアグラムに変換し入力とする
+    #  コクリアグラムがなんの数字に対応しているか one-hotベクトルを作成しTARGETとする
+    #
 
-    """
-    書籍付随コードでは入力500を300にしてからネットワークに入れている。
-    これの意味がわからない。乱数系列に過渡応答もクソもないので
+    if c.dataset==7:
 
-    多分本来は入力を500いれて
-    過渡応答後(T>200)のレザバー状態収集行列Gを300にしてWoutの計算をするのではないか
-    と考えている。
-    """
+        train, valid, train_target, valid_target = generate_coch()
+        U1 = train
+        U2 = valid
+        D1 = train_target
+        D2 = valid_target
+
+    print(U1.shape, D1.shape,   U2.shape,   D2.shape)
+    #(250, 195, 55) (250, 10) (250, 195, 55) (250, 10)
+
     ### training
     #print("training...")
-    
-    #Scale to (-1,1) in R
-    Dp = np.tanh(D)                # TARGET   #(MM,len(delay))   
-    Up = np.tanh(U)                # INPUT    #(MM,1)
 
-    train_network()
+    Dp = fy(D1)              #one-hot vector
+    Up = fy(U1)
+    train_network()                     #Up,Dpからネットワークを学習する
 
-    
-    
     ### test
     #print("test...")
-    test_network()                  #OUTPUT = Yp
+    Up = fy(U2)
 
+    test_network()                      #output = Yp
     
-    DC = np.zeros((len(delay), 1))  # 決定係数
-    MC = 0.0                        # 記憶容量
-
-    #inv scale
-    Dp = fyi(Dp)                    # TARGET    #(MM,len(delay))
-    Yp = fyi(Yp)                    # PRED      #(MM,len(delay))
     
-    """
-    予測と目標から決定係数を求める。
-    決定係数の積分が記憶容量
+    # 評価　Word Error Rate
+    train_Y = fyi(Yp)       # PRED   one-hot vector (one-hot vec,dim)
+    Dp = D2                 # TARGET one-hot vector
 
-    """
-    for k in range(len(delay)):
-        corr = np.corrcoef(np.vstack((Dp.T[k, k:], Yp.T[k, k:])))   #相関係数
-        DC[k] = corr[0, 1] ** 2                                     #決定係数 = 相関係数 **2
+    WER = np.sum(train_Y - Dp) / 250
+    print(WER)
 
-    MC = np.sum(DC)
-   
-######################################################################################
+    ######################################################################################
      # Results
     c.RMSE1=None
     c.RMSE2=None
     c.cnt_overflow=cnt_overflow
-
-    c.MC = MC
-    print("MC =",c.MC)
-
-#####################################################################################
+    c.WER = WER
+    #####################################################################################
 
     if c.plot: plot1()
 
@@ -313,5 +290,5 @@ if __name__ == "__main__":
 
     c=Config()
     if a.config: c=common.load_config(a)
-    execute(c)
+    execute()
     if a.config: common.save_config(c)

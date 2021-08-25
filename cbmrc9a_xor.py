@@ -233,8 +233,8 @@ def execute():
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM
     global RMSE1,RMSE2
     global train_Y_binary,train_Y
-    
-    np.random.seed(seed = c.seed)
+    c.NN = int(c.NN)
+    np.random.seed(seed = int(c.seed))
     generate_weight_matrix()
 
     ### generate data

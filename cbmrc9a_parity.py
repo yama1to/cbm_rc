@@ -239,7 +239,7 @@ def execute(c):
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM
     global RMSE1,RMSE2
     global train_Y_binary,y, d,tau,k,T 
-
+    c.NN = int(c.NN)
     np.random.seed(int(c.seed))
     
     generate_weight_matrix()
