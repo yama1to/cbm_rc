@@ -1,0 +1,5 @@
+import test_cbmrc9a_xor
+import test_cbmrc9a_parity
+import test_cbmrc9a_memory
+
+
