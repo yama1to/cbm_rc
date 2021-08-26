@@ -34,7 +34,7 @@ class Config():
         self.MM=250 # サイクル数
         self.MM0 = 0 #
 
-        self.Nu = 195#86   #size of input
+        self.Nu = 86   #size of input
         self.Nh:int = 100 #size of dynamical reservior
         self.Ny = 10   #size of output
 
@@ -112,9 +112,10 @@ def run_network(mode):
         rs_prev = rs
         hs_prev = hs.copy()
 
-        rs = p2s(theta,0)# 参照クロック
-        us = p2s(theta,Up[m]) # エンコードされた入力
-        ds = p2s(theta,Dp[m]) #
+        rs = p2s(theta,0)       # 参照クロック
+        #print(Up.shape,m,n,c.NN*c.MM)
+        us = p2s(theta,Up[m])    # エンコードされた入力
+        #ds = p2s(theta,Dp[m])   #
         ys = p2s(theta,yp)
 
         sum = np.zeros(c.Nh)
@@ -156,7 +157,7 @@ def run_network(mode):
         Yx[n]=yx
         Ys[n]=ys
         Us[n]=us
-        Ds[n]=ds
+        #Ds[n]=ds
 
     # オーバーフローを検出する。
     global cnt_overflow
@@ -167,25 +168,59 @@ def run_network(mode):
         #print(tmp)
 
 def train_network():
-    global Wo
+    global Wo,Up,Dp,Hp
+    num,len,dim = U1.shape
 
-    run_network(1) # run netwrok with teacher forcing
+    collecting_reservoir_state = np.empty((0,c.Nh))
+    collecting_target = np.zeros((num*len,c.Nh))
 
-    M = Hp[c.MM0:, :]
+    idx = [4850*i for i in range(0,11)]
+    
+    for i in range(10):
+        collecting_target[idx[i]:idx[i+1]][i] = 1
+
+    print(collecting_target.shape)
+
+    for i in range(num):
+        print("dataset:",i)
+        Up = U1[i]
+        c.MM = len-1
+        run_network(1) # run netwrok with teacher forcing
+        collecting_reservoir_state = np.vstack((collecting_reservoir_state,Hp))
+    
+
+    print(collecting_reservoir_state)   
+    print(collecting_reservoir_state.shape)     #48500,100 = dateset*len,Nh
+
+    #データセット一つ＝195時間長を１つにする。頻
+
+
+    Hp = collecting_reservoir_state
+    
+    M = Hp[c.MM0:, :]                           #48500,100 = dateset*len,Nh
     invD = fyi(Dp)
-    G = invD[c.MM0:, :]
+    G = invD[c.MM0:, :]                         #num*len,c.Nh = (48500, 100)
+
+    print(invD.shape)                           #250,10 = dataset,digit
 
     #print("Hp\n",Hp)
     #print("M\n",M)
 
     ### Ridge regression
+
+    
     E = np.identity(c.Nh)
     TMP1 = np.linalg.inv(M.T@M + c.lambda0 * E)
-    WoT = TMP1@M.T@G
+    print(TMP1.shape)   #100,100
+    print(M.T.shape,G.shape)
+    WoT = TMP1@M.T@G    #(100,100)@(100,48500)@(48500,100)
+    print(WoT.shape)
     Wo = WoT.T
+    print(Wo)
     #print("WoT\n", WoT)
 
 def test_network():
+
     run_network(0)
 
 def plot1():
@@ -228,7 +263,7 @@ def plot1():
     plt.savefig(c.fig1)
 
 def execute():
-    global D,Ds,Dp,U,Us,Up,Rs,R2s,MM
+    global D,Ds,Dp,U,Us,Up,Rs,R2s,MM,D1,U1
     global RMSE1,RMSE2
     global train_Y
 
@@ -250,13 +285,15 @@ def execute():
         D2 = valid_target
 
     print(U1.shape, D1.shape,   U2.shape,   D2.shape)
-    #(250, 195, 55) (250, 10) (250, 195, 55) (250, 10)
+    #(250, 195, 86) (250, 10) (250, 195, 86) (250, 10)
+    #データセット数、時間長、周波数チャネル
 
     ### training
     #print("training...")
 
-    Dp = fy(D1)              #one-hot vector
+    Dp = fy(D1)                      #one-hot vector
     Up = fy(U1)
+    print(Dp.shape,Up.shape)
     train_network()                     #Up,Dpからネットワークを学習する
 
     ### test
@@ -272,6 +309,8 @@ def execute():
 
     WER = np.sum(train_Y - Dp) / 250
     print(WER)
+
+
 
     ######################################################################################
      # Results
