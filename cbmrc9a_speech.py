@@ -306,18 +306,19 @@ def execute(c):
     print("yp",Y_pred.shape)
     Y_pred = y 
     print("yp",Y_pred.shape)
-    test_length = 195
+    test_length = 194
 
-    pred_test = np.empty((0, 10))
+    pred_test = np.empty(0,np.int)
     start = 0
 
     #195=１つのデータをまとめる
     for i in range(250):
-        print(i)
+        #print(i)
         tmp = Y_pred[:,start:start+test_length]  # 1つのデータに対する出力
         max_index = np.argmax(tmp, axis=0)  # 最大出力を与える出力ノード番号
         histogram = np.bincount(max_index)  # 出力ノード番号のヒストグラム
-        print(histogram.shape)
+        #print(histogram.shape)
+        #print(histogram)
         pred_test = np.hstack((pred_test, np.argmax(histogram)))  # 最頻値
         start = start + test_length
     print(pred_test.shape)
