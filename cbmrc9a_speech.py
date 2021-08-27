@@ -143,6 +143,9 @@ def run_network(mode):
             hc = np.zeros(c.Nh) #カウンタをリセット
             #ht = 2*hs-1 リファレンスクロック同期用ラッチ動作をコメントアウト
             yp = fy(Wo@hp)
+            print(Wo.shape,hp.shape)#(10,100),(100,)
+            print(yp.shape)#(10,)
+            print(m)
             # record
             Hp[m]=hp
             Yp[m]=yp
@@ -172,25 +175,16 @@ def train_network():
     num,len,dim = U1.shape
 
     collecting_reservoir_state = np.empty((0,c.Nh))
-    collecting_target = np.zeros((num*len,c.Nh))
-
-    idx = [4850*i for i in range(0,11)]
-    
-    for i in range(10):
-        collecting_target[idx[i]:idx[i+1]][i] = 1
-
-    print(collecting_target.shape)
-
     for i in range(num):
-        print("dataset:",i)
+        print("train-dataset:",i)
         Up = U1[i]
         c.MM = len-1
         run_network(1) # run netwrok with teacher forcing
         collecting_reservoir_state = np.vstack((collecting_reservoir_state,Hp))
     
 
-    print(collecting_reservoir_state)   
-    print(collecting_reservoir_state.shape)     #48500,100 = dateset*len,Nh
+    #print(collecting_reservoir_state)   
+    #print(collecting_reservoir_state.shape)     #48500,100 = dateset*len,Nh
 
     #データセット一つ＝195時間長を１つにする。頻
 
@@ -198,10 +192,11 @@ def train_network():
     Hp = collecting_reservoir_state
     
     M = Hp[c.MM0:, :]                           #48500,100 = dateset*len,Nh
+    #invD = fyi(Dp)
     invD = fyi(Dp)
     G = invD[c.MM0:, :]                         #num*len,c.Nh = (48500, 100)
 
-    print(invD.shape)                           #250,10 = dataset,digit
+    #print(invD.shape)                           #250,10 = dataset,digit
 
     #print("Hp\n",Hp)
     #print("M\n",M)
@@ -211,17 +206,28 @@ def train_network():
     
     E = np.identity(c.Nh)
     TMP1 = np.linalg.inv(M.T@M + c.lambda0 * E)
-    print(TMP1.shape)   #100,100
-    print(M.T.shape,G.shape)
+    #print(TMP1.shape)   #100,100
+    #print(M.T.shape,G.shape)
     WoT = TMP1@M.T@G    #(100,100)@(100,48500)@(48500,100)
-    print(WoT.shape)
+    #print(WoT.shape)
     Wo = WoT.T
-    print(Wo)
+    #print(Wo)
     #print("WoT\n", WoT)
+    global y
+    y = Wo@ collecting_reservoir_state.T
 
 def test_network():
+    global Wo,Up,Dp,Hp
+    num,len,dim = U1.shape
 
-    run_network(0)
+    for i in range(num):
+        print("test-dataset:",i)
+        Up = U1[i]
+        c.MM = len-1
+        run_network(0)
+        #collecting_reservoir_state = np.vstack((collecting_reservoir_state,Hp))
+
+    
 
 def plot1():
     fig=plt.figure(figsize=(20, 12))
@@ -262,7 +268,7 @@ def plot1():
     plt.show()
     plt.savefig(c.fig1)
 
-def execute():
+def execute(c):
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM,D1,U1
     global RMSE1,RMSE2
     global train_Y
@@ -285,7 +291,7 @@ def execute():
         D2 = valid_target
 
     print(U1.shape, D1.shape,   U2.shape,   D2.shape)
-    #(250, 195, 86) (250, 10) (250, 195, 86) (250, 10)
+    #(250, 195, 86) (250*195, 10) (250, 195, 86) (250*195, 10)
     #データセット数、時間長、周波数チャネル
 
     ### training
@@ -296,11 +302,48 @@ def execute():
     print(Dp.shape,Up.shape)
     train_network()                     #Up,Dpからネットワークを学習する
 
+    Y_pred = fyi(Yp)
+    print("yp",Y_pred.shape)
+    Y_pred = y 
+    print("yp",Y_pred.shape)
+    test_length = 195
+
+    pred_test = np.empty((0, 10))
+    start = 0
+
+    #195=１つのデータをまとめる
+    for i in range(250):
+        print(i)
+        tmp = Y_pred[:,start:start+test_length]  # 1つのデータに対する出力
+        max_index = np.argmax(tmp, axis=0)  # 最大出力を与える出力ノード番号
+        histogram = np.bincount(max_index)  # 出力ノード番号のヒストグラム
+        print(histogram.shape)
+        pred_test = np.hstack((pred_test, np.argmax(histogram)))  # 最頻値
+        start = start + test_length
+    print(pred_test.shape)
+    
+    Dp = np.zeros((250,10))
+    for i in range(10):
+        Dp[25*i:25*(i+1)][-i-1] = 1
+    count = np.sum(pred_test,Dp)
+    print(count)
+        
+
+
+
+
     ### test
     #print("test...")
     Up = fy(U2)
-
+    Dp = fy(D2)
     test_network()                      #output = Yp
+
+    Y_pred = fyi(Yp)
+    print(Y_pred.shape)
+
+
+    
+
     
     
     # 評価　Word Error Rate
@@ -329,5 +372,5 @@ if __name__ == "__main__":
 
     c=Config()
     if a.config: c=common.load_config(a)
-    execute()
+    execute(c)
     if a.config: common.save_config(c)
