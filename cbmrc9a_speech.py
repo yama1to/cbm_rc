@@ -13,8 +13,8 @@ import copy
 import time
 from explorer import common
 from generate_data_sequence import *
-from generate_data_sequence_speech import generate_coch
 from generate_matrix import *
+from generate_data_sequence_speech import *
 
 class Config():
     def __init__(self):
@@ -22,52 +22,48 @@ class Config():
         self.columns = None # 結果をCSVに保存する際のコラム
         self.csv = None # 結果を保存するファイル
         self.id  = None
-        self.plot = 1#False # 図の出力のオンオフ
-        self.show = 1#False # 図の表示（plt.show()）のオンオフ、explorerは実行時にこれをオフにする。
-        self.savefig = False
+        self.plot = True # 図の出力のオンオフ
+        self.show = True # 図の表示（plt.show()）のオンオフ、explorerは実行時にこれをオフにする。
+        self.savefig = True
         self.fig1 = "fig1.png" ### 画像ファイル名
 
         # config
         self.dataset=7
-        self.seed:int=1 # 乱数生成のためのシード
-        self.NN=200 # １サイクルあたりの時間ステップ
-        self.MM=250 # サイクル数
+        self.seed:int=0 # 乱数生成のためのシード
+        self.NN=256 # １サイクルあたりの時間ステップ
+        self.MM=195 # サイクル数
         self.MM0 = 0 #
 
         self.Nu = 86   #size of input
-        self.Nh:int = 100 #size of dynamical reservior
+        self.Nh = 100 #size of dynamical reservior
         self.Ny = 10   #size of output
 
-        self.Temp=1
+        self.Temp=1.0
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 1.498
-        self.alpha_r = 0.892
+        self.alpha_i = 0.2
+        self.alpha_r = 0.25
         self.alpha_b = 0.
-        self.alpha_s = 1.998
-
-        self.alpha0 = 0#0.1
-        self.alpha1 = 0#-5.8
+        self.alpha_s = 0.6
 
         self.beta_i = 0.1
         self.beta_r = 0.1
         self.beta_b = 0.1
 
-        self.lambda0 = 0.011
+        self.lambda0 = 0.1
 
         # Results
         self.RMSE1=None
         self.RMSE2=None
         self.cnt_overflow=None
-        self.WER = None
 
 def generate_weight_matrix():
     global Wr, Wb, Wo, Wi
     Wr = generate_random_matrix(c.Nh,c.Nh,c.alpha_r,c.beta_r,distribution="one",normalization="sr")
     Wb = generate_random_matrix(c.Nh,c.Ny,c.alpha_b,c.beta_b,distribution="one",normalization="none")
     Wi = generate_random_matrix(c.Nh,c.Nu,c.alpha_i,c.beta_i,distribution="one",normalization="none")
-    Wo = np.zeros(c.Nh * c.Ny).reshape((c.Ny, c.Nh))
+    Wo = np.zeros(c.Nh * c.Ny).reshape(c.Ny, c.Nh)
 
 def fy(h):
     return np.tanh(h)
@@ -104,18 +100,19 @@ def run_network(mode):
     Us = np.zeros((c.MM*c.NN, c.Nu))
     Ds = np.zeros((c.MM*c.NN, c.Ny))
     Rs = np.zeros((c.MM*c.NN, 1))
-    m = 0
-    rs = 0
-#  
+
+    rs = 1
+    rs_prev = 0
+    any_hs_change = True
+    m=0
     for n in range(c.NN * c.MM):
         theta = np.mod(n/c.NN,1) # (0,1)
         rs_prev = rs
         hs_prev = hs.copy()
 
-        rs = p2s(theta,0)       # 参照クロック
-        #print(Up.shape,m,n,c.NN*c.MM)
-        us = p2s(theta,Up[m])    # エンコードされた入力
-        #ds = p2s(theta,Dp[m])   #
+        rs = p2s(theta,0)# 参照クロック
+        us = p2s(theta,Up[m]) # エンコードされた入力
+        ds = p2s(theta,Dp[m]) #
         ys = p2s(theta,yp)
 
         sum = np.zeros(c.Nh)
@@ -123,7 +120,7 @@ def run_network(mode):
         #sum += alpha_s*(hs-rs)*ht # ref.clockと同期させるための結合
         sum += Wi@(2*us-1) # 外部入力
         sum += Wr@(2*hs-1) # リカレント結合
-        
+
         #if mode == 0:
         #    sum += Wb@ys
         #if mode == 1:  # teacher forcing
@@ -143,9 +140,6 @@ def run_network(mode):
             hc = np.zeros(c.Nh) #カウンタをリセット
             #ht = 2*hs-1 リファレンスクロック同期用ラッチ動作をコメントアウト
             yp = fy(Wo@hp)
-            print(Wo.shape,hp.shape)#(10,100),(100,)
-            print(yp.shape)#(10,)
-            print(m)
             # record
             Hp[m]=hp
             Yp[m]=yp
@@ -160,7 +154,7 @@ def run_network(mode):
         Yx[n]=yx
         Ys[n]=ys
         Us[n]=us
-        #Ds[n]=ds
+        Ds[n]=ds
 
     # オーバーフローを検出する。
     global cnt_overflow
@@ -171,63 +165,12 @@ def run_network(mode):
         #print(tmp)
 
 def train_network():
-    global Wo,Up,Dp,Hp
-    num,len,dim = U1.shape
+    global Wo
 
-    collecting_reservoir_state = np.empty((0,c.Nh))
-    for i in range(num):
-        print("train-dataset:",i)
-        Up = U1[i]
-        c.MM = len-1
-        run_network(1) # run netwrok with teacher forcing
-        collecting_reservoir_state = np.vstack((collecting_reservoir_state,Hp))
-    
-
-    #print(collecting_reservoir_state)   
-    #print(collecting_reservoir_state.shape)     #48500,100 = dateset*len,Nh
-
-    #データセット一つ＝195時間長を１つにする。頻
-
-
-    Hp = collecting_reservoir_state
-    
-    M = Hp[c.MM0:, :]                           #48500,100 = dateset*len,Nh
-    #invD = fyi(Dp)
-    invD = fyi(Dp)
-    G = invD[c.MM0:, :]                         #num*len,c.Nh = (48500, 100)
-
-    #print(invD.shape)                           #250,10 = dataset,digit
-
-    #print("Hp\n",Hp)
-    #print("M\n",M)
-
-    ### Ridge regression
-
-    
-    E = np.identity(c.Nh)
-    TMP1 = np.linalg.inv(M.T@M + c.lambda0 * E)
-    #print(TMP1.shape)   #100,100
-    #print(M.T.shape,G.shape)
-    WoT = TMP1@M.T@G    #(100,100)@(100,48500)@(48500,100)
-    #print(WoT.shape)
-    Wo = WoT.T
-    #print(Wo)
-    #print("WoT\n", WoT)
-    global y
-    y = Wo@ collecting_reservoir_state.T
+    run_network(1) # run netwrok with teacher forcing
 
 def test_network():
-    global Wo,Up,Dp,Hp
-    num,len,dim = U1.shape
-
-    for i in range(num):
-        print("test-dataset:",i)
-        Up = U1[i]
-        c.MM = len-1
-        run_network(0)
-        #collecting_reservoir_state = np.vstack((collecting_reservoir_state,Hp))
-
-    
+    run_network(0)
 
 def plot1():
     fig=plt.figure(figsize=(20, 12))
@@ -257,23 +200,22 @@ def plot1():
     ax = fig.add_subplot(Nr,1,5)
     ax.cla()
     ax.set_title("Yp")
-    ax.plot(train_Y)
+    ax.plot(Yp)
 
     ax = fig.add_subplot(Nr,1,6)
     ax.cla()
     ax.set_title("Dp")
     ax.plot(Dp)
-    ax.plot()
-    
+
     plt.show()
     plt.savefig(c.fig1)
 
-def execute(c):
-    global D,Ds,Dp,U,Us,Up,Rs,R2s,MM,D1,U1
+def execute():
+    global D,Ds,Dp,U,Us,Up,Rs,R2s,MM
     global RMSE1,RMSE2
-    global train_Y
-
-    np.random.seed(c.seed)
+    #if c.seed>=0:
+    np.random.seed(int(c.seed))
+    #np.random.seed(c.seed)
 
     generate_weight_matrix()
 
@@ -290,43 +232,69 @@ def execute(c):
         D1 = train_target
         D2 = valid_target
 
-    print(U1.shape, D1.shape,   U2.shape,   D2.shape)
+    #print(U1.shape, D1.shape,   U2.shape,   D2.shape)
     #(250, 195, 86) (250*195, 10) (250, 195, 86) (250*195, 10)
     #データセット数、時間長、周波数チャネル
 
     ### training
     #print("training...")
-
-    Dp = fy(D1)                      #one-hot vector
-    Up = fy(U1)
-    print(Dp.shape,Up.shape)
-    train_network()                     #Up,Dpからネットワークを学習する
-
-    Y_pred = fyi(Yp)
-    print("yp",Y_pred.shape)
-    Y_pred = y 
-    print("yp",Y_pred.shape)
-    test_length = 194
-
-    pred_test = np.empty(0,np.int)
+    datasets_num = 50#DP.shape[0]
+    DP = fy(D1)[:datasets_num]                      #one-hot vector
+    UP = fy(U1)[:datasets_num]
+    #print(DP.shape,UP.shape)#(250, 195, 10)(250, 195, 86)
+    collect_state_matrix = np.empty((0,c.Nh))
+    target_matrix = np.zeros((DP.shape[0]*DP.shape[1],10))
     start = 0
 
-    #195=１つのデータをまとめる
-    for i in range(250):
-        #print(i)
-        tmp = Y_pred[:,start:start+test_length]  # 1つのデータに対する出力
-        max_index = np.argmax(tmp, axis=0)  # 最大出力を与える出力ノード番号
-        histogram = np.bincount(max_index)  # 出力ノード番号のヒストグラム
-        #print(histogram.shape)
-        #print(histogram)
-        pred_test = np.hstack((pred_test, np.argmax(histogram)))  # 最頻値
-        start = start + test_length
-    print(pred_test.shape)
     
-    Dp = np.zeros((250,10))
-    for i in range(10):
-        Dp[25*i:25*(i+1)][-i-1] = 1
-    count = np.sum(pred_test,Dp)
+    length = DP.shape[1]
+    for i in range(datasets_num):
+        Dp = DP[i]
+        Up = UP[i]
+        print(i)
+        train_network()                     #Up,Dpからネットワークを学習する
+        collect_state_matrix = np.vstack((collect_state_matrix,Hp))
+        target_matrix[start:start+length,:] = Dp 
+
+    #print(collect_state_matrix.shape)
+    
+    
+
+    Wout = target_matrix.T @ np.linalg.pinv(collect_state_matrix.T)
+
+    Y_pred = Wout @ collect_state_matrix.T
+    
+
+    pred_train = np.zeros((datasets_num,10))
+    start = 0
+    print("Wout,Y_pred ",Wout.shape,Y_pred.shape)
+    #195=１つのデータをまとめる
+    
+    for i in range(datasets_num):
+        #print(i)
+        tmp = Y_pred[:,start:start+length]  # 1つのデータに対する出力
+        max_index = np.argmax(tmp, axis=0)  # 最大出力を与える出力ノード番号
+
+        histogram = np.bincount(max_index)  # 出力ノード番号のヒストグラム
+        idx = np.argmax(histogram)
+        pred_train[i][idx] = 1  # 最頻値
+        start = start + length
+
+    print("pred_train")
+    print(pred_train.shape)
+    print(pred_train)
+
+    
+    #Dp = Dp.reshape(datasets_num*10)
+    start = 0
+
+    dp = np.zeros(pred_train.shape)
+    for i in range(datasets_num):
+        dp[i] = DP[i,0,:]
+
+    dp = fyi(dp)
+    print(dp)
+    count = np.sum(pred_train-dp)
     print(count)
         
 
@@ -354,16 +322,6 @@ def execute(c):
     WER = np.sum(train_Y - Dp) / 250
     print(WER)
 
-
-
-    ######################################################################################
-     # Results
-    c.RMSE1=None
-    c.RMSE2=None
-    c.cnt_overflow=cnt_overflow
-    c.WER = WER
-    #####################################################################################
-
     if c.plot: plot1()
 
 if __name__ == "__main__":
@@ -373,5 +331,5 @@ if __name__ == "__main__":
 
     c=Config()
     if a.config: c=common.load_config(a)
-    execute(c)
+    execute()
     if a.config: common.save_config(c)
