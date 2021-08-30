@@ -15,6 +15,7 @@ from explorer import common
 from generate_data_sequence import *
 from generate_matrix import *
 from generate_data_sequence_speech import *
+from sklearn.metrics import confusion_matrix
 
 class Config():
     def __init__(self):
@@ -236,9 +237,10 @@ def execute():
     #(250, 195, 86) (250*195, 10) (250, 195, 86) (250*195, 10)
     #データセット数、時間長、周波数チャネル
 
-    ### training
+    ### training ######################################################################
     #print("training...")
-    datasets_num = 250#DP.shape[0]
+    datasets_num = 50#DP.shape[0]
+    
     DP = fy(D1)[:datasets_num]                      #one-hot vector
     UP = fy(U1)[:datasets_num]
 
@@ -256,11 +258,14 @@ def execute():
         collect_state_matrix = np.vstack((collect_state_matrix,Hp))
         target_matrix[start:start+length,:] = Dp 
 
+    #weight matrix
     Wout = target_matrix.T @ np.linalg.pinv(collect_state_matrix.T)
+    M = collect_state_matrix[c.MM0:]
+    G = target_matrix
+    Wout = np.linalg.inv(M.T@M + c.lambda0 * np.identity(c.Nh)) @ M.T @ G
 
-    Y_pred = Wout @ collect_state_matrix.T
-    
-
+    print(Wout.shape,collect_state_matrix.shape)
+    Y_pred = Wout.T @ M.T
     pred_train = np.zeros((datasets_num,10))
     start = 0
 
@@ -271,7 +276,7 @@ def execute():
 
         histogram = np.bincount(max_index)  # 出力ノード番号のヒストグラム
         idx = np.argmax(histogram)
-        pred_train[i][idx] = 1  # 最頻値
+        pred_train[i][idx] = 1              # 最頻値
         start = start + length
 
     dp = np.zeros(pred_train.shape)
@@ -279,25 +284,21 @@ def execute():
         dp[i] = DP[i,0,:]
 
     dp = fyi(dp)
-    WER = np.sum(pred_train-dp)/datasets_num
-    print("Word error rate:",WER)
+    train_WER = np.sum(abs(pred_train-dp)/2)/datasets_num
+    print("train Word error rate:",train_WER)
 
         
-
-
-
-
-    ### test
+    ### test ######################################################################
     #print("test...")
     DP = fy(D2)[:datasets_num]                      #one-hot vector
     UP = fy(U2)[:datasets_num]
     
     collect_state_matrix = np.empty((0,c.Nh))
     target_matrix = np.zeros((DP.shape[0]*DP.shape[1],10))
-    start = 0
 
+    start = 0
     length = DP.shape[1]
-    for i in range(datasets_num):
+    for i in range(c.MM0,datasets_num):
         Dp = DP[i]
         Up = UP[i]
         print("test: ",i)
@@ -305,11 +306,13 @@ def execute():
         collect_state_matrix = np.vstack((collect_state_matrix,Hp))
         target_matrix[start:start+length,:] = Dp 
 
+    print(collect_state_matrix.shape)
     Y_pred = Wout @ collect_state_matrix.T
 
     pred_test = np.zeros((datasets_num,10))
     start = 0
 
+    #194 -> 1に圧縮
     for i in range(datasets_num):
         tmp = Y_pred[:,start:start+length]  # 1つのデータに対する出力
         max_index = np.argmax(tmp, axis=0)  # 最大出力を与える出力ノード番号
@@ -324,9 +327,11 @@ def execute():
         dp[i] = DP[i,0,:]
 
     dp = fyi(dp)
-    WER = np.sum(pred_test-dp)/datasets_num
-    print("Word error rate:",WER)
+    test_WER = np.sum(abs(pred_test-dp)/2)/datasets_num
+    print("test Word error rate:",test_WER)
+    print("train vs test :",train_WER,test_WER)
 
+    cm_test = confusion_matrix(dp, pred_test, range(10))
 
     if c.plot: plot1()
 
