@@ -238,10 +238,10 @@ def execute():
 
     ### training
     #print("training...")
-    datasets_num = 50#DP.shape[0]
+    datasets_num = 250#DP.shape[0]
     DP = fy(D1)[:datasets_num]                      #one-hot vector
     UP = fy(U1)[:datasets_num]
-    #print(DP.shape,UP.shape)#(250, 195, 10)(250, 195, 86)
+
     collect_state_matrix = np.empty((0,c.Nh))
     target_matrix = np.zeros((DP.shape[0]*DP.shape[1],10))
     start = 0
@@ -251,14 +251,10 @@ def execute():
     for i in range(datasets_num):
         Dp = DP[i]
         Up = UP[i]
-        print(i)
+        print("train: ",i)
         train_network()                     #Up,Dpからネットワークを学習する
         collect_state_matrix = np.vstack((collect_state_matrix,Hp))
         target_matrix[start:start+length,:] = Dp 
-
-    #print(collect_state_matrix.shape)
-    
-    
 
     Wout = target_matrix.T @ np.linalg.pinv(collect_state_matrix.T)
 
@@ -267,11 +263,9 @@ def execute():
 
     pred_train = np.zeros((datasets_num,10))
     start = 0
-    print("Wout,Y_pred ",Wout.shape,Y_pred.shape)
-    #195=１つのデータをまとめる
-    
+
     for i in range(datasets_num):
-        #print(i)
+
         tmp = Y_pred[:,start:start+length]  # 1つのデータに対する出力
         max_index = np.argmax(tmp, axis=0)  # 最大出力を与える出力ノード番号
 
@@ -280,22 +274,14 @@ def execute():
         pred_train[i][idx] = 1  # 最頻値
         start = start + length
 
-    print("pred_train")
-    print(pred_train.shape)
-    print(pred_train)
-
-    
-    #Dp = Dp.reshape(datasets_num*10)
-    start = 0
-
     dp = np.zeros(pred_train.shape)
     for i in range(datasets_num):
         dp[i] = DP[i,0,:]
 
     dp = fyi(dp)
-    print(dp)
-    count = np.sum(pred_train-dp)
-    print(count)
+    WER = np.sum(pred_train-dp)/datasets_num
+    print("Word error rate:",WER)
+
         
 
 
@@ -303,24 +289,44 @@ def execute():
 
     ### test
     #print("test...")
-    Up = fy(U2)
-    Dp = fy(D2)
-    test_network()                      #output = Yp
-
-    Y_pred = fyi(Yp)
-    print(Y_pred.shape)
-
-
+    DP = fy(D2)[:datasets_num]                      #one-hot vector
+    UP = fy(U2)[:datasets_num]
     
+    collect_state_matrix = np.empty((0,c.Nh))
+    target_matrix = np.zeros((DP.shape[0]*DP.shape[1],10))
+    start = 0
 
-    
-    
-    # 評価　Word Error Rate
-    train_Y = fyi(Yp)       # PRED   one-hot vector (one-hot vec,dim)
-    Dp = D2                 # TARGET one-hot vector
+    length = DP.shape[1]
+    for i in range(datasets_num):
+        Dp = DP[i]
+        Up = UP[i]
+        print("test: ",i)
+        test_network()                     #Up,Dpからネットワークを学習する
+        collect_state_matrix = np.vstack((collect_state_matrix,Hp))
+        target_matrix[start:start+length,:] = Dp 
 
-    WER = np.sum(train_Y - Dp) / 250
-    print(WER)
+    Y_pred = Wout @ collect_state_matrix.T
+
+    pred_test = np.zeros((datasets_num,10))
+    start = 0
+
+    for i in range(datasets_num):
+        tmp = Y_pred[:,start:start+length]  # 1つのデータに対する出力
+        max_index = np.argmax(tmp, axis=0)  # 最大出力を与える出力ノード番号
+
+        histogram = np.bincount(max_index)  # 出力ノード番号のヒストグラム
+        idx = np.argmax(histogram)
+        pred_test[i][idx] = 1  # 最頻値
+        start = start + length
+
+    dp = np.zeros(pred_test.shape)
+    for i in range(datasets_num):
+        dp[i] = DP[i,0,:]
+
+    dp = fyi(dp)
+    WER = np.sum(pred_test-dp)/datasets_num
+    print("Word error rate:",WER)
+
 
     if c.plot: plot1()
 
