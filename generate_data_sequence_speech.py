@@ -13,8 +13,24 @@ import copy
 
 from lyon.calc import LyonCalc
 
-def generate_coch():
-    np.random.seed(seed=0)
+def shuffle_samples(*args):
+    # *argsで可変長引数を受け取る。変数argsにリストで格納される
+
+    # unzipで複数配列のリスト -> 要素毎にまとめたタプルのリスト　に変換
+    zipped = list(zip(*args))
+    np.random.shuffle(zipped)
+
+    # unzipして複数配列のリストの形に戻す
+    shuffled = list(zip(*zipped))
+    
+    result = []
+    # np.arrayに変換する処理
+    for ar in shuffled:
+        result.append(np.asarray(ar))
+    return result
+
+def generate_coch(seed = 0):
+    np.random.seed(seed=seed)
 
     num=["00","01","02","03","04","05","06","07","08","09"]
     person = ["f1","f2","m2","m3","m5"]
@@ -110,14 +126,22 @@ def generate_coch():
 
     for i in range(shap[0]):
         collecting_target[i,:,i//25] = 1
+    
+    train_target = copy.copy(collecting_target)
 
-    #print(collecting_target)
-    return train_coch,valid_coch ,collecting_target, collecting_target
+    valid_coch,valid_target = shuffle_samples(valid_coch,collecting_target)
+
+
+    return train_coch,valid_coch ,train_target, valid_target
+
 
 if __name__ == "__main__":
 
     t,v,tD,vD = generate_coch()
     print(t.shape,v.shape,tD.shape,vD.shape)
+    print(np.sum(abs(tD-vD)))
+    #$print(vD)
+
     """print(t[0],v[10])
     print(tD == vD)
     tD = tD-1
