@@ -11,6 +11,8 @@ import scipy.linalg
 import matplotlib.pyplot as plt
 import copy
 import time
+
+from scipy.sparse import data
 from explorer import common
 from generate_data_sequence import *
 from generate_matrix import *
@@ -55,9 +57,8 @@ class Config():
         self.lambda0 = 0.1
 
         # Results
-        self.RMSE1=None
-        self.RMSE2=None
         self.cnt_overflow=None
+        self.WER  =None
 
 def generate_weight_matrix():
     global Wr, Wb, Wo, Wi
@@ -239,7 +240,7 @@ def execute():
 
     ### training ######################################################################
     #print("training...")
-    datasets_num = 50#DP.shape[0]
+    datasets_num = 250#DP.shape[0]
     
     DP = fy(D1)[:datasets_num]                      #one-hot vector
     UP = fy(U1)[:datasets_num]
@@ -259,6 +260,8 @@ def execute():
         target_matrix[start:start+length,:] = Dp 
 
     #weight matrix
+    #"""
+    #ridge reg
     Wout = target_matrix.T @ np.linalg.pinv(collect_state_matrix.T)
     M = collect_state_matrix[c.MM0:]
     G = target_matrix
@@ -266,6 +269,9 @@ def execute():
 
     print(Wout.shape,collect_state_matrix.shape)
     Y_pred = Wout.T @ M.T
+    #"""
+
+
     pred_train = np.zeros((datasets_num,10))
     start = 0
 
@@ -307,7 +313,8 @@ def execute():
         target_matrix[start:start+length,:] = Dp 
 
     print(collect_state_matrix.shape)
-    Y_pred = Wout @ collect_state_matrix.T
+    print(Wout.shape,collect_state_matrix.shape)
+    Y_pred = Wout.T @ collect_state_matrix.T
 
     pred_test = np.zeros((datasets_num,10))
     start = 0
@@ -330,9 +337,19 @@ def execute():
     test_WER = np.sum(abs(pred_test-dp)/2)/datasets_num
     print("test Word error rate:",test_WER)
     print("train vs test :",train_WER,test_WER)
+    
+    for i in range(datasets_num):
+        print(i)
+        print(pred_test[i])
+        print(dp[i])
 
-    cm_test = confusion_matrix(dp, pred_test, range(10))
+    #cm_test = confusion_matrix(dp, pred_test, range(10))
+    ########################################################################################
 
+    c.cnt_overflow = cnt_overflow
+    c.WER = test_WER
+
+    ########################################################################################
     if c.plot: plot1()
 
 if __name__ == "__main__":
