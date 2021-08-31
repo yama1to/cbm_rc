@@ -14,7 +14,7 @@ import time
 
 from scipy.sparse import data
 from explorer import common
-from generate_data_sequence import *
+#from generate_data_sequence import *
 from generate_matrix import *
 from generate_data_sequence_speech import *
 from sklearn.metrics import confusion_matrix
@@ -25,7 +25,7 @@ class Config():
         self.columns = None # 結果をCSVに保存する際のコラム
         self.csv = None # 結果を保存するファイル
         self.id  = None
-        self.plot = True # 図の出力のオンオフ
+        self.plot = False # 図の出力のオンオフ
         self.show = True # 図の表示（plt.show()）のオンオフ、explorerは実行時にこれをオフにする。
         self.savefig = True
         self.fig1 = "fig1.png" ### 画像ファイル名
@@ -45,7 +45,7 @@ class Config():
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 0.2
+        self.alpha_i = 1
         self.alpha_r = 0.25
         self.alpha_b = 0.
         self.alpha_s = 0.6
@@ -215,11 +215,13 @@ def plot1():
 def execute():
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM
     global RMSE1,RMSE2
-    #if c.seed>=0:
-    np.random.seed(int(c.seed))
-    #np.random.seed(c.seed)
+    #start = time.time()
 
+    c.seed = int(c.seed)
+    c.Nh = int(c.Nh)
+    np.random.seed(c.seed)
     generate_weight_matrix()
+    
 
     ### generate data
     #  時系列データをコクリアグラムに変換し入力とする
@@ -228,19 +230,16 @@ def execute():
 
     if c.dataset==7:
 
-        train, valid, train_target, valid_target = generate_coch()
+        train, valid, train_target, valid_target = generate_coch(seed=c.seed,shuffle=1)
         U1 = train
         U2 = valid
         D1 = train_target
-        D2 = valid_target
+        D2 = valid_target 
 
-    #print(U1.shape, D1.shape,   U2.shape,   D2.shape)
-    #(250, 195, 86) (250*195, 10) (250, 195, 86) (250*195, 10)
-    #データセット数、時間長、周波数チャネル
 
     ### training ######################################################################
-    #print("training...")
-    datasets_num = 250#DP.shape[0]
+    print("training...")
+    datasets_num = 50
     
     DP = fy(D1)[:datasets_num]                      #one-hot vector
     UP = fy(U1)[:datasets_num]
@@ -254,7 +253,7 @@ def execute():
     for i in range(datasets_num):
         Dp = DP[i]
         Up = UP[i]
-        print("train: ",i)
+        
         train_network()                     #Up,Dpからネットワークを学習する
         collect_state_matrix = np.vstack((collect_state_matrix,Hp))
         target_matrix[start:start+length,:] = Dp 
@@ -262,13 +261,11 @@ def execute():
     #weight matrix
     #"""
     #ridge reg
-    Wout = target_matrix.T @ np.linalg.pinv(collect_state_matrix.T)
     M = collect_state_matrix[c.MM0:]
     G = target_matrix
     Wout = np.linalg.inv(M.T@M + c.lambda0 * np.identity(c.Nh)) @ M.T @ G
 
-    print(Wout.shape,collect_state_matrix.shape)
-    Y_pred = Wout.T @ M.T
+    Y_pred = fy(Wout.T @ M.T)
     #"""
 
 
@@ -295,9 +292,9 @@ def execute():
 
         
     ### test ######################################################################
-    #print("test...")
+    print("test...")
     DP = fy(D2)[:datasets_num]                      #one-hot vector
-    UP = fy(U2)[:datasets_num]
+    UP = (U2/1000)[:datasets_num]
     
     collect_state_matrix = np.empty((0,c.Nh))
     target_matrix = np.zeros((DP.shape[0]*DP.shape[1],10))
@@ -307,13 +304,10 @@ def execute():
     for i in range(c.MM0,datasets_num):
         Dp = DP[i]
         Up = UP[i]
-        print("test: ",i)
         test_network()                     #Up,Dpからネットワークを学習する
         collect_state_matrix = np.vstack((collect_state_matrix,Hp))
         target_matrix[start:start+length,:] = Dp 
 
-    print(collect_state_matrix.shape)
-    print(Wout.shape,collect_state_matrix.shape)
     Y_pred = Wout.T @ collect_state_matrix.T
 
     pred_test = np.zeros((datasets_num,10))
@@ -337,17 +331,21 @@ def execute():
     test_WER = np.sum(abs(pred_test-dp)/2)/datasets_num
     print("test Word error rate:",test_WER)
     print("train vs test :",train_WER,test_WER)
-    
+
+        # t = time.time() - start
+        
+        # print("処理時間: "+str(t)+" sec")
+    """
     for i in range(datasets_num):
         print(i)
         print(pred_test[i])
-        print(dp[i])
+        print(dp[i])"""
 
     #cm_test = confusion_matrix(dp, pred_test, range(10))
     ########################################################################################
 
-    c.cnt_overflow = cnt_overflow
-    c.WER = test_WER
+    c.cnt_overflow  = cnt_overflow
+    c.WER           = test_WER
 
     ########################################################################################
     if c.plot: plot1()
@@ -359,5 +357,7 @@ if __name__ == "__main__":
 
     c=Config()
     if a.config: c=common.load_config(a)
+    
     execute()
+    
     if a.config: common.save_config(c)
