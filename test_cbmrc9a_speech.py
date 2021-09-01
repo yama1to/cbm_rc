@@ -21,7 +21,7 @@ config = Config()
 common.config  = config
 common.prefix  = "data%s_cbmrc9a_speech" % common.string_now() # 実験名（ファイルの接頭辞）
 common.dir_path= "data/data%s_cbmrc9a_speech" % common.string_now() # 実験データを出力するディレクトリのパス
-common.exe     = "python cbmrc9a_xor.py " # 実行されるプログラム
+common.exe     = "python cbmrc9a_speech.py " # 実行されるプログラム
 common.columns =['dataset','seed','id','NN','Nh','alpha_i','alpha_r','alpha_b','alpha_s','beta_i','beta_r','beta_b','Temp','lambda0','cnt_overflow','WER']
 common.parallel= 24
 common.setup()
@@ -51,13 +51,9 @@ def optimize():
     opt.appendid()#id:必ず加える
     opt.appendseed()# 乱数のシード（０から始まる整数値）
     # 変数の追加([変数名],[基本値],[下端],[上端],[まるめの桁数])
-    opt.append("alpha_i",value=0.2,min=0.01,max=1,round=3)
-    opt.append("alpha_r",value=0.2,min=0.01,max=1,round=3)
-    opt.append("alpha_s",value=0.6,min=0.01,max=2,round=3)
-    opt.append("Nh"     ,value=100,min=20,max=200,round=3)
-    opt.append("beta_i" ,value=0.1,min=0.01,max=5,round=3)
-    opt.append("beta_r" ,value=0.1,min=0.01,max=5,round=3)
-    opt.append("lambda0",value=0.1,min=0.01,max=1,round=3)
+    opt.append("alpha_i",value=1,min=0.01,max=4,round=3)
+    opt.append("alpha_r",value=0.75,min=0.01,max=4,round=3)
+    opt.append("alpha_s",value=2,min=0.01,max=4,round=3)
     opt.minimize(target="WER",iteration=100,population=100,samples=4)
     #opt.minimize(TARGET=func,iteration=5,population=10,samples=4)
     common.config = opt.best_config # 最適化で得られた設定を基本設定とする
