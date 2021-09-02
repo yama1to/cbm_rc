@@ -53,8 +53,6 @@ def getwaves(train,valid,save):
     train_data = np.zeros((250,12500))
     valid_data = np.zeros((250,12500))
     for i in range(10):
-        print(i)
-        #for file_name in train[i]:
         for j in range(train.shape[1]):
             file_name = train[i,j]
             file = "/home/yamato/Downloads/cbm_rc/ti-yamato/"+ str(file_name)+".wav"
@@ -73,8 +71,6 @@ def getwaves(train,valid,save):
                     save_wave_fig(wa,save_file)
                 
                 x+= 1
-                
-
         for j in range(valid.shape[1]):
             file_name = valid[i,j]
             file = "/home/yamato/Downloads/cbm_rc/ti-yamato/"+ str(file_name)+".wav"
@@ -90,7 +86,6 @@ def getwaves(train,valid,save):
                 y = len(wa)
                 valid_data[x1,:y] = wa[:y]
 
-                
                 if save:
                     save_file = "/home/yamato/Downloads/cbm_rc/fig_dir/"+ str(file_name)+".wav"
                     save_wave_fig(wa,save_file)
@@ -152,6 +147,8 @@ def generate_coch(seed = 0,save=0,shuffle=True):
     #generate cochlear
     train_coch,valid_coch = convert2cochlea(train_data,valid_data,save)
 
+    train_coch /= np.max(train_coch)
+    valid_coch /= np.max(valid_coch)
     #generate target
     shap = (250,312,10)
     collecting_target = np.zeros(shap)
