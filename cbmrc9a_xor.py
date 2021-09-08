@@ -29,22 +29,22 @@ class Config():
         # config
         self.dataset=4
         self.seed:int=1 # 乱数生成のためのシード
-        self.NN=200 # １サイクルあたりの時間ステップ
+        self.NN=256 # １サイクルあたりの時間ステップ
         self.MM=50 # サイクル数
         self.MM0 = 0 #
 
         self.Nu = 1   #size of input
-        self.Nh:int = 40 #size of dynamical reservior
+        self.Nh:int = 50 #size of dynamical reservior
         self.Ny = 1   #size of output
-
+    
         self.Temp=1
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 1.498
-        self.alpha_r = 0.892
+        self.alpha_i = 1.
+        self.alpha_r = 0.75
         self.alpha_b = 0.
-        self.alpha_s = 1.998
+        self.alpha_s = 2
 
         self.alpha0 = 0#0.1
         self.alpha1 = 0#-5.8
@@ -53,7 +53,7 @@ class Config():
         self.beta_r = 0.1
         self.beta_b = 0.1
 
-        self.lambda0 = 0.011
+        self.lambda0 = 0.01
 
         # Results
         self.RMSE1=None
@@ -83,8 +83,8 @@ def run_network(mode):
     Hx = np.zeros((c.MM*c.NN, c.Nh))
     Hs = np.zeros((c.MM*c.NN, c.Nh))
     hsign = np.zeros(c.Nh)
-    #hx = np.zeros(Nh)
-    hx = np.random.uniform(0,1,c.Nh) # [0,1]の連続値
+    hx = np.zeros(c.Nh)
+    #hx = np.random.uniform(0,1,c.Nh) # [0,1]の連続値
     hs = np.zeros(c.Nh) # {0,1}の２値
     hs_prev = np.zeros(c.Nh)
     hc = np.zeros(c.Nh) # ref.clockに対する位相差を求めるためのカウント
@@ -239,30 +239,38 @@ def execute():
 
     ### generate data
     if c.dataset==4:
-        MM1=c.MM+2
-        U,D = generate_xor(MM1)
-
+        MM1=c.MM
+        MM2 = c.MM+3
+        U,D = generate_xor(MM1+MM2 +2)
+        U1 = U[:MM1]
+        D1 = D[:MM1]
+        U2 = U[MM1:]
+        D2 = D[MM1:]
     ### training
     #print("training...")
-    
-    Dp = np.tanh(D)
-    Up = np.tanh(U)
+    c.MM = MM1
+    Dp = np.tanh(D1)
+    Up = np.tanh(U1)
     train_network()                     #Up,Dpからネットワークを学習する
 
     ### test
     #print("test...")
+    c.MM = MM2
+    Dp = np.tanh(D2)
+    Up = np.tanh(U2)
 
     test_network()                      #output = Yp
 
     tau = 2
-    T = c.MM+2
+    T = MM1 +tau   
     
     # 評価（ビット誤り率, BER）
     train_Y_binary = np.zeros(T-tau)
 
-    train_Y = fyi(Yp)       #(T-tau,1)
-    Dp      = fyi(Dp)       #(T-tau,1)
+    train_Y = fyi(Yp)[tau:-1]     #(T-tau,1)
+    Dp      = fyi(Dp)[tau:-1]     #(T-tau,1)
     rang    = 1
+
 
     #閾値を0.5としてバイナリ変換する
     for n in range(T-tau):

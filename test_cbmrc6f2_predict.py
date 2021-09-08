@@ -16,13 +16,14 @@ from explorer import randomsearch as rs
 from explorer import optimization as opt
 
 ### 共通設定
-from cbmrc9a_narma2 import Config
+from cbmrc6f2_predict import Config
 config = Config()
+
 common.config  = config
-common.prefix  = "data%s_cbmrc9a_narma2" % common.string_now() # 実験名（ファイルの接頭辞）
-common.dir_path= "data/data%s_cbmrc9a_narma2" % common.string_now() # 実験データを出力するディレクトリのパス
-common.exe     = "python cbmrc9a_narma2.py " # 実行されるプログラム
-common.columns =['dataset','seed','id','NN','Nh','alpha_i','alpha_r','alpha_b','alpha_s','beta_i','beta_r','beta_b','Temp','lambda0','cnt_overflow','NMSE','RMSE','NRMSE']
+common.prefix  = "data%s_cbmrc6f2_predict" % common.string_now() # 実験名（ファイルの接頭辞）
+common.dir_path= "data/data%s_cbmrc6f2_predict" % common.string_now() # 実験データを出力するディレクトリのパス
+common.exe     = "python cbmrc6f2_predict.py " # 実行されるプログラム
+common.columns=['dataset','seed','id','NN','Nh','alpha_i','alpha_r','alpha_b','alpha_s','beta_i','beta_r','beta_b','Temp','lambda0','RMSE1','RMSE2','cnt_overflow']
 common.parallel= 24
 common.setup()
 common.report_common()
@@ -35,7 +36,7 @@ def rs1():
     rs.append("alpha_i",min=0,max=5)
     rs.random(num=60,samples=2)
     df = common.load_dataframe() # 直前に保存されたcsvファイルをデータフレーム(df)に読み込む
-    df = df[['alpha_r','alpha_i','cnt_overflow','WER']] # 指定した列のみでデータフレームを構成する
+    df = df[['alpha_r','alpha_i','RMSE1','cnt_overflow']] # 指定した列のみでデータフレームを構成する
     #df = df[(df['y1']<=10.0)] # 条件を満たすデータについてデータフレームを構成する。
     #print(df)
     scatter_matrix(df, alpha=0.8, figsize=(6, 6), diagonal='kde')
@@ -50,18 +51,12 @@ def optimize():
     opt.clear()#設定をクリアする
     opt.appendid()#id:必ず加える
     opt.appendseed()# 乱数のシード（０から始まる整数値）
-    # 変数の追加([変数名],[基本値],[下端],[上端],[まるめの桁数])
-    opt.append("Nh",value=1000,min=100,max=1000,round=3)
-    opt.append("alpha_i",value=1,min=0.01,max=3,round=3)
-    opt.append("alpha_r",value=0.75,min=0.01,max=3,round=3)
-    opt.append("alpha_s",value=2,min=0.01,max=3,round=3)
-    opt.append("beta_i",value=0.1,min=0.01,max=0.3,round=3)
-    opt.append("beta_r",value=0.1,min=0.01,max=0.3,round=3)
-    
-    opt.minimize(target="NMSE",iteration=100,population=100,samples=4)
+    opt.append("beta_i",value=0.1,min=0.01,max=0.2)
+    opt.append("beta_r",value=0.1,min=0.01,max=0.2)
+    opt.minimize(target="RMSE2",iteration=100,population=10,samples=4)
     #opt.minimize(TARGET=func,iteration=5,population=10,samples=4)
     common.config = opt.best_config # 最適化で得られた設定を基本設定とする
-#optimize()
+optimize()
 
 def plot1(x,y,ystd,ymin,ymax,color=None,width=1,label=None):
     # エラーバーをつけてグラフを描画、平均、標準偏差、最大値、最小値をプロットする。
@@ -81,9 +76,9 @@ def gridsearch(X1,min=0,max=1,num=41,samples=10):
     plt.figure(figsize=(6,8))
 
     plt.subplot(2,1,1)
-    x,ymean,ystd,ymin,ymax = vs.analyze(df,X1,"BER")
-    plot1(x,ymean,ystd,ymin,ymax,color=cmap(1),label="BER")
-    plt.ylabel("BER")
+    x,ymean,ystd,ymin,ymax = vs.analyze(df,X1,"RMSE1")
+    plot1(x,ymean,ystd,ymin,ymax,color=cmap(1),label="RMSE1")
+    plt.ylabel("RMSE")
     plt.grid(linestyle="dotted")
 
     plt.subplot(2,1,2)
@@ -99,8 +94,7 @@ def gridsearch(X1,min=0,max=1,num=41,samples=10):
 
 def gs2():
     ns=3
-    # gridsearch("alpha_r",min=0.0,max=2,num=41,samples=ns)
-    # gridsearch("alpha_i",min=0.0,max=1,num=41,samples=ns)
-    # gridsearch("alpha_s",min=0.0,max=1,num=41,samples=ns)
-    gridsearch("beta_r",min=0.0,max=2,num=41,samples=ns)
+    gridsearch("alpha_r",min=0.1,max=2,num=41,samples=ns)
+    gridsearch("alpha_i",min=0.1,max=2,num=41,samples=ns)
+    gridsearch("alpha_s",min=0.1,max=2,num=41,samples=ns)
 gs2()

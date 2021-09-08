@@ -6,6 +6,7 @@ Configクラスによるパラメータ設定
 """
 
 import argparse
+from matplotlib.colors import Normalize
 import numpy as np
 import scipy.linalg
 import matplotlib.pyplot as plt
@@ -14,6 +15,9 @@ import time
 from explorer import common
 from generate_data_sequence_narma import *
 from generate_matrix import *
+from tqdm import tqdm
+
+
 
 class Config():
     def __init__(self):
@@ -31,10 +35,10 @@ class Config():
         self.seed:int=0 # 乱数生成のためのシード
         self.NN=256 # １サイクルあたりの時間ステップ
         self.MM=1000 # サイクル数
-        self.MM0 = 0 #
+        self.MM0 = 200#200 #
 
         self.Nu = 1   #size of input
-        self.Nh = 300 #size of dynamical reservior
+        self.Nh = 500 #size of dynamical reservior
         self.Ny = 1   #size of output
 
         self.Temp=1.0
@@ -47,7 +51,7 @@ class Config():
         self.alpha_s = 2
 
         self.beta_i = 0.1
-        self.beta_r = 0.1
+        self.beta_r = 0.05
         self.beta_b = 0.1
 
         self.lambda0 = 0.1
@@ -76,6 +80,7 @@ def p2s(theta,p):
 
 def run_network(mode):
     global Hx, Hs, Hp, Y, Yx, Ys, Yp, Y, Us, Ds,Rs
+    
     Hp = np.zeros((c.MM, c.Nh))
     Hx = np.zeros((c.MM*c.NN, c.Nh))
     Hs = np.zeros((c.MM*c.NN, c.Nh))
@@ -105,7 +110,7 @@ def run_network(mode):
     rs_prev = 0
     any_hs_change = True
     m=0
-    for n in range(c.NN * c.MM):
+    for n in tqdm(range(c.NN * c.MM), leave=True):
         theta = np.mod(n/c.NN,1) # (0,1)
         rs_prev = rs
         hs_prev = hs.copy()
@@ -127,6 +132,7 @@ def run_network(mode):
         #    sum += Wb@ds
 
         hsign = 1 - 2*hs
+        
         hx = hx + hsign*(1.0+np.exp(hsign*sum/c.Temp))*c.dt
         hs = np.heaviside(hx+hs-1,0)
         hx = np.fmin(np.fmax(hx,0),1)
@@ -208,7 +214,7 @@ def predict():
     yp = np.zeros(c.Ny)
     rs = 1
     rs_prev = 0
-    for i in range(c.MM):
+    for i in tqdm(range(c.MM), leave=True):
         for n in range(c.NN):
             theta = np.mod(n/c.NN,1) # (0,1)
             rs_prev = rs
@@ -277,14 +283,14 @@ def plot0():
 
     ax = fig.add_subplot(Nr,1,5)
     ax.cla()
-    ax.set_title("Yp")
+    ax.set_title("Yp,dp")
     ax.plot(Yp)
     ax.plot(Dp)
 
     ax = fig.add_subplot(Nr,1,6)
     ax.cla()
-    ax.set_title("Dp")
-    ax.plot(abs(Yp-Dp))
+    ax.set_title("Yp")
+    ax.plot(Yp)
 
     plt.show()
 
@@ -292,15 +298,15 @@ def execute():
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM,Yp
     global init_val
     t_start=time.time()
-
+    c.Nh = int(c.Nh)
     np.random.seed(int(c.seed))
 
     generate_weight_matrix()
 
     ### generate data
     if c.dataset==1:
-        MM1 = 1000
-        MM2 = 2200
+        MM1 = 1200
+        MM2 = 2200#2200
         U1,D1  = generate_narma(N=MM1)
         _, D2  = generate_narma(N=MM2)
 
@@ -310,6 +316,7 @@ def execute():
     ### training
     #print("training...")
     c.MM=MM1
+    
     Dp = np.tanh(D1)
     Up = np.tanh(U1)
     train_network()
@@ -325,32 +332,37 @@ def execute():
     
     predict()
 
-    Dp = fy(D2)
+    Dp = D2
     Yp = Yp[200:]
 
 
-    ### evaluation
+    ### evaluation ######################################
     def mse(Yp,Dp):
         error = (Yp-Dp)**2
         ave = np.mean(error)
         return ave
 
     VAR = np.var(Dp)
+    MEAN = np.mean(Dp)
+    normalize = VAR
+
+
     MSE = mse(Yp,Dp)
 
-    NMSE = MSE/VAR#mse(Dp,np.zeros(Dp.shape))
+    NMSE = MSE/normalize#mse(Dp,np.zeros(Dp.shape))
     print("NMSE: ",NMSE)
 
     RMSE = np.sqrt(MSE)
-    print("RMSE: ",RMSE)
+    #print("RMSE: ",RMSE)
 
-    NRMSE = RMSE/VAR
-    print("NRMSE: ",NRMSE)
-
+    NRMSE = RMSE/normalize
+    #print("NRMSE: ",NRMSE)
+    ###########################################################################
     c.NMSE = NMSE
     c.RMSE = RMSE
     c.NRMSE = NRMSE
     c.cnt_overflow=cnt_overflow
+    ###########################################################################
     #print("time: %.6f [sec]" % (time.time()-t_start))
 
     if c.plot: plot0()
