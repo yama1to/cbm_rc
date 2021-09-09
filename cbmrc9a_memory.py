@@ -28,14 +28,14 @@ class Config():
 
         # config
         self.dataset=6
-        self.seed:int=3 # 乱数生成のためのシード
+        self.seed:int=2 # 乱数生成のためのシード
         self.NN=256 # １サイクルあたりの時間ステップ
-        self.MM=500 # サイクル数
+        self.MM=300 # サイクル数
         self.MM0 = 0 #
 
         self.Nu = 1   #size of input
         self.Nh:int = 200#815 #size of dynamical reservior
-        self.Ny = 100   #size of output
+        self.Ny = 20   #size of output
 
         self.Temp=1
         self.dt=1.0/self.NN #0.01
@@ -49,11 +49,11 @@ class Config():
         self.alpha0 = 0#0.1
         self.alpha1 = 0#-5.8
 
-        self.beta_i = 0.5
+        self.beta_i = 0.9
         self.beta_r = 0.2
         self.beta_b = 0.1
 
-        self.lambda0 = 0.01
+        self.lambda0 = 0.1
 
         self.delay = 20
 
@@ -238,6 +238,29 @@ def plot1():
     plt.show()
     plt.savefig(c.fig1)
 
+def plot_delay():
+    fig=plt.figure(figsize=(16,16 ))
+    Nr=20
+    start = 0
+    for i in range(20):
+            ax = fig.add_subplot(Nr,1,i+1)
+            ax.cla()
+            ax.set_title("Yp,Dp, delay = %s" % str(i))
+            ax.plot(Yp.T[i,i:])
+            ax.plot(Dp.T[i,i:])
+
+    plt.show()
+
+
+def plot_MC():
+    plt.plot(DC)
+    plt.ylabel("determinant coefficient")
+    plt.xlabel("Delay k")
+    plt.ylim([0,1])
+    plt.xlim([0,c.delay])
+    plt.title('MC ~ %3.2lf' % MC, x=0.8, y=0.7)
+    plt.show()
+
 def execute(c):
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM,Yp
     global RMSE1,RMSE2
@@ -292,13 +315,7 @@ def execute(c):
         DC[k] = corr[0, 1] ** 2                                     #決定係数 = 相関係数 **2
 
     MC = np.sum(DC)
-    plt.plot(DC)
-    plt.ylabel("determinant coefficient")
-    plt.xlabel("Delay k")
-    plt.ylim([0,1])
-    plt.xlim([0,c.delay])
-    plt.title('MC ~ %3.2lf' % MC, x=0.8, y=0.7)
-    plt.show()
+    
    
 ######################################################################################
      # Results
@@ -310,8 +327,11 @@ def execute(c):
     print("MC =",c.MC)
 
 #####################################################################################
+    if c.plot:
+        plot_delay()
+        plot_MC()
+        plot1()
 
-    #if c.plot: plot1()
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
