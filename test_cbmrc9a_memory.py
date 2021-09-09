@@ -22,8 +22,9 @@ common.config  = config
 common.prefix  = "data%s_cbmrc9a_memory" % common.string_now() # 実験名（ファイルの接頭辞）
 common.dir_path= "data/data%s_cbmrc9a_memory" % common.string_now() # 実験データを出力するディレクトリのパス
 common.exe     = "python cbmrc9a_memory.py " # 実行されるプログラム
-common.columns=['dataset','seed','id','NN','Nh','alpha_i','alpha_r','alpha_b','alpha_s','beta_i','beta_r','beta_b','Temp','lambda0','RMSE1','RMSE2','cnt_overflow','MC']
-common.parallel= 12
+common.columns=['dataset','seed','id','NN','Nh','alpha_i','alpha_r','alpha_b','alpha_s','beta_i','beta_r','beta_b',
+'Temp','lambda0',"delay",'RMSE1','RMSE2','cnt_overflow','MC']
+common.parallel= 24
 common.setup()
 common.report_common()
 common.report_config(config)
@@ -50,9 +51,10 @@ def optimize():
     opt.clear()#設定をクリアする
     opt.appendid()#id:必ず加える
     opt.appendseed()# 乱数のシード（０から始まる整数値）
-    opt.append("alpha_r",value=1.0,min=-5,max=5,round=3)# 変数の追加([変数名],[基本値],[下端],[上端],[まるめの桁数])
-    opt.append("alpha_s",value=1.0,min=-5,max=5)
-    opt.minimize(target="MC",iteration=10,population=10,samples=4)
+    #opt.append("Nh",value=500,min=300,max=1000,round=1)
+    opt.append("beta_r",value=0.05,min=0.001,max=0.5,round=3)
+    opt.append("beta_i",value=0.05,min=0.001,max=0.5,round=3)
+    opt.maximize(target="MC",iteration=10,population=10,samples=4)
     #opt.minimize(TARGET=func,iteration=5,population=10,samples=4)
     common.config = opt.best_config # 最適化で得られた設定を基本設定とする
 #optimize()
@@ -93,7 +95,6 @@ def gridsearch(X1,min=0,max=1,num=41,samples=10):
 
 def gs2():
     ns=3
-    gridsearch("alpha_r",min=0.0,max=2,num=41,samples=ns)
-    gridsearch("alpha_i",min=0.0,max=1,num=41,samples=ns)
-    gridsearch("alpha_s",min=0.0,max=1,num=41,samples=ns)
+    gridsearch("Nh",min=40,max=1000,num=30,samples=ns)
+    
 gs2()
