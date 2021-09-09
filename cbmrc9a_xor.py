@@ -34,7 +34,7 @@ class Config():
         self.MM0 = 0 #
 
         self.Nu = 1   #size of input
-        self.Nh:int = 50 #size of dynamical reservior
+        self.Nh:int = 100 #size of dynamical reservior
         self.Ny = 1   #size of output
     
         self.Temp=1
@@ -49,8 +49,8 @@ class Config():
         self.alpha0 = 0#0.1
         self.alpha1 = 0#-5.8
 
-        self.beta_i = 0.1
-        self.beta_r = 0.1
+        self.beta_i = 0.5
+        self.beta_r = 0.2
         self.beta_b = 0.1
 
         self.lambda0 = 0.01
@@ -258,6 +258,7 @@ def execute():
     c.MM = MM2
     Dp = np.tanh(D2)
     Up = np.tanh(U2)
+
 
     test_network()                      #output = Yp
 

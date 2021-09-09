@@ -25,7 +25,7 @@ class Config():
         self.columns = None # 結果をCSVに保存する際のコラム
         self.csv = None # 結果を保存するファイル
         self.id  = None
-        self.plot = False # 図の出力のオンオフ
+        self.plot = 1#False # 図の出力のオンオフ
         self.show = True # 図の表示（plt.show()）のオンオフ、explorerは実行時にこれをオフにする。
         self.savefig = True
         self.fig1 = "fig1.png" ### 画像ファイル名
@@ -34,10 +34,10 @@ class Config():
         self.dataset=7
         self.seed:int=0 # 乱数生成のためのシード
         self.NN=256 # １サイクルあたりの時間ステップ
-        self.MM=195 # サイクル数
+        self.MM=312 # サイクル数
         self.MM0 = 0 #
 
-        self.Nu = 86   #size of input
+        self.Nu = 78   #size of input
         self.Nh = 100 #size of dynamical reservior
         self.Ny = 10   #size of output
 
@@ -46,9 +46,9 @@ class Config():
 
         #sigma_np = -5
         self.alpha_i = 1
-        self.alpha_r = 0.25
+        self.alpha_r = 0.75
         self.alpha_b = 0.
-        self.alpha_s = 0.6
+        self.alpha_s = 2
 
         self.beta_i = 0.1
         self.beta_r = 0.1
@@ -180,7 +180,8 @@ def plot1():
     ax = fig.add_subplot(Nr,1,1)
     ax.cla()
     ax.set_title("Up")
-    ax.plot(Up)
+    UP1 = UP.reshape((Up[0]*Up[1],78))
+    ax.plot(UP1)
 
     ax = fig.add_subplot(Nr,1,2)
     ax.cla()
@@ -197,23 +198,26 @@ def plot1():
     ax = fig.add_subplot(Nr,1,4)
     ax.cla()
     ax.set_title("Hp")
-    ax.plot(Hp)
+    ax.plot(collect_state_matrix)
 
     ax = fig.add_subplot(Nr,1,5)
     ax.cla()
     ax.set_title("Yp")
-    ax.plot(Yp)
+    ax.plot(pred_test)
+    ax.plot(dp)
 
     ax = fig.add_subplot(Nr,1,6)
     ax.cla()
     ax.set_title("Dp")
-    ax.plot(Dp)
+    ax.plot(target_matrix)
 
     plt.show()
-    plt.savefig(c.fig1)
+    #plt.savefig(c.fig1)
 
 def execute():
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM
+    global collect_state_matrix,target_matrix,pred_test
+    global DP, UP, pred_test,dp
     global RMSE1,RMSE2
     #start = time.time()
 
@@ -230,7 +234,7 @@ def execute():
 
     if c.dataset==7:
 
-        train, valid, train_target, valid_target = generate_coch(seed=c.seed,shuffle=1)
+        train, valid, train_target, valid_target = generate_coch(seed=c.seed)
         U1 = train
         U2 = valid
         D1 = train_target
@@ -239,10 +243,10 @@ def execute():
 
     ### training ######################################################################
     print("training...")
-    datasets_num = 50
+    datasets_num = 250
     
-    DP = fy(D1)[:datasets_num]                      #one-hot vector
-    UP = fy(U1)[:datasets_num]
+    DP = fy(D1[:datasets_num])                      #one-hot vector
+    UP = fy(U1[:datasets_num])
 
     collect_state_matrix = np.empty((0,c.Nh))
     target_matrix = np.zeros((DP.shape[0]*DP.shape[1],10))
@@ -262,7 +266,7 @@ def execute():
     #"""
     #ridge reg
     M = collect_state_matrix[c.MM0:]
-    G = target_matrix
+    G = fyi(target_matrix)
     Wout = np.linalg.inv(M.T@M + c.lambda0 * np.identity(c.Nh)) @ M.T @ G
 
     Y_pred = fy(Wout.T @ M.T)
@@ -273,7 +277,6 @@ def execute():
     start = 0
 
     for i in range(datasets_num):
-
         tmp = Y_pred[:,start:start+length]  # 1つのデータに対する出力
         max_index = np.argmax(tmp, axis=0)  # 最大出力を与える出力ノード番号
 
@@ -293,8 +296,8 @@ def execute():
         
     ### test ######################################################################
     print("test...")
-    DP = fy(D2)[:datasets_num]                      #one-hot vector
-    UP = (U2/1000)[:datasets_num]
+    DP = fy(D2[:datasets_num])                      #one-hot vector
+    UP = fy(U2[:datasets_num])
     
     collect_state_matrix = np.empty((0,c.Nh))
     target_matrix = np.zeros((DP.shape[0]*DP.shape[1],10))
@@ -308,7 +311,7 @@ def execute():
         collect_state_matrix = np.vstack((collect_state_matrix,Hp))
         target_matrix[start:start+length,:] = Dp 
 
-    Y_pred = Wout.T @ collect_state_matrix.T
+    Y_pred = fy(Wout.T @ collect_state_matrix.T)
 
     pred_test = np.zeros((datasets_num,10))
     start = 0

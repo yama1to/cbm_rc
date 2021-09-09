@@ -21,8 +21,8 @@ class Config():
         self.columns = None # 結果をCSVに保存する際のコラム
         self.csv = None # 結果を保存するファイル
         self.id  = None
-        self.plot = False # 図の出力のオンオフ
-        self.show = False # 図の表示（plt.show()）のオンオフ、explorerは実行時にこれをオフにする。
+        self.plot = 1#False # 図の出力のオンオフ
+        self.show = 1#False # 図の表示（plt.show()）のオンオフ、explorerは実行時にこれをオフにする。
         self.savefig = False
         self.fig1 = "fig1.png" ### 画像ファイル名
 
@@ -30,30 +30,30 @@ class Config():
         self.dataset=5
         self.seed:int=0 # 乱数生成のためのシード
         self.NN=256 # １サイクルあたりの時間ステップ
-        self.MM=50 # サイクル数
+        self.MM=500 # サイクル数
         self.MM0 = 0 #
 
         self.Nu = 1   #size of input
-        self.Nh:int = 40 #size of dynamical reservior
+        self.Nh:int = 500 #size of dynamical reservior
         self.Ny = 1   #size of output
 
         self.Temp=1
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 0.2
-        self.alpha_r = 0.2
+        self.alpha_i = 1
+        self.alpha_r = 0.75
         self.alpha_b = 0.
-        self.alpha_s = 1
+        self.alpha_s = 2
 
         self.alpha0 = 0#0.1
         self.alpha1 = 0#-5.8
 
-        self.beta_i = 0.1
-        self.beta_r = 0.1
+        self.beta_i = 0.5
+        self.beta_r = 0.2
         self.beta_b = 0.1
 
-        self.lambda0 = 0.1
+        self.lambda0 = 0.01
 
         # Results
         self.RMSE1=None
@@ -83,8 +83,8 @@ def run_network(mode):
     Hx = np.zeros((c.MM*c.NN, c.Nh))
     Hs = np.zeros((c.MM*c.NN, c.Nh))
     hsign = np.zeros(c.Nh)
-    #hx = np.zeros(Nh)
-    hx = np.random.uniform(0,1,c.Nh) # [0,1]の連続値
+    hx = np.zeros(c.Nh)
+    #hx = np.random.uniform(0,1,c.Nh) # [0,1]の連続値
     hs = np.zeros(c.Nh) # {0,1}の２値
     hs_prev = np.zeros(c.Nh)
     hc = np.zeros(c.Nh) # ref.clockに対する位相差を求めるためのカウント
@@ -217,7 +217,6 @@ def plot1():
     ax = fig.add_subplot(Nr,1,5)
     ax.cla()
     ax.set_title("Yp")
-    ax.plot(fyi(Yp))
     ax.plot(Yp)
     #print(Yp.shape,Dp.shape)
     ax.plot(y)
@@ -272,11 +271,13 @@ def execute(c):
 
     test_network()                  #output = Yp
 
-    T =MM2
+    
     
     # 評価（ビット誤り率, BER）
-    Dp = fyi(Dp)                    #TARGET
-    train_Y = fyi(Yp)               #PRED
+    Dp = fyi(Dp)[k:-k+1]                    #TARGET
+    train_Y = fyi(Yp)[k:-k+1]                    #PRED
+
+    T =train_Y.shape[0]
     train_Y_binary = np.zeros(T)    #PRED binary
 
     rang = 1
