@@ -31,29 +31,31 @@ class Config():
         self.seed:int=3 # 乱数生成のためのシード
         self.NN=256 # １サイクルあたりの時間ステップ
         self.MM=500 # サイクル数
-        self.MM0 = 200 #
+        self.MM0 = 0 #
 
         self.Nu = 1   #size of input
-        self.Nh:int = 20 #size of dynamical reservior
-        self.Ny = 20   #size of output
+        self.Nh:int = 200#815 #size of dynamical reservior
+        self.Ny = 100   #size of output
 
         self.Temp=1
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 0.221
-        self.alpha_r = 0.261
+        self.alpha_i = 1
+        self.alpha_r = 0.75
         self.alpha_b = 0.
-        self.alpha_s = 0.033
+        self.alpha_s = 2
 
         self.alpha0 = 0#0.1
         self.alpha1 = 0#-5.8
 
-        self.beta_i = 0.1
-        self.beta_r = 0.1
+        self.beta_i = 0.5
+        self.beta_r = 0.2
         self.beta_b = 0.1
 
-        self.lambda0 = 0.2
+        self.lambda0 = 0.01
+
+        self.delay = 20
 
         # Results
         self.RMSE1=None
@@ -87,8 +89,8 @@ def run_network(mode):
     Hx = np.zeros((c.MM*c.NN, c.Nh))
     Hs = np.zeros((c.MM*c.NN, c.Nh))
     hsign = np.zeros(c.Nh)
-    #hx = np.zeros(Nh)
-    hx = np.random.uniform(0,1,c.Nh) # [0,1]の連続値
+    hx = np.zeros(c.Nh)
+    #hx = np.random.uniform(0,1,c.Nh) # [0,1]の連続値
     hs = np.zeros(c.Nh) # {0,1}の２値
     hs_prev = np.zeros(c.Nh)
     hc = np.zeros(c.Nh) # ref.clockに対する位相差を求めるためのカウント
@@ -229,6 +231,8 @@ def plot1():
     ax.plot(DC)
     ax.set_ylabel("determinant coefficient")
     ax.set_xlabel("Delay k")
+    ax.set_ylim([0,1])
+    ax.set_xlim([0,c.delay])
     ax.set_title('MC ~ %3.2lf' % MC, x=0.8, y=0.7)
 
     plt.show()
@@ -239,30 +243,25 @@ def execute(c):
     global RMSE1,RMSE2
     global train_Y_binary,MC,DC
 
+
+    c.delay = int(c.delay)
+    c.Ny = c.delay
     c.NN = int(c.NN)
+    c.Nh = int(c.Nh)
+
     np.random.seed(seed = int(c.seed))    
     generate_weight_matrix()
 
     ### generate data
     
     if c.dataset==6:
-        delay_s = 20
-        delay = np.arange(delay_s)
         T = c.MM
-        U,D = generate_white_noise(T=T,delay_s = delay_s)
+        U,D = generate_white_noise(c.delay,T=T,)
 
-    """
-    書籍付随コードでは入力500を300にしてからネットワークに入れている。
-    これの意味がわからない。乱数系列に過渡応答もクソもないので
-
-    多分本来は入力を500いれて
-    過渡応答後(T>200)のレザバー状態収集行列Gを300にしてWoutの計算をするのではないか
-    と考えている。
-    """
     ### training
     #print("training...")
     
-    #Scale to (-1,1) in R
+    #Scale to (-1,1)
     Dp = np.tanh(D)                # TARGET   #(MM,len(delay))   
     Up = np.tanh(U)                # INPUT    #(MM,1)
 
@@ -275,23 +274,31 @@ def execute(c):
     test_network()                  #OUTPUT = Yp
 
     
-    DC = np.zeros((len(delay), 1))  # 決定係数
+    DC = np.zeros((c.delay, 1))  # 決定係数
     MC = 0.0                        # 記憶容量
 
     #inv scale
+    
     Dp = fyi(Dp)                    # TARGET    #(MM,len(delay))
     Yp = fyi(Yp)                    # PRED      #(MM,len(delay))
-    
+    #print(np.max(Dp),np.max(Yp))
     """
     予測と目標から決定係数を求める。
     決定係数の積分が記憶容量
 
     """
-    for k in range(len(delay)):
+    for k in range(c.delay):
         corr = np.corrcoef(np.vstack((Dp.T[k, k:], Yp.T[k, k:])))   #相関係数
         DC[k] = corr[0, 1] ** 2                                     #決定係数 = 相関係数 **2
 
     MC = np.sum(DC)
+    plt.plot(DC)
+    plt.ylabel("determinant coefficient")
+    plt.xlabel("Delay k")
+    plt.ylim([0,1])
+    plt.xlim([0,c.delay])
+    plt.title('MC ~ %3.2lf' % MC, x=0.8, y=0.7)
+    plt.show()
    
 ######################################################################################
      # Results
@@ -304,7 +311,7 @@ def execute(c):
 
 #####################################################################################
 
-    if c.plot: plot1()
+    #if c.plot: plot1()
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()

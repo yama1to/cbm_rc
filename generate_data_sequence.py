@@ -5,15 +5,18 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-def generate_white_noise(T=500,delay_s=20):
+def generate_white_noise(delay_s,T=500,):
     # 時系列入力データ生成
     #T = 500  # 長さ
+    T = T + 200
     u = np.random.rand(T,1)-0.5  # 区間[-0.5, 0.5]の乱数系列
     delay = np.arange(delay_s)
     d = np.empty((T, delay_s))
     for k in range(delay_s):
         for t in range(T):
             d[t, k] = u[t-delay[k]]  # 遅延系列
+    u=u[200:]
+    d=d[200:]
     return u,d
 
     
