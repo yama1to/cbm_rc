@@ -11,13 +11,10 @@ import scipy.linalg
 import matplotlib.pyplot as plt
 import copy
 import time
-
-from scipy.sparse import data
 from explorer import common
-#from generate_data_sequence import *
-from generate_matrix import *
 from generate_data_sequence_speech import *
-from sklearn.metrics import confusion_matrix
+from generate_matrix import *
+from tqdm import tqdm
 
 class Config():
     def __init__(self):
@@ -25,20 +22,21 @@ class Config():
         self.columns = None # 結果をCSVに保存する際のコラム
         self.csv = None # 結果を保存するファイル
         self.id  = None
-        self.plot = 1#False # 図の出力のオンオフ
+        self.plot = True # 図の出力のオンオフ
         self.show = True # 図の表示（plt.show()）のオンオフ、explorerは実行時にこれをオフにする。
         self.savefig = True
         self.fig1 = "fig1.png" ### 画像ファイル名
+        self.tqdm_set = 1
 
         # config
-        self.dataset=7
+        self.dataset=1
         self.seed:int=0 # 乱数生成のためのシード
         self.NN=256 # １サイクルあたりの時間ステップ
-        self.MM=312 # サイクル数
+        self.MM=50 # サイクル数
         self.MM0 = 0 #
 
-        self.Nu = 78   #size of input
-        self.Nh = 100 #size of dynamical reservior
+        self.Nu = 86   #size of input
+        self.Nh = 600 #size of dynamical reservior
         self.Ny = 10   #size of output
 
         self.Temp=1.0
@@ -50,15 +48,15 @@ class Config():
         self.alpha_b = 0.
         self.alpha_s = 2
 
-        self.beta_i = 0.1
-        self.beta_r = 0.1
-        self.beta_b = 0.1
+        self.beta_i = 0.5
+        self.beta_r = 0.2
+        self.beta_b = 0.0
 
         self.lambda0 = 0.1
 
         # Results
+        self.WER = None
         self.cnt_overflow=None
-        self.WER  =None
 
 def generate_weight_matrix():
     global Wr, Wb, Wo, Wi
@@ -82,8 +80,8 @@ def run_network(mode):
     Hx = np.zeros((c.MM*c.NN, c.Nh))
     Hs = np.zeros((c.MM*c.NN, c.Nh))
     hsign = np.zeros(c.Nh)
-    #hx = np.zeros(Nh)
-    hx = np.random.uniform(0,1,c.Nh) # [0,1]の連続値
+    hx = np.zeros(c.Nh)
+    #hx = np.random.uniform(0,1,c.Nh) # [0,1]の連続値
     hs = np.zeros(c.Nh) # {0,1}の２値
     hs_prev = np.zeros(c.Nh)
     hc = np.zeros(c.Nh) # ref.clockに対する位相差を求めるためのカウント
@@ -93,11 +91,10 @@ def run_network(mode):
     Yp = np.zeros((c.MM, c.Ny))
     Yx = np.zeros((c.MM*c.NN, c.Ny))
     Ys = np.zeros((c.MM*c.NN, c.Ny))
-    #ysign = np.zeros(Ny)
+
     yp = np.zeros(c.Ny)
     yx = np.zeros(c.Ny)
     ys = np.zeros(c.Ny)
-    #yc = np.zeros(Ny)
 
     Us = np.zeros((c.MM*c.NN, c.Nu))
     Ds = np.zeros((c.MM*c.NN, c.Ny))
@@ -105,7 +102,7 @@ def run_network(mode):
 
     rs = 1
     rs_prev = 0
-    any_hs_change = True
+
     m=0
     for n in range(c.NN * c.MM):
         theta = np.mod(n/c.NN,1) # (0,1)
@@ -164,7 +161,6 @@ def run_network(mode):
     for m in range(2,c.MM-1):
         tmp = np.sum( np.heaviside( np.fabs(Hp[m+1]-Hp[m]) - 0.6 ,0))
         cnt_overflow += tmp
-        #print(tmp)
 
 def train_network():
     global Wo
@@ -176,107 +172,101 @@ def test_network():
 
 def plot1():
     fig=plt.figure(figsize=(20, 12))
-    Nr=6
+    Nr=3
     ax = fig.add_subplot(Nr,1,1)
     ax.cla()
     ax.set_title("Up")
-    UP1 = UP.reshape((Up[0]*Up[1],78))
-    ax.plot(UP1)
+    ax.plot(UP)
 
     ax = fig.add_subplot(Nr,1,2)
-    ax.cla()
-    ax.set_title("Us")
-    ax.plot(Us)
-    ax.plot(Rs,"r:")
-    #ax.plot(R2s,"b:")
-
-    ax = fig.add_subplot(Nr,1,3)
-    ax.cla()
-    ax.set_title("Hx")
-    ax.plot(Hx)
-
-    ax = fig.add_subplot(Nr,1,4)
     ax.cla()
     ax.set_title("Hp")
     ax.plot(collect_state_matrix)
 
-    ax = fig.add_subplot(Nr,1,5)
+    ax = fig.add_subplot(Nr,1,3)
     ax.cla()
-    ax.set_title("Yp")
+    ax.set_title("Yp,dp")
     ax.plot(pred_test)
-    ax.plot(dp)
+    ax.plot(Dp)
 
-    ax = fig.add_subplot(Nr,1,6)
-    ax.cla()
-    ax.set_title("Dp")
-    ax.plot(target_matrix)
 
     plt.show()
-    #plt.savefig(c.fig1)
+    plt.savefig(c.fig1)
 
 def execute():
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM
-    global collect_state_matrix,target_matrix,pred_test
-    global DP, UP, pred_test,dp
-    global RMSE1,RMSE2
-    #start = time.time()
+    global collect_state_matrix,target_matrix
+    global UP,DP,pred_test,dp,test_WER
+    if c.seed>=0:
+        np.random.seed(int(c.seed))
 
-    c.seed = int(c.seed)
-    c.Nh = int(c.Nh)
-    np.random.seed(c.seed)
     generate_weight_matrix()
-    
 
     ### generate data
-    #  時系列データをコクリアグラムに変換し入力とする
-    #  コクリアグラムがなんの数字に対応しているか one-hotベクトルを作成しTARGETとする
-    #
+    if c.dataset==1:
+        U1,U2,D1,D2, SHAPE = generate_coch(shuffle = 0)
 
-    if c.dataset==7:
+    # dataset_num =250
+    # length = 296
+    (dataset_num,length,c.Nu) = SHAPE
 
-        train, valid, train_target, valid_target = generate_coch(seed=c.seed)
-        U1 = train
-        U2 = valid
-        D1 = train_target
-        D2 = valid_target 
+    MAX1 = np.max(np.max(U1,axis = 1),axis=0)
+    MAX2 = np.max(np.max(U2,axis = 1),axis=0)
+    MAX = max(MAX1,MAX2)
 
+    U1 = U1[:dataset_num*length]/MAX
+    U2 = U2[:dataset_num*length]/MAX
+    D1 = D1[:dataset_num*length]
+    D2 = D2[:dataset_num*length]
+
+  
+    
 
     ### training ######################################################################
-    print("training...")
-    datasets_num = 250
-    
-    DP = fy(D1[:datasets_num])                      #one-hot vector
-    UP = fy(U1[:datasets_num])
+    #print("training...")
 
-    collect_state_matrix = np.empty((0,c.Nh))
-    target_matrix = np.zeros((DP.shape[0]*DP.shape[1],10))
+    DP = D1                     #one-hot vector
+    UP = fy(U1)
+
+    x = U1.shape[0]
+    collect_state_matrix = np.empty((x,c.Nh))
     start = 0
+    target_matrix = DP.copy()
 
-    
-    length = DP.shape[1]
-    for i in range(datasets_num):
-        Dp = DP[i]
-        Up = UP[i]
+    if c.tqdm_set:
+        bar = tqdm(total = dataset_num) 
+        bar.set_description("training...")
+
+    for i in range(dataset_num):
+        if c.tqdm_set:
+            bar.update(1)
+
+        Dp = DP[start:start + length]
+        Up = UP[start:start + length]
         
         train_network()                     #Up,Dpからネットワークを学習する
-        collect_state_matrix = np.vstack((collect_state_matrix,Hp))
-        target_matrix[start:start+length,:] = Dp 
+ 
+        collect_state_matrix[start:start + length,:] = Hp
+        
+        start += length
+        
+        
 
     #weight matrix
     #"""
     #ridge reg
     M = collect_state_matrix[c.MM0:]
-    G = fyi(target_matrix)
+    G = target_matrix[c.MM0:]
+
     Wout = np.linalg.inv(M.T@M + c.lambda0 * np.identity(c.Nh)) @ M.T @ G
+    Y_pred = Wout.T @ M.T
 
-    Y_pred = fy(Wout.T @ M.T)
-    #"""
-
-
-    pred_train = np.zeros((datasets_num,10))
+    pred_train = np.zeros((dataset_num,10))
     start = 0
 
-    for i in range(datasets_num):
+    
+    for i in range(dataset_num):
+
         tmp = Y_pred[:,start:start+length]  # 1つのデータに対する出力
         max_index = np.argmax(tmp, axis=0)  # 最大出力を与える出力ノード番号
 
@@ -285,72 +275,68 @@ def execute():
         pred_train[i][idx] = 1              # 最頻値
         start = start + length
 
-    dp = np.zeros(pred_train.shape)
-    for i in range(datasets_num):
-        dp[i] = DP[i,0,:]
+    dp = [DP[i] for i in range(0,U1.shape[0],length)]
+    dp = dp
+    train_WER = np.sum(abs(pred_train-dp)/2)/dataset_num 
 
-    dp = fyi(dp)
-    train_WER = np.sum(abs(pred_train-dp)/2)/datasets_num
-    print("train Word error rate:",train_WER)
+    #print("train Word error rate:",train_WER)
 
         
     ### test ######################################################################
-    print("test...")
-    DP = fy(D2[:datasets_num])                      #one-hot vector
-    UP = fy(U2[:datasets_num])
-    
-    collect_state_matrix = np.empty((0,c.Nh))
-    target_matrix = np.zeros((DP.shape[0]*DP.shape[1],10))
+    #print("test...")
+    DP = D2                 #one-hot vector
+    UP = fy(U2)
 
     start = 0
-    length = DP.shape[1]
-    for i in range(c.MM0,datasets_num):
-        Dp = DP[i]
-        Up = UP[i]
+
+    target_matrix = Dp.copy()
+
+    if c.tqdm_set:
+        bar = tqdm(total = dataset_num) 
+        bar.set_description("test...")
+
+    for i in range(c.MM0,dataset_num):
+        if c.tqdm_set:
+            bar.update(1)
+
+        Dp = DP[start:start + length]
+        Up = UP[start:start + length]
         test_network()                     #Up,Dpからネットワークを学習する
-        collect_state_matrix = np.vstack((collect_state_matrix,Hp))
-        target_matrix[start:start+length,:] = Dp 
 
-    Y_pred = fy(Wout.T @ collect_state_matrix.T)
+        collect_state_matrix[start:start + length,:] = Hp
+        start += length
 
-    pred_test = np.zeros((datasets_num,10))
+        
+    Y_pred = Wout.T @ collect_state_matrix[c.MM0:].T
+
+    pred_test = np.zeros((dataset_num,10))
     start = 0
 
-    #194 -> 1に圧縮
-    for i in range(datasets_num):
+    #圧縮
+    for i in range(dataset_num):
         tmp = Y_pred[:,start:start+length]  # 1つのデータに対する出力
+
         max_index = np.argmax(tmp, axis=0)  # 最大出力を与える出力ノード番号
 
         histogram = np.bincount(max_index)  # 出力ノード番号のヒストグラム
         idx = np.argmax(histogram)
         pred_test[i][idx] = 1  # 最頻値
+
         start = start + length
-
-    dp = np.zeros(pred_test.shape)
-    for i in range(datasets_num):
-        dp[i] = DP[i,0,:]
-
-    dp = fyi(dp)
-    test_WER = np.sum(abs(pred_test-dp)/2)/datasets_num
+    
+    dp = [DP[i] for i in range(0,U1.shape[0],length)]
+    dp = dp
+    test_WER = np.sum(abs(pred_test-dp)/2)/dataset_num
+    print("\n")
     print("test Word error rate:",test_WER)
     print("train vs test :",train_WER,test_WER)
 
-        # t = time.time() - start
-        
-        # print("処理時間: "+str(t)+" sec")
-    """
-    for i in range(datasets_num):
-        print(i)
-        print(pred_test[i])
-        print(dp[i])"""
 
-    #cm_test = confusion_matrix(dp, pred_test, range(10))
-    ########################################################################################
+    ################################################################################
+    c.WER = test_WER
+    c.cnt_overflow = cnt_overflow
+    ################################################################################
 
-    c.cnt_overflow  = cnt_overflow
-    c.WER           = test_WER
-
-    ########################################################################################
     if c.plot: plot1()
 
 if __name__ == "__main__":
@@ -360,7 +346,5 @@ if __name__ == "__main__":
 
     c=Config()
     if a.config: c=common.load_config(a)
-    
     execute()
-    
     if a.config: common.save_config(c)

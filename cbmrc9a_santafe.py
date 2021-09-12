@@ -12,9 +12,8 @@ import matplotlib.pyplot as plt
 import copy
 import time
 from explorer import common
-from generate_data_sequence_speech import *
+from generate_data_sequence_santafe import *
 from generate_matrix import *
-from tqdm import tqdm
 
 class Config():
     def __init__(self):
@@ -26,36 +25,36 @@ class Config():
         self.show = True # 図の表示（plt.show()）のオンオフ、explorerは実行時にこれをオフにする。
         self.savefig = True
         self.fig1 = "fig1.png" ### 画像ファイル名
-        self.tqdm_set = 0
 
         # config
         self.dataset=1
         self.seed:int=0 # 乱数生成のためのシード
         self.NN=256 # １サイクルあたりの時間ステップ
-        self.MM=50 # サイクル数
+        self.MM=300 # サイクル数
         self.MM0 = 0 #
 
-        self.Nu = 86   #size of input
-        self.Nh = 600 #size of dynamical reservior
-        self.Ny = 10   #size of output
+        self.Nu = 1   #size of input
+        self.Nh = 300 #size of dynamical reservior
+        self.Ny = 1   #size of output
 
         self.Temp=1.0
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 2.1
-        self.alpha_r = 2.1
+        self.alpha_i = 1
+        self.alpha_r = 0.75
         self.alpha_b = 0.
-        self.alpha_s = 3
+        self.alpha_s = 2
 
-        self.beta_i = 0.09
-        self.beta_r = 0.25
-        self.beta_b = 0.0
+        self.beta_i = 0.1
+        self.beta_r = 0.1
+        self.beta_b = 0.1
 
         self.lambda0 = 0.1
 
         # Results
-        self.WER = None
+        self.RMSE1=None
+        self.NMSE=None
         self.cnt_overflow=None
 
 def generate_weight_matrix():
@@ -80,8 +79,8 @@ def run_network(mode):
     Hx = np.zeros((c.MM*c.NN, c.Nh))
     Hs = np.zeros((c.MM*c.NN, c.Nh))
     hsign = np.zeros(c.Nh)
-    hx = np.zeros(c.Nh)
-    #hx = np.random.uniform(0,1,c.Nh) # [0,1]の連続値
+    #hx = np.zeros(Nh)
+    hx = np.random.uniform(0,1,c.Nh) # [0,1]の連続値
     hs = np.zeros(c.Nh) # {0,1}の２値
     hs_prev = np.zeros(c.Nh)
     hc = np.zeros(c.Nh) # ref.clockに対する位相差を求めるためのカウント
@@ -91,10 +90,11 @@ def run_network(mode):
     Yp = np.zeros((c.MM, c.Ny))
     Yx = np.zeros((c.MM*c.NN, c.Ny))
     Ys = np.zeros((c.MM*c.NN, c.Ny))
-
+    #ysign = np.zeros(Ny)
     yp = np.zeros(c.Ny)
     yx = np.zeros(c.Ny)
     ys = np.zeros(c.Ny)
+    #yc = np.zeros(Ny)
 
     Us = np.zeros((c.MM*c.NN, c.Nu))
     Ds = np.zeros((c.MM*c.NN, c.Ny))
@@ -102,7 +102,7 @@ def run_network(mode):
 
     rs = 1
     rs_prev = 0
-
+    any_hs_change = True
     m=0
     for n in range(c.NN * c.MM):
         theta = np.mod(n/c.NN,1) # (0,1)
@@ -161,178 +161,124 @@ def run_network(mode):
     for m in range(2,c.MM-1):
         tmp = np.sum( np.heaviside( np.fabs(Hp[m+1]-Hp[m]) - 0.6 ,0))
         cnt_overflow += tmp
+        #print(tmp)
 
 def train_network():
     global Wo
 
     run_network(1) # run netwrok with teacher forcing
 
+    M = Hp[c.MM0:, :]
+    invD = fyi(Dp)
+    G = invD[c.MM0:, :]
+
+    #print("Hp\n",Hp)
+    #print("M\n",M)
+
+    ### Ridge regression
+    E = np.identity(c.Nh)
+    TMP1 = np.linalg.inv(M.T@M + c.lambda0 * E)
+    WoT = TMP1@M.T@G
+    Wo = WoT.T
+    #print("WoT\n", WoT)
+
 def test_network():
     run_network(0)
 
 def plot1():
     fig=plt.figure(figsize=(20, 12))
-    Nr=3
+    Nr=6
     ax = fig.add_subplot(Nr,1,1)
     ax.cla()
     ax.set_title("Up")
-    ax.plot(UP)
+    ax.plot(Up)
 
     ax = fig.add_subplot(Nr,1,2)
     ax.cla()
-    ax.set_title("Hp")
-    ax.plot(collect_state_matrix)
+    ax.set_title("Us")
+    ax.plot(Us)
+    ax.plot(Rs,"r:")
+    #ax.plot(R2s,"b:")
 
     ax = fig.add_subplot(Nr,1,3)
     ax.cla()
-    ax.set_title("Yp,dp")
-    ax.plot(pred_test)
-    ax.plot(Dp)
+    ax.set_title("Hx")
+    ax.plot(Hx)
 
+    ax = fig.add_subplot(Nr,1,4)
+    ax.cla()
+    ax.set_title("Hp")
+    ax.plot(Hp)
+
+    ax = fig.add_subplot(Nr,1,5)
+    ax.cla()
+    ax.set_title("Yp")
+    
+    ax.plot(Dp)
+    ax.plot(Yp)
+
+
+    ax = fig.add_subplot(Nr,1,6)
+    ax.cla()
+    ax.set_title("Dp")
+    ax.plot(Dp)
 
     plt.show()
     plt.savefig(c.fig1)
 
 def execute():
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM
-    global collect_state_matrix,target_matrix
-    global UP,DP,pred_test,dp,test_WER
-
-    c.Nh = int(c.Nh)
-    if c.seed>=0:
-        np.random.seed(int(c.seed))
+    global RMSE1,RMSE2
+    t_start=time.time()
+    #if c.seed>=0:
+    np.random.seed(int(c.seed))
+    #np.random.seed(c.seed)
 
     generate_weight_matrix()
 
     ### generate data
     if c.dataset==1:
-        U1,U2,D1,D2, SHAPE = generate_coch(shuffle = 0)
-
-    # 250,50,86
-    (dataset_num,length,c.Nu) = SHAPE
-
-    #normalize
-    MAX1 = np.max(np.max(U1,axis = 1),axis=0)
-    MAX2 = np.max(np.max(U2,axis = 1),axis=0)
-    MAX = max(MAX1,MAX2)
-
-    U1 = U1[:dataset_num*length]/MAX
-    U2 = U2[:dataset_num*length]/MAX
-    D1 = D1[:dataset_num*length]
-    D2 = D2[:dataset_num*length]
-
-
-    ### training ######################################################################
-    #print("training...")
-
-    DP = D1                     #one-hot vector
-    UP = fy(U1)
-
-    x = U1.shape[0]
-    collect_state_matrix = np.empty((x,c.Nh))
-    start = 0
-    target_matrix = DP.copy()
-
-    if c.tqdm_set:
-        bar = tqdm(total = dataset_num) 
-        bar.set_description("training...")
-
-    for i in range(dataset_num):
-        if c.tqdm_set:
-            bar.update(1)
-
-        Dp = DP[start:start + length]
-        Up = UP[start:start + length]
-        
-        train_network()                     #Up,Dpからネットワークを学習する
- 
-        collect_state_matrix[start:start + length,:] = Hp
-        
-        start += length
-        
-        
-
-    #weight matrix
-    #"""
-    #ridge reg
-    M = collect_state_matrix[c.MM0:]
-    G = target_matrix[c.MM0:]
-
-    Wout = np.linalg.inv(M.T@M + c.lambda0 * np.identity(c.Nh)) @ M.T @ G
-    Y_pred = Wout.T @ M.T
-
-    pred_train = np.zeros((dataset_num,10))
-    start = 0
-
-    for i in range(dataset_num):
-
-        tmp = Y_pred[:,start:start+length]  # 1つのデータに対する出力
-        max_index = np.argmax(tmp, axis=0)  # 最大出力を与える出力ノード番号
-
-        histogram = np.bincount(max_index)  # 出力ノード番号のヒストグラム
-        idx = np.argmax(histogram)
-        pred_train[i][idx] = 1              # 最頻値
-        start = start + length
-
-    dp = [DP[i] for i in range(0,U1.shape[0],length)]
-    train_WER = np.sum(abs(pred_train-dp)/2)/dataset_num 
-
-    #print("train Word error rate:",train_WER)
-
-        
-    ### test ######################################################################
-    #print("test...")
-    DP = D2                 #one-hot vector
-    UP = fy(U2)
-
-    start = 0
-
-    target_matrix = Dp.copy()
-
-    if c.tqdm_set:
-        bar = tqdm(total = dataset_num) 
-        bar.set_description("test...")
-
-    for i in range(c.MM0,dataset_num):
-        if c.tqdm_set:
-            bar.update(1)
-
-        Dp = DP[start:start + length]
-        Up = UP[start:start + length]
-        test_network()                     #Up,Dpからネットワークを学習する
-
-        collect_state_matrix[start:start + length,:] = Hp
-        start += length
-
-    Y_pred = Wout.T @ collect_state_matrix[c.MM0:].T
-
-    pred_test = np.zeros((dataset_num,10))
-    start = 0
-
-    #圧縮
-    for i in range(dataset_num):
-        tmp = Y_pred[:,start:start+length]  # 1つのデータに対する出力
-
-        max_index = np.argmax(tmp, axis=0)  # 最大出力を与える出力ノード番号
-
-        histogram = np.bincount(max_index)  # 出力ノード番号のヒストグラム
-        idx = np.argmax(histogram)
-        pred_test[i][idx] = 1               # 最頻値
-
-        start = start + length
+        #delay = 1,2,3,4,5
+        t_i,t_t,v_i,v_t = generate_santafe(delay = 30)
     
-    dp = [DP[i] for i in range(0,U1.shape[0],length)]
-    dp = dp
-    test_WER = np.sum(abs(pred_test-dp)/2)/dataset_num
-    print("\n")
-    print("test Word error rate:",test_WER)
-    print("train vs test :",train_WER,test_WER)
+    D1 = t_t 
+    U1 = t_i  
+    D2 = v_t  
+    U2 = v_i 
 
+    ### training
+    #print("training...")
+    c.MM= D1.size
 
-    ################################################################################
-    c.WER = test_WER
-    c.cnt_overflow = cnt_overflow
-    ################################################################################
+    Dp = np.tanh(D1)
+    Up = np.tanh(U1)
+    train_network()
+
+    ### test
+    #print("test...")
+    c.MM= D2.size
+
+    Dp = np.tanh(D2)
+    Up = np.tanh(U2)
+    test_network()
+
+    ### evaluation
+    
+    sum=0
+    for j in range(c.MM0,c.MM):
+        sum += (Yp[j] - Dp[j])**2
+
+    SUM=np.sum(sum)
+    RMSE1 = np.sqrt(SUM/c.Ny/(c.MM-c.MM0))
+    NMSE = SUM/(np.max(Dp)-np.min(Dp))
+
+    c.RMSE1=RMSE1
+    c.NMSE = NMSE
+    c.cnt_overflow=cnt_overflow
+
+    #print(RMSE1)
+    print(NMSE)
+    #print("time: %.6f [sec]" % (time.time()-t_start))
 
     if c.plot: plot1()
 
