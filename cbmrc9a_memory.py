@@ -1,3 +1,36 @@
+
+Skip to content
+Pull requests
+Issues
+Marketplace
+Explore
+@yama1to
+katorilab /
+cbm_rc
+Private
+
+1
+0
+
+    0
+
+Code
+Issues
+Pull requests
+Actions
+Projects
+Wiki
+Security
+
+    Insights
+
+cbm_rc/cbmrc9a_memory.py /
+@YamatoSa
+YamatoSa add plot delay of y and d
+Latest commit d538b1e 3 days ago
+History
+1 contributor
+344 lines (272 sloc) 8.66 KB
 # Copyright (c) 2018-2021 Katori lab. All Rights Reserved
 """
 NOTE: cbm_rc　時系列生成タスク　
@@ -12,9 +45,8 @@ import matplotlib.pyplot as plt
 import copy
 import time
 from explorer import common
-from generate_data_sequence_speech import *
+from generate_data_sequence import *
 from generate_matrix import *
-from tqdm import tqdm
 
 class Config():
     def __init__(self):
@@ -23,47 +55,57 @@ class Config():
         self.csv = None # 結果を保存するファイル
         self.id  = None
         self.plot = True # 図の出力のオンオフ
-        self.show = True # 図の表示（plt.show()）のオンオフ、explorerは実行時にこれをオフにする。
-        self.savefig = True
+        self.show = False # 図の表示（plt.show()）のオンオフ、explorerは実行時にこれをオフにする。
+        self.savefig = False
         self.fig1 = "fig1.png" ### 画像ファイル名
-        self.tqdm_set = 0
 
         # config
-        self.dataset=1
-        self.seed:int=0 # 乱数生成のためのシード
+        self.dataset=6
+        self.seed:int=2 # 乱数生成のためのシード
         self.NN=256 # １サイクルあたりの時間ステップ
-        self.MM=50 # サイクル数
+        self.MM=300 # サイクル数
         self.MM0 = 0 #
 
-        self.Nu = 86   #size of input
-        self.Nh = 600 #size of dynamical reservior
-        self.Ny = 10   #size of output
+        self.Nu = 1   #size of input
+        self.Nh:int = 200#815 #size of dynamical reservior
+        self.Ny = 20   #size of output
 
-        self.Temp=1.0
+        self.Temp=1
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 2.1
-        self.alpha_r = 2.1
+        self.alpha_i = 1
+        self.alpha_r = 0.75
         self.alpha_b = 0.
-        self.alpha_s = 3
+        self.alpha_s = 2
 
-        self.beta_i = 0.09
-        self.beta_r = 0.25
-        self.beta_b = 0.0
+        self.alpha0 = 0#0.1
+        self.alpha1 = 0#-5.8
+
+        self.beta_i = 0.9
+        self.beta_r = 0.2
+        self.beta_b = 0.1
 
         self.lambda0 = 0.1
 
+        self.delay = 20
+
         # Results
-        self.WER = None
+        self.RMSE1=None
+        self.RMSE2=None
+        self.MC = None 
         self.cnt_overflow=None
+        #self.BER = None
+        
+        #self.DC = None 
+
 
 def generate_weight_matrix():
     global Wr, Wb, Wo, Wi
     Wr = generate_random_matrix(c.Nh,c.Nh,c.alpha_r,c.beta_r,distribution="one",normalization="sr")
     Wb = generate_random_matrix(c.Nh,c.Ny,c.alpha_b,c.beta_b,distribution="one",normalization="none")
     Wi = generate_random_matrix(c.Nh,c.Nu,c.alpha_i,c.beta_i,distribution="one",normalization="none")
-    Wo = np.zeros(c.Nh * c.Ny).reshape(c.Ny, c.Nh)
+    Wo = np.zeros(c.Nh * c.Ny).reshape((c.Ny, c.Nh))
 
 def fy(h):
     return np.tanh(h)
@@ -91,10 +133,11 @@ def run_network(mode):
     Yp = np.zeros((c.MM, c.Ny))
     Yx = np.zeros((c.MM*c.NN, c.Ny))
     Ys = np.zeros((c.MM*c.NN, c.Ny))
-
+    #ysign = np.zeros(Ny)
     yp = np.zeros(c.Ny)
     yx = np.zeros(c.Ny)
     ys = np.zeros(c.Ny)
+    #yc = np.zeros(Ny)
 
     Us = np.zeros((c.MM*c.NN, c.Nu))
     Ds = np.zeros((c.MM*c.NN, c.Ny))
@@ -102,7 +145,7 @@ def run_network(mode):
 
     rs = 1
     rs_prev = 0
-
+    any_hs_change = True
     m=0
     for n in range(c.NN * c.MM):
         theta = np.mod(n/c.NN,1) # (0,1)
@@ -119,7 +162,7 @@ def run_network(mode):
         #sum += alpha_s*(hs-rs)*ht # ref.clockと同期させるための結合
         sum += Wi@(2*us-1) # 外部入力
         sum += Wr@(2*hs-1) # リカレント結合
-
+        
         #if mode == 0:
         #    sum += Wb@ys
         #if mode == 1:  # teacher forcing
@@ -161,180 +204,166 @@ def run_network(mode):
     for m in range(2,c.MM-1):
         tmp = np.sum( np.heaviside( np.fabs(Hp[m+1]-Hp[m]) - 0.6 ,0))
         cnt_overflow += tmp
+        #print(tmp)
 
 def train_network():
     global Wo
 
     run_network(1) # run netwrok with teacher forcing
 
+    M = Hp[c.MM0:, :]
+    invD = fyi(Dp)
+    G = invD[c.MM0:, :]
+
+    #print("Hp\n",Hp)
+    #print("M\n",M)
+
+    ### Ridge regression
+    E = np.identity(c.Nh)
+    TMP1 = np.linalg.inv(M.T@M + c.lambda0 * E)
+    WoT = TMP1@M.T@G
+    Wo = WoT.T
+    #print("WoT\n", WoT)
+
 def test_network():
     run_network(0)
 
 def plot1():
     fig=plt.figure(figsize=(20, 12))
-    Nr=3
+    Nr=6
     ax = fig.add_subplot(Nr,1,1)
     ax.cla()
     ax.set_title("Up")
-    ax.plot(UP)
+    ax.plot(Up)
 
     ax = fig.add_subplot(Nr,1,2)
     ax.cla()
-    ax.set_title("Hp")
-    ax.plot(collect_state_matrix)
+    ax.set_title("Us")
+    ax.plot(Us)
+    ax.plot(Rs,"r:")
+    #ax.plot(R2s,"b:")
 
     ax = fig.add_subplot(Nr,1,3)
     ax.cla()
-    ax.set_title("Yp,dp")
-    ax.plot(pred_test)
-    ax.plot(Dp)
+    ax.set_title("Hx")
+    ax.plot(Hx)
 
+    ax = fig.add_subplot(Nr,1,4)
+    ax.cla()
+    ax.set_title("Hp")
+    ax.plot(Hp)
+
+    ax = fig.add_subplot(Nr,1,5)
+    ax.cla()
+    ax.set_title("Yp")
+    ax.plot(Yp)
+    #ax.plot(y)
+
+    ax = fig.add_subplot(Nr,1,6)
+    ax.cla()
+    ax.plot(DC)
+    ax.set_ylabel("determinant coefficient")
+    ax.set_xlabel("Delay k")
+    ax.set_ylim([0,1])
+    ax.set_xlim([0,c.delay])
+    ax.set_title('MC ~ %3.2lf' % MC, x=0.8, y=0.7)
 
     plt.show()
     plt.savefig(c.fig1)
 
-def execute():
-    global D,Ds,Dp,U,Us,Up,Rs,R2s,MM
-    global collect_state_matrix,target_matrix
-    global UP,DP,pred_test,dp,test_WER
+def plot_delay():
+    fig=plt.figure(figsize=(16,16 ))
+    Nr=20
+    start = 0
+    for i in range(20):
+            ax = fig.add_subplot(Nr,1,i+1)
+            ax.cla()
+            ax.set_title("Yp,Dp, delay = %s" % str(i))
+            ax.plot(Yp.T[i,i:])
+            ax.plot(Dp.T[i,i:])
 
+    plt.show()
+
+
+def plot_MC():
+    plt.plot(DC)
+    plt.ylabel("determinant coefficient")
+    plt.xlabel("Delay k")
+    plt.ylim([0,1])
+    plt.xlim([0,c.delay])
+    plt.title('MC ~ %3.2lf' % MC, x=0.8, y=0.7)
+    plt.show()
+
+def execute(c):
+    global D,Ds,Dp,U,Us,Up,Rs,R2s,MM,Yp
+    global RMSE1,RMSE2
+    global train_Y_binary,MC,DC
+
+
+    c.delay = int(c.delay)
+    c.Ny = c.delay
+    c.NN = int(c.NN)
     c.Nh = int(c.Nh)
-    if c.seed>=0:
-        np.random.seed(int(c.seed))
 
+    np.random.seed(seed = int(c.seed))    
     generate_weight_matrix()
 
     ### generate data
-    if c.dataset==1:
-        U1,U2,D1,D2, SHAPE = generate_coch(shuffle = 0)
-
-    # 250,50,86
-    (dataset_num,length,c.Nu) = SHAPE
-
-    #normalize
-    MAX1 = np.max(np.max(U1,axis = 1),axis=0)
-    MAX2 = np.max(np.max(U2,axis = 1),axis=0)
-    MAX = max(MAX1,MAX2)
-
-    U1 = U1[:dataset_num*length]/MAX
-    U2 = U2[:dataset_num*length]/MAX
-    D1 = D1[:dataset_num*length]
-    D2 = D2[:dataset_num*length]
-
-
-    ### training ######################################################################
-    #print("training...")
-
-    DP = D1                     #one-hot vector
-    UP = fy(U1)
-
-    x = U1.shape[0]
-    collect_state_matrix = np.empty((x,c.Nh))
-    start = 0
-    target_matrix = DP.copy()
-
-    if c.tqdm_set:
-        bar = tqdm(total = dataset_num) 
-        bar.set_description("training...")
-
-    for i in range(dataset_num):
-        if c.tqdm_set:
-            bar.update(1)
-
-        Dp = DP[start:start + length]
-        Up = UP[start:start + length]
-        
-        train_network()                     #Up,Dpからネットワークを学習する
- 
-        collect_state_matrix[start:start + length,:] = Hp
-        
-        start += length
-        
-        
-
-    #weight matrix
-    #"""
-    #ridge reg
-    M = collect_state_matrix[c.MM0:]
-    G = target_matrix[c.MM0:]
-
-    Wout = np.linalg.inv(M.T@M + c.lambda0 * np.identity(c.Nh)) @ M.T @ G
-    Y_pred = Wout.T @ M.T
-
-    pred_train = np.zeros((dataset_num,10))
-    start = 0
-
-    for i in range(dataset_num):
-
-        tmp = Y_pred[:,start:start+length]  # 1つのデータに対する出力
-        max_index = np.argmax(tmp, axis=0)  # 最大出力を与える出力ノード番号
-
-        histogram = np.bincount(max_index)  # 出力ノード番号のヒストグラム
-        idx = np.argmax(histogram)
-        pred_train[i][idx] = 1              # 最頻値
-        start = start + length
-
-    dp = [DP[i] for i in range(0,U1.shape[0],length)]
-    train_WER = np.sum(abs(pred_train-dp)/2)/dataset_num 
-
-    #print("train Word error rate:",train_WER)
-
-        
-    ### test ######################################################################
-    #print("test...")
-    DP = D2                 #one-hot vector
-    UP = fy(U2)
-
-    start = 0
-
-    target_matrix = Dp.copy()
-
-    if c.tqdm_set:
-        bar = tqdm(total = dataset_num) 
-        bar.set_description("test...")
-
-    for i in range(c.MM0,dataset_num):
-        if c.tqdm_set:
-            bar.update(1)
-
-        Dp = DP[start:start + length]
-        Up = UP[start:start + length]
-        test_network()                     #Up,Dpからネットワークを学習する
-
-        collect_state_matrix[start:start + length,:] = Hp
-        start += length
-
-    Y_pred = Wout.T @ collect_state_matrix[c.MM0:].T
-
-    pred_test = np.zeros((dataset_num,10))
-    start = 0
-
-    #圧縮
-    for i in range(dataset_num):
-        tmp = Y_pred[:,start:start+length]  # 1つのデータに対する出力
-
-        max_index = np.argmax(tmp, axis=0)  # 最大出力を与える出力ノード番号
-
-        histogram = np.bincount(max_index)  # 出力ノード番号のヒストグラム
-        idx = np.argmax(histogram)
-        pred_test[i][idx] = 1               # 最頻値
-
-        start = start + length
     
-    dp = [DP[i] for i in range(0,U1.shape[0],length)]
-    dp = dp
-    test_WER = np.sum(abs(pred_test-dp)/2)/dataset_num
-    print("\n")
-    print("test Word error rate:",test_WER)
-    print("train vs test :",train_WER,test_WER)
+    if c.dataset==6:
+        T = c.MM
+        U,D = generate_white_noise(c.delay,T=T,)
 
+    ### training
+    #print("training...")
+    
+    #Scale to (-1,1)
+    Dp = np.tanh(D)                # TARGET   #(MM,len(delay))   
+    Up = np.tanh(U)                # INPUT    #(MM,1)
 
-    ################################################################################
-    c.WER = test_WER
-    c.cnt_overflow = cnt_overflow
-    ################################################################################
+    train_network()
 
-    if c.plot: plot1()
+    
+    
+    ### test
+    #print("test...")
+    test_network()                  #OUTPUT = Yp
+
+    
+    DC = np.zeros((c.delay, 1))  # 決定係数
+    MC = 0.0                        # 記憶容量
+
+    #inv scale
+    
+    Dp = fyi(Dp)                    # TARGET    #(MM,len(delay))
+    Yp = fyi(Yp)                    # PRED      #(MM,len(delay))
+    #print(np.max(Dp),np.max(Yp))
+    """
+    予測と目標から決定係数を求める。
+    決定係数の積分が記憶容量
+    """
+    for k in range(c.delay):
+        corr = np.corrcoef(np.vstack((Dp.T[k, k:], Yp.T[k, k:])))   #相関係数
+        DC[k] = corr[0, 1] ** 2                                     #決定係数 = 相関係数 **2
+
+    MC = np.sum(DC)
+    
+   
+######################################################################################
+     # Results
+    c.RMSE1=None
+    c.RMSE2=None
+    c.cnt_overflow=cnt_overflow
+
+    c.MC = MC
+    print("MC =",c.MC)
+
+#####################################################################################
+    if c.plot:
+        plot_delay()
+        plot_MC()
+        plot1()
+
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
@@ -343,5 +372,5 @@ if __name__ == "__main__":
 
     c=Config()
     if a.config: c=common.load_config(a)
-    execute()
+    execute(c)
     if a.config: common.save_config(c)
