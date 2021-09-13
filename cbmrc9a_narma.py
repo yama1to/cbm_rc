@@ -3,10 +3,13 @@
 NOTE: cbm_rc　時系列生成タスク　
 cbmrc6e.pyを改変
 Configクラスによるパラメータ設定
+
+
+入力から予測を出力する
+
 """
 
 import argparse
-from matplotlib.colors import Normalize
 import numpy as np
 import scipy.linalg
 import matplotlib.pyplot as plt
@@ -15,9 +18,6 @@ import time
 from explorer import common
 from generate_data_sequence_narma import *
 from generate_matrix import *
-from tqdm import tqdm
-
-
 
 class Config():
     def __init__(self):
@@ -38,28 +38,26 @@ class Config():
         self.MM0 = 0 #
 
         self.Nu = 1   #size of input
-        self.Nh = 1000 #size of dynamical reservior
+        self.Nh = 400 #size of dynamical reservior
         self.Ny = 1   #size of output
 
         self.Temp=1.0
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 0.1
-        self.alpha_r = 0.75
+        self.alpha_i = 0.2
+        self.alpha_r = 0.25
         self.alpha_b = 0.
-        self.alpha_s = 2
+        self.alpha_s = 0.6
 
-        self.beta_i = 0.2
+        self.beta_i = 0.1
         self.beta_r = 0.1
         self.beta_b = 0.1
 
-        self.lambda0 = 0.0001
+        self.lambda0 = 0.1
 
         # Results
         self.NMSE=None
-        self.RMSE=None
-        self.NRMSE=None
         self.cnt_overflow=None
 
 def generate_weight_matrix():
@@ -80,13 +78,12 @@ def p2s(theta,p):
 
 def run_network(mode):
     global Hx, Hs, Hp, Y, Yx, Ys, Yp, Y, Us, Ds,Rs
-    
     Hp = np.zeros((c.MM, c.Nh))
     Hx = np.zeros((c.MM*c.NN, c.Nh))
     Hs = np.zeros((c.MM*c.NN, c.Nh))
     hsign = np.zeros(c.Nh)
-    hx = np.zeros(c.Nh)
-    #hx = np.random.uniform(0,1,c.Nh) # [0,1]の連続値
+    #hx = np.zeros(Nh)
+    hx = np.random.uniform(0,1,c.Nh) # [0,1]の連続値
     hs = np.zeros(c.Nh) # {0,1}の２値
     hs_prev = np.zeros(c.Nh)
     hc = np.zeros(c.Nh) # ref.clockに対する位相差を求めるためのカウント
@@ -110,7 +107,7 @@ def run_network(mode):
     rs_prev = 0
     any_hs_change = True
     m=0
-    for n in tqdm(range(c.NN * c.MM), leave=True):
+    for n in range(c.NN * c.MM):
         theta = np.mod(n/c.NN,1) # (0,1)
         rs_prev = rs
         hs_prev = hs.copy()
@@ -132,7 +129,6 @@ def run_network(mode):
         #    sum += Wb@ds
 
         hsign = 1 - 2*hs
-        
         hx = hx + hsign*(1.0+np.exp(hsign*sum/c.Temp))*c.dt
         hs = np.heaviside(hx+hs-1,0)
         hx = np.fmin(np.fmax(hx,0),1)
@@ -143,8 +139,6 @@ def run_network(mode):
         # ref.clockの立ち上がり
         if rs_prev==0 and rs==1:
             hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
-            if mode==0:
-                print(hp)
             hc = np.zeros(c.Nh) #カウンタをリセット
             #ht = 2*hs-1 リファレンスクロック同期用ラッチ動作をコメントアウト
             yp = fy(Wo@hp)
@@ -178,7 +172,7 @@ def train_network():
     run_network(1) # run netwrok with teacher forcing
 
     M = Hp[c.MM0:, :]
-    invD = Dp
+    invD = fyi(Dp)
     G = invD[c.MM0:, :]
 
     #print("Hp\n",Hp)
@@ -190,75 +184,11 @@ def train_network():
     WoT = TMP1@M.T@G
     Wo = WoT.T
     #print("WoT\n", WoT)
-    global Yp
-    #print(Wo.shape,Hp.shape)
-    Yp = Wo @ Hp.T
 
 def test_network():
     run_network(0)
 
-
-def predict():
-    global Yp,Hp,hsign,Up,hx,hs,hc,hp,yp,rs,rs_prev
-    Up = init_val
-    
-    hsign = np.zeros(c.Nh)
-    #hx = np.zeros(c.Nh)
-    hx = np.random.uniform(0,1,c.Nh) # [0,1]の連続値
-    #hx = Hp[-1]
-    hs = np.zeros(c.Nh) # {0,1}の２値
-    Hp = np.zeros((c.MM, c.Nh))
-
-    hc = np.zeros(c.Nh) # ref.clockに対する位相差を求めるためのカウント
-    hp = np.zeros(c.Nh) # [-1,1]の連続値
-
-    Yp = np.zeros((c.MM, c.Ny))
-    yp = np.zeros(c.Ny)
-    rs = 1
-    rs_prev = 0
-    for i in tqdm(range(c.MM)):
-        for n in range(c.NN):
-            theta = np.mod(n/c.NN,1) # (0,1)
-            rs_prev = rs
-
-            rs = p2s(theta,0)# 参照クロック
-            us = p2s(theta,Up) # エンコードされた入力
-
-            sum = np.zeros(c.Nh)
-            sum += c.alpha_s*rs # ラッチ動作を用いないref.clockと同期させるための結合
-            #sum += alpha_s*(hs-rs)*ht # ref.clockと同期させるための結合
-            sum += Wi@(2*us-1) # 外部入力
-            sum += Wr@(2*hs-1) # リカレント結合
-
-            #if mode == 0:
-            #    sum += Wb@ys
-            #if mode == 1:  # teacher forcing
-            #    sum += Wb@ds
-
-            hsign = 1 - 2*hs
-            hx = hx + hsign*(1.0+np.exp(hsign*sum/c.Temp))*c.dt
-            hs = np.heaviside(hx+hs-1,0)
-            hx = np.fmin(np.fmax(hx,0),1)
-
-            if rs==1:
-                hc+=hs # デコードのためのカウンタ、ref.clockとhsのANDでカウントアップ
-
-            # ref.clockの立ち上がり
-            if rs_prev==0 and rs==1:
-                hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
-                hc = np.zeros(c.Nh) #カウンタをリセット
-                #ht = 2*hs-1 リファレンスクロック同期用ラッチ動作をコメントアウト
-                yp = Wo@hp
-                Up = yp
-                Yp[i] = yp
-                Hp[i] = hp
-
-    return 0
-
-
-
-
-def plot0():
+def plot1():
     fig=plt.figure(figsize=(20, 12))
     Nr=6
     ax = fig.add_subplot(Nr,1,1)
@@ -285,113 +215,59 @@ def plot0():
 
     ax = fig.add_subplot(Nr,1,5)
     ax.cla()
-    ax.set_title("Yp,dp")
-    ax.plot(Yp)
-    ax.plot(Dp)
-
-    ax = fig.add_subplot(Nr,1,6)
-    ax.cla()
     ax.set_title("Yp")
     ax.plot(Yp)
 
+    ax = fig.add_subplot(Nr,1,6)
+    ax.cla()
+    ax.set_title("Dp")
+    ax.plot(Dp)
+
     plt.show()
+    plt.savefig(c.fig1)
 
 def execute():
-    global D,Ds,Dp,U,Us,Up,Rs,R2s,MM,Yp
-    global init_val,U2
+    global D,Ds,Dp,U,Us,Up,Rs,R2s,MM 
+
     t_start=time.time()
-    c.Nh = int(c.Nh)
+
     np.random.seed(int(c.seed))
 
     generate_weight_matrix()
 
     ### generate data
     if c.dataset==1:
-        #MM1 = 1000
-        #MM2 = 2200#2200]
-        MM1 = 900
-        MM2 = 100
-        U,D  = generate_narma(N=MM1+MM2)
-        U1,D1,U2,D2 = U[:MM1],D[:MM1],U[MM1:],D[MM1:]
-        #_, D2  = generate_narma(N=MM2)
-
+        MM1 = 1000
+        MM2 = 2200
+        U1,D1  = generate_narma(N=MM1)
+        U2,D2  = generate_narma(N=MM2)
         #print(U1.shape)
 
     ### training
     #print("training...")
     c.MM=MM1
-    
-    Dp = D1
+    Dp = np.tanh(D1)
     Up = np.tanh(U1)
     train_network()
-    Yp = Yp.T
 
-    corr = np.corrcoef(np.vstack((Dp.T[0], Yp.T[0])))
-    DC = corr[0,1]**2
-    print("DC: %s" % str(DC))
-
-    if c.plot:
-        plt.plot(Dp,label="d")
-        plt.plot(Yp,label="y")
-        plt.legend()
-        plt.show()
     ### test
     #print("test...")
-    #print(Wo)
+    c.MM=MM2
+    Dp = np.tanh(D2)
+    Up = np.tanh(U2)
+    test_network()
 
-    #predict
+    ### evaluation
+    error = (Yp-Dp)**2
+    ave = np.mean(error)
+    NMSE = ave/np.var(Dp)
+    print("NMSE:",NMSE)
 
-    c.MM = MM2
-
-    Dp  = D2
-    init_val = [0]
-    
-    predict()
-
-    #Dp = fy(D2[200:])
-    #Yp = Yp[200:]
-    #Yp = Yp[10:]
-    #Dp = Dp[10:]
-
-    corr = np.corrcoef(np.vstack((Dp.T[0], Yp.T[0])))
-    DC = corr[0,1]**2
-    print("DC: %s" % str(DC))
-
-    ### evaluation ######################################
-    def mse(Yp,Dp):
-        error = (Yp-Dp)**2
-        ave = np.mean(error)
-        return ave
-
-    VAR = np.var(Dp)
-    MEAN = np.mean(Dp)
-    normalize = VAR
-
-
-    MSE = mse(Yp,Dp)
-
-    NMSE = MSE/normalize#mse(Dp,np.zeros(Dp.shape))
-    print("NMSE: ",NMSE)
-
-    RMSE = np.sqrt(MSE)
-    #print("RMSE: ",RMSE)
-
-    NRMSE = RMSE/normalize
-    #print("NRMSE: ",NRMSE)
-    ###########################################################################
     c.NMSE = NMSE
-    c.RMSE = RMSE
-    c.NRMSE = NRMSE
     c.cnt_overflow=cnt_overflow
-    ###########################################################################
     #print("time: %.6f [sec]" % (time.time()-t_start))
-    
-    if c.plot: 
-        plt.plot(Dp,label="d")
-        plt.plot(Yp,label="y")
-        plt.legend()
-        plt.show()
-        #plot0()
+
+    if c.plot: plot1()
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
