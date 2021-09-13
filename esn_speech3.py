@@ -51,12 +51,7 @@ class Config():
 
         self.lambda0 = 0.1
 
-        self.delay = 20
-
-
         # Results
-        self.RMSE1=None
-        self.RMSE2=None
         self.WER=None
 
 
@@ -180,9 +175,9 @@ def execute(c):
     generate_weight_matrix()
 
     ### generate data
-    
-    U1,U2,D1,D2,SHAPE = generate_coch(seed = c.seed,shuffle = 0)
-    (dataset_num,length,Nu) = SHAPE 
+    if c.dataset ==5:
+        U1,U2,D1,D2,SHAPE = generate_coch(seed = c.seed,shuffle = 0)
+        (dataset_num,length,Nu) = SHAPE 
 
     ### training
     #print("training...")
