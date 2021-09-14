@@ -1,115 +1,130 @@
-# Copyright (c) 2017-2018 Katori Lab. All Rights Reserved
-# NOTE:ESNによる時系列の生成, random spikeによる評価, capacityの評価
-# Furuta (2018)にある性能評価指標のcapacityを実装した
-from generate_data_sequence_speech4 import generate_coch
+# Copyright (c) 2018-2021 Katori lab. All Rights Reserved
+"""
+NOTE: cbm_rc　時系列生成タスク　
+cbmrc6e.pyを改変
+Configクラスによるパラメータ設定
+"""
+
+import argparse
 import numpy as np
 import scipy.linalg
-from numpy.linalg import svd, inv, pinv
-
-import matplotlib as mpl
-#mpl.use('Agg')## サーバ上で画像を出力するための設定。ローカルで表示する際はコメントアウトする
 import matplotlib.pyplot as plt
-
-import sys
 import copy
-from arg2x import *
-from generate_data_sequence import *
+import time
+from explorer import common
+from generate_data_sequence_speech2 import *
 from generate_matrix import *
+from tqdm import tqdm
 
-file_csv = "data_esn1.csv"
-file_fig1 = "data_esn1_fig1.png"
-display = 1
+class Config():
+    def __init__(self):
+        # columns, csv, id: データの管理のために必須の変数
+        self.columns = None # 結果をCSVに保存する際のコラム
+        self.csv = None # 結果を保存するファイル
+        self.id  = None
+        self.plot = True # 図の出力のオンオフ
+        self.show = False # 図の表示（plt.show()）のオンオフ、explorerは実行時にこれをオフにする。
+        self.savefig = False
+        self.fig1 = "fig1.png" ### 画像ファイル名
+        self.isNotUseTqdm = True
 
-dataset = 7
-seed=10 # 乱数生成のためのシード
-id=0
+        # config
+        self.dataset=6
+        self.seed:int=2 # 乱数生成のためのシード
+        self.MM=50 # サイクル数
+        self.MM0 = 0 #
 
-MM = 312
-MM0 = 0
-T0 = 0
+        self.Nu = 86   #size of input
+        self.Nh:int = 100#815 #size of dynamical reservior
+        self.Ny = 10   #size of output
 
-Nu = 78   #size of input
-Nx = 200 #size of dynamical reservior
-Ny = 10   #size of output
 
-sigma_np = -5
-alpha_r = 0.99
-alpha_b = 0.0 # 0.8
-alpha_i = 1
-beta_r = 0.05
-beta_b = 0 
-beta_i = 0.05
-alpha0 = 1
-tau = 2
-lambda0 = 0.1
+        #sigma_np = -5
+        self.alpha_i = 1
+        self.alpha_r = 0.9
+        self.alpha_b = 0.
 
-def config():
-    global file_csv,file_fig1,display,dataset,seed,id,Nx,alpha_i,alpha_r,alpha_b,alpha0,tau,beta_i,beta_r,beta_b,lambda0
-    args = sys.argv
-    for s in args:
-        file_csv= arg2a(file_csv,"file_csv=",s)
-        file_fig1=arg2a(file_fig1,"file_fig1=",s)
-        display = arg2i(display,"display=",s)
-        dataset = arg2i(dataset,"dataset=",s)
-        seed    = arg2i(seed,"seed=",s)
-        id      = arg2i(id,"id=",s)
-        Nx      = arg2i(Nx, 'Nx=', s)
-        alpha_i = arg2f(alpha_i,"alpha_i=",s)
-        alpha_r = arg2f(alpha_r,"alpha_r=",s)
-        alpha_b = arg2f(alpha_b,"alpha_b=",s)
-        alpha0  = arg2f(alpha0,"alpha0=",s)
-        tau     = arg2f(tau,"tau=",s)
-        beta_i  = arg2f(beta_i,"beta_i=",s)
-        beta_r  = arg2f(beta_r,"beta_r=",s)
-        beta_b  = arg2f(beta_b,"beta_b=",s)
-        lambda0 = arg2f(lambda0, 'lambda0=', s)
+        self.alpha0 = 1#0.1
+        self.alpha1 = 0#-5.8
 
-def output():
-    str="%d,%d,%d,%d,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n" \
-    % (dataset,seed,id,Nx,alpha_i,alpha_r,alpha_b,alpha0,tau,beta_i,beta_r,beta_b,lambda0)
+        self.beta_i = 0.9
+        self.beta_r = 0.05
+        self.beta_b = 0.1
 
-    f=open(file_csv,"a")
-    f.write(str)
-    f.close()
+        self.lambda0 = 0.1
+
+        # Results
+        self.train_WER = None
+        self.WER=None
+
+
 
 def generate_weight_matrix():
     global Wr, Wb, Wo, Wi
-    Wr = generate_random_matrix(Nh,Nh,alpha_r,beta_r,distribution="one",normalization="sr")
-    Wb = generate_random_matrix(Nh,Ny,alpha_b,beta_b,distribution="one",normalization="none")
-    Wi = generate_random_matrix(Nh,Nu,alpha_i,beta_i,distribution="one",normalization="none")
-    Wo = np.zeros(Nh * Ny).reshape(Ny, Nh)
+    Wr = generate_random_matrix(c.Nh,c.Nh,c.alpha_r,c.beta_r,distribution="one",normalization="sr")
+    Wb = generate_random_matrix(c.Nh,c.Ny,c.alpha_b,c.beta_b,distribution="one",normalization="none")
+    Wi = generate_random_matrix(c.Nh,c.Nu,c.alpha_i,c.beta_i,distribution="one",normalization="none")
+    Wo = np.zeros(c.Nh * c.Ny).reshape((c.Ny, c.Nh))
 
+def fy(h):
+    return np.tanh(h)
 
-def fx(x):
-    return np.tanh(x)
+def fyi(h):
+    return np.arctanh(h)
 
-def fy(x):
-    return np.tanh(x)
-
-def fyi(x):
-    return np.arctanh(x)
-
-def fr(x):
-    return np.fmax(0, x)
+def p2s(theta,p):
+    return np.heaviside( np.sin(np.pi*(2*theta-p)),1)
 
 def run_network(mode):
-    global X
-    X = np.zeros((MM, Nx))
+    global Hp
+    
+    Hp = np.zeros((c.MM, c.Nh))
+    #x = np.random.uniform(-1, 1, Nh)/ 10**4
+    x = np.zeros(c.Nh)
+    
 
-    x = np.random.uniform(-1, 1, Nx)/ 10**4
-    #x = np.zeros(Nx)
-    for n in range(MM - 1):
+    for n in range(c.MM - 1):
+        
         u = Up[n, :]
 
-        #X[n+1,:] = x + 1.0/tau * (-alpha0 * x + fx(Wi@u + Wr@x))
-        X[n+1,:] = (1 - alpha0) * x + alpha0*fx(Wi@u + Wr@x)
+        #Hp[n+1,:] = x + 1.0/tau * (-alpha0 * x + fx(Wi@u + Wr@x))
+        next_x = (1 - c.alpha0) * x + c.alpha0*fy(Wi@u + Wr@x)
+        Hp[n+1,:] = next_x
+        x= next_x
+
+        
+
+
 def train_network():
     global Wo
 
     run_network(1) # run netwrok with teacher forcing
 
+    M = Hp[c.MM0:, :]
+    invD = Dp
+    G = invD[c.MM0:, :]
+
+    #print("Hp\n",Hp)
+    #print("M\n",M)
+
+    ### Ridge regression
+    E = np.identity(c.Nh)
+    TMP1 = np.linalg.inv(M.T@M + c.lambda0 * E)
+    WoT = TMP1@M.T@G
+    Wo = WoT.T
+
+    #print("WoT\n", WoT)
+
 def test_network():
+    global Yp
     run_network(0)
+
+    YpT = Wo @ Hp.T
+    Yp = YpT.T
+
+
+
+
 
 def plot2():
     fig=plt.figure(figsize=(20, 12))
@@ -144,66 +159,66 @@ def plot3(tmp):
         ax.plot(tmp[:,i-1])
     plt.show()
 
-def execute():
-    #global D,Ds,Dp,U,Us,Up,Rs,R2s,MM
+
+def execute(c):
+    global D,Ds,Dp,U,Us,Up,Rs,R2s,MM,Yp
     global RMSE1,RMSE2
+    global train_Y_binary,MC,DC
     global capacity ,MM,Dp,Up,Nh,Nx,X ,Nu
     global UP,DP,pred_test,dp,test_WER
     global Wi,Wo,Wr
     global collect_state_matrix,target_matrix,Y_pred,pred_test
+    global U1,U2,D1,D2,SHAPE
 
-    Nh = Nx
-    
+    c.Nh = int(c.Nh)
 
-    if seed>=0:
-        np.random.seed(seed)
+    np.random.seed(seed = int(c.seed))    
     generate_weight_matrix()
 
-    dataset_num = 250
-    length = 312
-    Nu = 78
+    ### generate data
+    
+    U1,U2,D1,D2,SHAPE = generate_coch(seed = c.seed,shuffle = 0)
+    MAX1 = np.max(np.max(U1,axis = 1),axis=0)
+    MAX2 = np.max(np.max(U2,axis = 1),axis=0)
+    #print(MAX1,MAX2)
+    MAX = max(MAX1,MAX2)
+    U1 = U1 /MAX
+    U2 = U2 /MAX
+    (dataset_num,length,Nu) = SHAPE
 
-    #入力 2dim
-    #U (312 * 250, 78) 
-    #D (312 * 250, 10)
-    U1,U2,D1,D2 = generate_coch(seed = seed,shuffle = 0)
-    ### training ######################################################################
-    print("training...")
-    # U1 = U1.T
-    # U2 = U2.T
-    # D1 = D1.T
-    # D2 = D2.T
-    U1 = U1 * 10**4
-    U2 = U2 * 10**4
-    DP = fy(D1)                      #one-hot vector
-    UP = fy(U1)
 
-    #DP = D1 
-    #UP = U1
+    ### training
+    #print("training...")
+    
+
+    #Scale to (-1,1)
+    DP = D1                     # TARGET   #(MM,len(delay))   
+    UP = fy(U1)                 # INPUT    #(MM,1)
+    
     x = U1.shape[0]
-    collect_state_matrix = np.empty((x,Nh))
+    collect_state_matrix = np.empty((x,c.Nh))
     start = 0
     target_matrix = DP.copy()
     
-    for _ in range(dataset_num):
+    for _ in tqdm(range(dataset_num),disable=c.isNotUseTqdm):
         Dp = DP[start:start + length]
         Up = UP[start:start + length]
         
         train_network()                     #Up,Dpからネットワークを学習する
  
-        collect_state_matrix[start:start + length,:] = X
+        collect_state_matrix[start:start + length,:] = Hp
         
         start += length
 
     #weight matrix
     #"""
     #ridge reg
-    M = collect_state_matrix[MM0:]
-    G = fyi(target_matrix)
+    M = collect_state_matrix[c.MM0:]
+    G = target_matrix
 
-    Wout = inv(M.T@M + lambda0 * np.identity(Nh)) @ M.T @ G
+    Wout = np.linalg.inv(M.T@M + c.lambda0 * np.identity(c.Nh)) @ M.T @ G
     #Wout = np.dot(G.T,np.linalg.pinv(M).T)
-    Y_pred = fy(Wout.T @ M.T)
+    Y_pred = Wout.T @ M.T
     #Y_pred = np.dot(Wout , M.T)
     #"""
 
@@ -221,30 +236,29 @@ def execute():
         start = start + length
 
     dp = [DP[i] for i in range(0,U1.shape[0],length)]
-    dp = fyi(dp)
+    dp = dp
     train_WER = np.sum(abs(pred_train-dp)/2)/dataset_num 
 
-    print("train Word error rate:",train_WER)
+    #print("train Word error rate:",train_WER)
 
-        
+    
     ### test ######################################################################
-    print("test...")
-    DP = fy(D2)                 #one-hot vector
+    #print("test...")
+    DP = D2                 #one-hot vector
     UP = fy(U2)
-    #DP = D2 
-    #UP = U2
     start = 0
 
     target_matrix = Dp.copy()
-    for i in range(MM0,dataset_num):
+    for i in tqdm(range(c.MM0,dataset_num),disable=c.isNotUseTqdm):
         Dp = DP[start:start + length]
         Up = UP[start:start + length]
+
         test_network()                     #Up,Dpからネットワークを学習する
 
-        collect_state_matrix[start:start + length,:] = X
+        collect_state_matrix[start:start + length,:] = Hp
         start += length
 
-    Y_pred = fy(Wout.T @ collect_state_matrix[MM0:].T)
+    Y_pred = Wout.T @ collect_state_matrix[c.MM0:].T
 
     pred_test = np.zeros((dataset_num,10))
     start = 0
@@ -262,16 +276,38 @@ def execute():
         start = start + length
     
     dp = [DP[i] for i in range(0,U1.shape[0],length)]
-    dp = fyi(dp)
+    dp = dp
     test_WER = np.sum(abs(pred_test-dp)/2)/dataset_num
-    print("test Word error rate:",test_WER)
+    #print("test Word error rate:",test_WER)
     print("train vs test :",train_WER,test_WER)
     # for i in range(250):
     #     print(pred_test[i],dp[i])
+    display=0
     if display :
         plot2()
+   
+    #print(MC,MC1,MC2,MC3,MC4)
+######################################################################################
+     # Results
+    c.RMSE1=None
+    c.RMSE2=None
+    c.train_WER = train_WER
+    c.WER = test_WER
+    
+    
+    #print("MC =",c.MC)
+
+#####################################################################################
+    if c.plot:
+        plot2()
+
 
 if __name__ == "__main__":
-    #config()
-    execute()
-    #output()
+    ap = argparse.ArgumentParser()
+    ap.add_argument("-config", type=str)
+    a = ap.parse_args()
+
+    c=Config()
+    if a.config: c=common.load_config(a)
+    execute(c)
+    if a.config: common.save_config(c)
