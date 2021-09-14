@@ -58,7 +58,7 @@ def optimize():
     opt.append("alpha_i",value=1,min=0.01,max=5,round=2)
     opt.append("alpha_r",value=0.75,min=0.01,max=1.5,round=2)
     opt.append("alpha0",value=0.75,min=0.01,max=0.99,round=2)
-    opt.maximize(target="MC",iteration=20,population=10,samples=3)
+    opt.minimize(target="WER",iteration=20,population=10,samples=3)
     #opt.minimize(TARGET=func,iteration=5,population=10,samples=4)
     common.config = opt.best_config # 最適化で得られた設定を基本設定とする
 optimize()

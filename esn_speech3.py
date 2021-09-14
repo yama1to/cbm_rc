@@ -14,6 +14,7 @@ import time
 from explorer import common
 from generate_data_sequence_speech import *
 from generate_matrix import *
+from tqdm import tqdm
 
 class Config():
     def __init__(self):
@@ -165,27 +166,26 @@ def execute(c):
     global UP,DP,pred_test,dp,test_WER
     global Wi,Wo,Wr
     global collect_state_matrix,target_matrix,Y_pred,pred_test
+    global U1,U2,D1,D2,SHAPE
 
-
-    c.delay = int(c.delay)
-    c.Ny = c.delay
     c.Nh = int(c.Nh)
 
     np.random.seed(seed = int(c.seed))    
     generate_weight_matrix()
 
     ### generate data
-    if c.dataset ==5:
-        U1,U2,D1,D2,SHAPE = generate_coch(seed = c.seed,shuffle = 0)
-        (dataset_num,length,Nu) = SHAPE 
-
-    ### training
-    #print("training...")
+    
+    U1,U2,D1,D2,SHAPE = generate_coch(seed = c.seed,shuffle = 0)
     MAX1 = np.max(np.max(U1,axis = 1),axis=0)
     MAX2 = np.max(np.max(U2,axis = 1),axis=0)
     MAX = max(MAX1,MAX2)
     U1 = U1 /MAX
     U2 = U2 /MAX
+    (dataset_num,length,Nu) = SHAPE 
+
+    ### training
+    #print("training...")
+    
 
     #Scale to (-1,1)
     DP = D1                     # TARGET   #(MM,len(delay))   
