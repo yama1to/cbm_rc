@@ -94,6 +94,7 @@ def run_network(mode):
     Yx = np.zeros((c.MM*c.NN, c.Ny))
     Ys = np.zeros((c.MM*c.NN, c.Ny))
     #ysign = np.zeros(Ny)
+    
     yp = np.zeros(c.Ny)
     yx = np.zeros(c.Ny)
     ys = np.zeros(c.Ny)
@@ -172,7 +173,7 @@ def train_network():
     run_network(1) # run netwrok with teacher forcing
 
     M = Hp[c.MM0:, :]
-    invD = fyi(Dp)
+    invD =Dp
     G = invD[c.MM0:, :]
 
     #print("Hp\n",Hp)
@@ -216,7 +217,7 @@ def plot1():
     ax = fig.add_subplot(Nr,1,5)
     ax.cla()
     ax.set_title("Yp")
-    ax.plot(Yp)
+    ax.plot(Y)
 
     ax = fig.add_subplot(Nr,1,6)
     ax.cla()
@@ -227,7 +228,7 @@ def plot1():
     plt.savefig(c.fig1)
 
 def execute():
-    global D,Ds,Dp,U,Us,Up,Rs,R2s,MM 
+    global D,Ds,Dp,U,Us,Up,Rs,R2s,MM,Y
 
     t_start=time.time()
 
@@ -246,19 +247,20 @@ def execute():
     ### training
     #print("training...")
     c.MM=MM1
-    Dp = np.tanh(D1)
+    Dp = D1
     Up = np.tanh(U1)
     train_network()
 
     ### test
     #print("test...")
     c.MM=MM2
-    Dp = np.tanh(D2)
+    Dp = D2
     Up = np.tanh(U2)
     test_network()
 
     ### evaluation
-    error = (Yp-Dp)**2
+    Y = fyi(Yp)
+    error = (Y-Dp)**2
     ave = np.mean(error)
     NMSE = ave/np.var(Dp)
     print("NMSE:",NMSE)

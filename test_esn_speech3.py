@@ -24,7 +24,7 @@ common.prefix  = "data%s_esn_speech3" % common.string_now() # 実験名（ファ
 common.dir_path= "data/data%s_esn_speech3" % common.string_now() # 実験データを出力するディレクトリのパス
 common.exe     = "python esn_speech3.py " # 実行されるプログラム
 common.columns =['dataset','seed','id','Nh','alpha_i','alpha_r','alpha0','beta_i','beta_r',
-'lambda0',"WER"]
+'lambda0',"train_WER","WER"]
 common.parallel= 24
 common.setup()
 common.report_common()

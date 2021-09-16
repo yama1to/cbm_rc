@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import copy
 import time
 from explorer import common
-from generate_data_sequence_speech import *
+from generate_data_sequence_speech5 import *
 from generate_matrix import *
 from tqdm import tqdm
 
@@ -26,6 +26,7 @@ class Config():
         self.show = False # 図の表示（plt.show()）のオンオフ、explorerは実行時にこれをオフにする。
         self.savefig = False
         self.fig1 = "fig1.png" ### 画像ファイル名
+        self.isNotUseTqdm = True
 
         # config
         self.dataset=6
@@ -39,20 +40,21 @@ class Config():
 
 
         #sigma_np = -5
-        self.alpha_i = 10**4
+        self.alpha_i = 1
         self.alpha_r = 0.9
         self.alpha_b = 0.
 
-        self.alpha0 = 0.1#0.1
+        self.alpha0 = 1#0.1
         self.alpha1 = 0#-5.8
 
-        self.beta_i = 0.05
+        self.beta_i = 0.9
         self.beta_r = 0.05
         self.beta_b = 0.1
 
         self.lambda0 = 0.1
 
         # Results
+        self.train_WER = None
         self.WER=None
 
 
@@ -178,10 +180,12 @@ def execute(c):
     U1,U2,D1,D2,SHAPE = generate_coch(seed = c.seed,shuffle = 0)
     MAX1 = np.max(np.max(U1,axis = 1),axis=0)
     MAX2 = np.max(np.max(U2,axis = 1),axis=0)
+    #print(MAX1,MAX2)
     MAX = max(MAX1,MAX2)
     U1 = U1 /MAX
     U2 = U2 /MAX
-    (dataset_num,length,Nu) = SHAPE 
+    (dataset_num,length,Nu) = SHAPE
+
 
     ### training
     #print("training...")
@@ -196,7 +200,7 @@ def execute(c):
     start = 0
     target_matrix = DP.copy()
     
-    for _ in tqdm(range(dataset_num)):
+    for _ in tqdm(range(dataset_num),disable=c.isNotUseTqdm):
         Dp = DP[start:start + length]
         Up = UP[start:start + length]
         
@@ -235,17 +239,17 @@ def execute(c):
     dp = dp
     train_WER = np.sum(abs(pred_train-dp)/2)/dataset_num 
 
-    print("train Word error rate:",train_WER)
+    #print("train Word error rate:",train_WER)
 
     
     ### test ######################################################################
-    print("test...")
+    #print("test...")
     DP = D2                 #one-hot vector
     UP = fy(U2)
     start = 0
 
     target_matrix = Dp.copy()
-    for i in tqdm(range(c.MM0,dataset_num)):
+    for i in tqdm(range(c.MM0,dataset_num),disable=c.isNotUseTqdm):
         Dp = DP[start:start + length]
         Up = UP[start:start + length]
 
@@ -274,7 +278,7 @@ def execute(c):
     dp = [DP[i] for i in range(0,U1.shape[0],length)]
     dp = dp
     test_WER = np.sum(abs(pred_test-dp)/2)/dataset_num
-    print("test Word error rate:",test_WER)
+    #print("test Word error rate:",test_WER)
     print("train vs test :",train_WER,test_WER)
     # for i in range(250):
     #     print(pred_test[i],dp[i])
@@ -287,7 +291,8 @@ def execute(c):
      # Results
     c.RMSE1=None
     c.RMSE2=None
-    c.WER = None
+    c.train_WER = train_WER
+    c.WER = test_WER
     
     
     #print("MC =",c.MC)

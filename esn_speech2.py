@@ -12,10 +12,11 @@ import matplotlib.pyplot as plt
 import copy
 import time
 from explorer import common
-from generate_data_sequence_speech2 import *
+from generate_data_sequence_speech import *
 from generate_matrix import *
 from generate_matrix2 import generate_mat
 from tqdm import tqdm
+from sklearn.linear_model import LinearRegression
 
 class Config():
     def __init__(self):
@@ -31,7 +32,7 @@ class Config():
 
         # config
         self.dataset=6
-        self.seed:int=2 # 乱数生成のため        のシード
+        self.seed:int=1 # 乱数生成のため        のシード
         self.MM=50 # サイクル数
         self.MM0 = 0 #
 
@@ -49,11 +50,12 @@ class Config():
         self.alpha1 = 0#-5.8
 
         self.beta_i = 0.9
-        self.beta_r = 0.05
+        self.beta_r = 0.1
         self.beta_b = 0.1
 
-        self.lambda0 = 0.1
+        self.lambda0 = 0.
 
+        self.ridge = 0
         # Results
         self.train_WER = None
         self.WER=None
@@ -93,7 +95,6 @@ def run_network(mode):
     for n in range(c.MM - 1):
         
         u = Up[n, :]
-
         #Hp[n+1,:] = x + 1.0/tau * (-alpha0 * x + fx(Wi@u + Wr@x))
         next_x = (1 - c.alpha0) * x + c.alpha0*fy(Wi@u + Wr@x)
         Hp[n+1,:] = next_x
@@ -115,10 +116,18 @@ def train_network():
     #print("M\n",M)
 
     ### Ridge regression
-    E = np.identity(c.Nh)
-    TMP1 = np.linalg.inv(M.T@M + c.lambda0 * E)
-    WoT = TMP1@M.T@G
-    Wo = WoT.T
+    ridge = c.ridge
+    linear = not ridge 
+    if ridge:
+        E = np.identity(c.Nh)
+        TMP1 = np.linalg.inv(M.T@M + c.lambda0 * E)
+        WoT = TMP1@M.T@G
+        Wo = WoT.T
+
+    if linear:
+        #print(G.shape)
+        Wo = G.T@np.linalg.pinv(M.T)
+
 
     #print("WoT\n", WoT)
 
@@ -178,21 +187,23 @@ def execute(c):
     global U1,U2,D1,D2,SHAPE
 
     c.Nh = int(c.Nh)
-
-    np.random.seed(seed = int(c.seed))    
-    #generate_weight_matrix()
-    generate_weight_matrix2()
+    c.seed = int(c.seed)
+    np.random.seed(seed = c.seed)    
+    
     ### generate data
     
     U1,U2,D1,D2,SHAPE = generate_coch(seed = c.seed,shuffle = 0)
+    (dataset_num,c.MM,c.Nu) = SHAPE
+    
     MAX1 = np.max(np.max(U1,axis = 1),axis=0)
     MAX2 = np.max(np.max(U2,axis = 1),axis=0)
     #print(MAX1,MAX2)
     MAX = max(MAX1,MAX2)
-    U1 = U1 /MAX
-    U2 = U2 /MAX
-    (dataset_num,length,Nu) = SHAPE
+    U1 = U1# /MAX
+    U2 = U2# /MAX
 
+    #generate_weight_matrix()
+    generate_weight_matrix2()
 
     ### training
     #print("training...")
@@ -208,14 +219,14 @@ def execute(c):
     target_matrix = DP.copy()
     
     for _ in tqdm(range(dataset_num),disable=c.isNotUseTqdm):
-        Dp = DP[start:start + length]
-        Up = UP[start:start + length]
+        Dp = DP[start:start + c.MM]
+        Up = UP[start:start + c.MM]
         
         train_network()                     #Up,Dpからネットワークを学習する
  
-        collect_state_matrix[start:start + length,:] = Hp
+        collect_state_matrix[start:start + c.MM,:] = Hp
         
-        start += length
+        start += c.MM
 
     #weight matrix
     #"""
@@ -234,15 +245,15 @@ def execute(c):
 
     for i in range(dataset_num):
 
-        tmp = Y_pred[:,start:start+length]  # 1つのデータに対する出力
+        tmp = Y_pred[:,start:start+c.MM]  # 1つのデータに対する出力
         max_index = np.argmax(tmp, axis=0)  # 最大出力を与える出力ノード番号
 
         histogram = np.bincount(max_index)  # 出力ノード番号のヒストグラム
         idx = np.argmax(histogram)
         pred_train[i][idx] = 1              # 最頻値
-        start = start + length
+        start = start + c.MM
 
-    dp = [DP[i] for i in range(0,U1.shape[0],length)]
+    dp = [DP[i] for i in range(0,U1.shape[0],c.MM)]
     dp = dp
     train_WER = np.sum(abs(pred_train-dp)/2)/dataset_num 
 
@@ -257,13 +268,13 @@ def execute(c):
 
     target_matrix = Dp.copy()
     for i in tqdm(range(c.MM0,dataset_num),disable=c.isNotUseTqdm):
-        Dp = DP[start:start + length]
-        Up = UP[start:start + length]
+        Dp = DP[start:start + c.MM]
+        Up = UP[start:start + c.MM]
 
         test_network()                     #Up,Dpからネットワークを学習する
 
-        collect_state_matrix[start:start + length,:] = Hp
-        start += length
+        collect_state_matrix[start:start + c.MM,:] = Hp
+        start += c.MM
 
     Y_pred = Wout.T @ collect_state_matrix[c.MM0:].T
 
@@ -272,7 +283,7 @@ def execute(c):
 
     #圧縮
     for i in range(dataset_num):
-        tmp = Y_pred[:,start:start+length]  # 1つのデータに対する出力
+        tmp = Y_pred[:,start:start+c.MM]  # 1つのデータに対する出力
 
         max_index = np.argmax(tmp, axis=0)  # 最大出力を与える出力ノード番号
 
@@ -280,9 +291,9 @@ def execute(c):
         idx = np.argmax(histogram)
         pred_test[i][idx] = 1  # 最頻値
 
-        start = start + length
+        start = start + c.MM
     
-    dp = [DP[i] for i in range(0,U1.shape[0],length)]
+    dp = [DP[i] for i in range(0,U1.shape[0],c.MM)]
     dp = dp
     test_WER = np.sum(abs(pred_test-dp)/2)/dataset_num
     #print("test Word error rate:",test_WER)
