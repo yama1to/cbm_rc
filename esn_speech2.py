@@ -14,6 +14,7 @@ import time
 from explorer import common
 from generate_data_sequence_speech2 import *
 from generate_matrix import *
+from generate_matrix2 import generate_mat
 from tqdm import tqdm
 
 class Config():
@@ -30,17 +31,17 @@ class Config():
 
         # config
         self.dataset=6
-        self.seed:int=2 # 乱数生成のためのシード
+        self.seed:int=2 # 乱数生成のため        のシード
         self.MM=50 # サイクル数
         self.MM0 = 0 #
 
-        self.Nu = 86   #size of input
+        self.Nu = 77   #size of input
         self.Nh:int = 100#815 #size of dynamical reservior
         self.Ny = 10   #size of output
 
 
         #sigma_np = -5
-        self.alpha_i = 1
+        self.alpha_i = 10**4
         self.alpha_r = 0.9
         self.alpha_b = 0.
 
@@ -61,10 +62,16 @@ class Config():
 
 def generate_weight_matrix():
     global Wr, Wb, Wo, Wi
-    Wr = generate_random_matrix(c.Nh,c.Nh,c.alpha_r,c.beta_r,distribution="one",normalization="sr")
+    Wr = generate_random_matrix(c.Nh,c.Nh,c.alpha_r,c.beta_r,distribution="uniform",normalization="sr")
     Wb = generate_random_matrix(c.Nh,c.Ny,c.alpha_b,c.beta_b,distribution="one",normalization="none")
-    Wi = generate_random_matrix(c.Nh,c.Nu,c.alpha_i,c.beta_i,distribution="one",normalization="none")
+    Wi = generate_random_matrix(c.Nh,c.Nu,c.alpha_i,c.beta_i,distribution="uniform",normalization="sd")
     Wo = np.zeros(c.Nh * c.Ny).reshape((c.Ny, c.Nh))
+
+def generate_weight_matrix2():
+    global Wr, Wb, Wo, Wi
+    Wi,Wr,Wo = generate_mat(c.seed,c.Nu,c.Nh,c.Ny,c.beta_r,c.alpha_r,c.alpha_i)
+
+    Wb = generate_random_matrix(c.Nh,c.Ny,c.alpha_b,c.beta_b,distribution="one",normalization="none")
 
 def fy(h):
     return np.tanh(h)
@@ -173,8 +180,8 @@ def execute(c):
     c.Nh = int(c.Nh)
 
     np.random.seed(seed = int(c.seed))    
-    generate_weight_matrix()
-
+    #generate_weight_matrix()
+    generate_weight_matrix2()
     ### generate data
     
     U1,U2,D1,D2,SHAPE = generate_coch(seed = c.seed,shuffle = 0)
@@ -193,7 +200,7 @@ def execute(c):
 
     #Scale to (-1,1)
     DP = D1                     # TARGET   #(MM,len(delay))   
-    UP = fy(U1)                 # INPUT    #(MM,1)
+    UP = U1                 # INPUT    #(MM,1)
     
     x = U1.shape[0]
     collect_state_matrix = np.empty((x,c.Nh))
@@ -245,7 +252,7 @@ def execute(c):
     ### test ######################################################################
     #print("test...")
     DP = D2                 #one-hot vector
-    UP = fy(U2)
+    UP = U2
     start = 0
 
     target_matrix = Dp.copy()
