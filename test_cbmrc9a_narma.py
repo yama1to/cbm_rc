@@ -35,7 +35,7 @@ def rs1():
     rs.append("alpha_i",min=0,max=5)
     rs.random(num=60,samples=2)
     df = common.load_dataframe() # 直前に保存されたcsvファイルをデータフレーム(df)に読み込む
-    df = df[['alpha_r','alpha_i','cnt_overflow','WER']] # 指定した列のみでデータフレームを構成する
+    df = df[['alpha_r','alpha_i','cnt_overflow','NMSE']] # 指定した列のみでデータフレームを構成する
     #df = df[(df['y1']<=10.0)] # 条件を満たすデータについてデータフレームを構成する。
     #print(df)
     scatter_matrix(df, alpha=0.8, figsize=(6, 6), diagonal='kde')
@@ -51,10 +51,14 @@ def optimize():
     opt.appendid()#id:必ず加える
     opt.appendseed()# 乱数のシード（０から始まる整数値）
     # 変数の追加([変数名],[基本値],[下端],[上端],[まるめの桁数])
+
     opt.append("alpha_i",value=1,min=0.01,max=4,round=3)
     opt.append("alpha_r",value=0.75,min=0.01,max=4,round=3)
     opt.append("alpha_s",value=2,min=0.01,max=4,round=3)
-    opt.minimize(target="WER",iteration=100,population=100,samples=4)
+    opt.append("beta_i",value=2,min=0.01,max=4,round=3)
+    opt.append("beta_r",value=2,min=0.01,max=4,round=3)
+
+    opt.minimize(target="NMSE",iteration=30,population=30,samples=4)
     #opt.minimize(TARGET=func,iteration=5,population=10,samples=4)
     common.config = opt.best_config # 最適化で得られた設定を基本設定とする
 optimize()
@@ -77,9 +81,9 @@ def gridsearch(X1,min=0,max=1,num=41,samples=10):
     plt.figure(figsize=(6,8))
 
     plt.subplot(2,1,1)
-    x,ymean,ystd,ymin,ymax = vs.analyze(df,X1,"BER")
-    plot1(x,ymean,ystd,ymin,ymax,color=cmap(1),label="BER")
-    plt.ylabel("BER")
+    x,ymean,ystd,ymin,ymax = vs.analyze(df,X1,"NNSE")
+    plot1(x,ymean,ystd,ymin,ymax,color=cmap(1),label="NNSE")
+    plt.ylabel("NNSE")
     plt.grid(linestyle="dotted")
 
     plt.subplot(2,1,2)
@@ -95,7 +99,9 @@ def gridsearch(X1,min=0,max=1,num=41,samples=10):
 
 def gs2():
     ns=3
-    gridsearch("alpha_r",min=0.0,max=2,num=41,samples=ns)
-    gridsearch("alpha_i",min=0.0,max=1,num=41,samples=ns)
-    gridsearch("alpha_s",min=0.0,max=1,num=41,samples=ns)
-#gs2()
+    gridsearch("Nh",min=100,max=1000,num=41,samples=ns)
+    gridsearch("alpha_r",min=0.01,max=2,num=41,samples=ns)
+    gridsearch("alpha_i",min=0.01,max=2,num=41,samples=ns)
+    gridsearch("alpha_s",min=0.01,max=5,num=41,samples=ns)
+    gridsearch("Temp",min=0.01,max=10,num=41,samples=ns)
+gs2()
