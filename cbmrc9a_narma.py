@@ -27,7 +27,7 @@ class Config():
         self.columns = None # 結果をCSVに保存する際のコラム
         self.csv = None # 結果を保存するファイル
         self.id  = None
-        self.plot = 0 # 図の出力のオンオフ
+        self.plot = 1 # 図の出力のオンオフ
         self.show = True # 図の表示（plt.show()）のオンオフ、explorerは実行時にこれをオフにする。
         self.savefig = True
         self.fig1 = "fig1.png" ### 画像ファイル名
@@ -47,16 +47,16 @@ class Config():
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 2.23
-        self.alpha_r = 0.76
+        self.alpha_i = 0.65
+        self.alpha_r = 0.3
         self.alpha_b = 0.
-        self.alpha_s = 1.86
+        self.alpha_s = 0.51
 
-        self.beta_i = 0.27
-        self.beta_r = 0.05
+        self.beta_i = 0.38
+        self.beta_r = 0.22
         self.beta_b = 0.1
 
-        self.lambda0 = 0.1
+        self.lambda0 = 0.0001
 
         # Results
         self.NMSE=None
@@ -230,6 +230,10 @@ def plot1():
 
     plt.show()
     plt.savefig(c.fig1)
+    
+    plt.plot((Y-Dp)**2)
+    plt.title("squared error")
+    plt.show()
 
 def execute():
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM,Y
@@ -273,7 +277,9 @@ def execute():
         gc.collect()
 
     ### evaluation
-    Y = fyi(Yp)
+    Y = fyi(Yp[200:-1])
+    Dp = Dp[200:-1]
+
     error = (Y-Dp)**2
     ave = np.mean(error)
     NMSE = ave/np.var(Dp)
