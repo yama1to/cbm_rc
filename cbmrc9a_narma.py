@@ -233,7 +233,7 @@ def execute():
     t_start=time.time()
     c.seed = int(c.seed)
     c.Nh = int(c.Nh)
-    
+
     np.random.seed(c.seed)
     generate_weight_matrix()
 
@@ -252,12 +252,17 @@ def execute():
     Up = np.tanh(U1)
     train_network()
 
+    if not c.plot: del D1,U1
+        
+
     ### test
     #print("test...")
     c.MM=MM2
     Dp = D2
     Up = np.tanh(U2)
     test_network()
+    
+    if not c.plot: del U2,D2,Up
 
     ### evaluation
     Y = fyi(Yp)
