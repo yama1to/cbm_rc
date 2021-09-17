@@ -231,10 +231,10 @@ def execute():
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM,Y
 
     t_start=time.time()
-
-    np.random.seed(int(c.seed))
+    c.seed = int(c.seed)
     c.Nh = int(c.Nh)
-
+    
+    np.random.seed(c.seed)
     generate_weight_matrix()
 
     ### generate data
