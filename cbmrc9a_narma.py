@@ -225,9 +225,9 @@ def plot1():
 
     ax = fig.add_subplot(Nr,1,6)
     ax.cla()
-    ax.set_title("Dp")
+    ax.set_title("Y,Dp")
     ax.plot(Dp)
-
+    ax.plot(Y)
     plt.show()
     plt.savefig(c.fig1)
     
@@ -277,12 +277,14 @@ def execute():
         gc.collect()
 
     ### evaluation
-    Y = Yp[200:-1]
+    Y = fyi(Yp[200:-1])
     Dp = Dp[200:-1]
 
     error = (Y-Dp)**2
     ave = np.mean(error)
     NMSE = ave/np.var(Dp)
+
+    #print(1/np.var(Dp))
     print("NMSE:",NMSE)
 
     c.NMSE = NMSE
