@@ -18,6 +18,8 @@ import time
 from explorer import common
 from generate_data_sequence_narma import *
 from generate_matrix import *
+import gc
+
 
 class Config():
     def __init__(self):
@@ -25,7 +27,7 @@ class Config():
         self.columns = None # 結果をCSVに保存する際のコラム
         self.csv = None # 結果を保存するファイル
         self.id  = None
-        self.plot = True # 図の出力のオンオフ
+        self.plot = 0 # 図の出力のオンオフ
         self.show = True # 図の表示（plt.show()）のオンオフ、explorerは実行時にこれをオフにする。
         self.savefig = True
         self.fig1 = "fig1.png" ### 画像ファイル名
@@ -151,13 +153,15 @@ def run_network(mode):
         any_hs_change = np.any(hs!=hs_prev)
 
         # record
-        Rs[n]=rs
-        Hx[n]=hx
-        Hs[n]=hs
-        Yx[n]=yx
-        Ys[n]=ys
-        Us[n]=us
-        Ds[n]=ds
+
+        if c.plot:
+            Rs[n]=rs
+            Hx[n]=hx
+            Hs[n]=hs
+            Yx[n]=yx
+            Ys[n]=ys
+            Us[n]=us
+            Ds[n]=ds
 
     # オーバーフローを検出する。
     global cnt_overflow
@@ -252,7 +256,9 @@ def execute():
     Up = np.tanh(U1)
     train_network()
 
-    if not c.plot: del D1,U1
+    if not c.plot: 
+        del D1,U1,Us,Rs
+        gc.collect()
         
 
     ### test
@@ -261,8 +267,10 @@ def execute():
     Dp = D2
     Up = np.tanh(U2)
     test_network()
-    
-    if not c.plot: del U2,D2,Up
+
+    if not c.plot: 
+        del U2,D2,Up
+        gc.collect()
 
     ### evaluation
     Y = fyi(Yp)
