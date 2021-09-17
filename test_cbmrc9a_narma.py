@@ -23,7 +23,7 @@ common.prefix  = "data%s_cbmrc9a_narma" % common.string_now() # 実験名（フ�
 common.dir_path= "data/data%s_cbmrc9a_narma" % common.string_now() # 実験データを出力するディレクトリのパス
 common.exe     = "python cbmrc9a_narma.py " # 実行されるプログラム
 common.columns =['dataset','seed','id','NN','Nh','alpha_i','alpha_r','alpha_b','alpha_s','beta_i','beta_r','beta_b','Temp','lambda0','cnt_overflow','NMSE']
-common.parallel= 24
+common.parallel= 12
 common.setup()
 common.report_common()
 common.report_config(config)

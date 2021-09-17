@@ -48,12 +48,12 @@ class Config():
 
         #sigma_np = -5
         self.alpha_i = 0.65
-        self.alpha_r = 0.3
+        self.alpha_r = 0.9
         self.alpha_b = 0.
-        self.alpha_s = 0.51
+        self.alpha_s = 2
 
-        self.beta_i = 0.38
-        self.beta_r = 0.22
+        self.beta_i = 0.9
+        self.beta_r = 0.1
         self.beta_b = 0.1
 
         self.lambda0 = 0.0001
@@ -257,7 +257,7 @@ def execute():
     #print("training...")
     c.MM=MM1
     Dp = D1
-    Up = np.tanh(U1)
+    Up = U1
     train_network()
 
     if not c.plot: 
@@ -269,7 +269,7 @@ def execute():
     #print("test...")
     c.MM=MM2
     Dp = D2
-    Up = np.tanh(U2)
+    Up = U2
     test_network()
 
     if not c.plot: 
@@ -277,7 +277,7 @@ def execute():
         gc.collect()
 
     ### evaluation
-    Y = fyi(Yp[200:-1])
+    Y = Yp[200:-1]
     Dp = Dp[200:-1]
 
     error = (Y-Dp)**2
