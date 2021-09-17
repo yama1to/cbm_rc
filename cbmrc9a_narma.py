@@ -45,13 +45,13 @@ class Config():
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 0.2
-        self.alpha_r = 0.25
+        self.alpha_i = 2.23
+        self.alpha_r = 0.76
         self.alpha_b = 0.
-        self.alpha_s = 0.6
+        self.alpha_s = 1.86
 
-        self.beta_i = 0.1
-        self.beta_r = 0.1
+        self.beta_i = 0.27
+        self.beta_r = 0.05
         self.beta_b = 0.1
 
         self.lambda0 = 0.1
@@ -233,6 +233,7 @@ def execute():
     t_start=time.time()
 
     np.random.seed(int(c.seed))
+    c.Nh = int(c.Nh)
 
     generate_weight_matrix()
 
