@@ -3,6 +3,10 @@
 NOTE: cbm_rc　時系列生成タスク　
 cbmrc6e.pyを改変
 Configクラスによるパラメータ設定
+
+
+
+
 """
 
 import argparse

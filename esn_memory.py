@@ -29,7 +29,7 @@ class Config():
         # config
         self.dataset=6
         self.seed:int=2 # 乱数生成のためのシード
-        self.MM=1000 # サイクル数
+        self.MM=300 # サイクル数
         self.MM0 = 0 #
 
         self.Nu = 1   #size of input
@@ -45,7 +45,7 @@ class Config():
         self.alpha0 = 0.1#0.1
         self.alpha1 = 0#-5.8
 
-        self.beta_i = 0.05
+        self.beta_i = 0.9
         self.beta_r = 0.05
         self.beta_b = 0.1
 
@@ -74,12 +74,6 @@ def generate_weight_matrix():
 
 def fy(h):
     return np.tanh(h)
-
-def fyi(h):
-    return np.arctanh(h)
-
-def p2s(theta,p):
-    return np.heaviside( np.sin(np.pi*(2*theta-p)),1)
 
 def run_network(mode):
     global Hp
