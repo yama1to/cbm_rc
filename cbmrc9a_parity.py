@@ -38,7 +38,7 @@ class Config():
         self.MM0 = 0 #
 
         self.Nu = 1   #size of input
-        self.Nh:int = 500 #size of dynamical reservior
+        self.Nh:int =300 #size of dynamical reservior
         self.Ny = 1   #size of output
 
         self.Temp=1
