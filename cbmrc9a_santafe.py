@@ -14,6 +14,8 @@ import time
 from explorer import common
 from generate_data_sequence_santafe import *
 from generate_matrix import *
+import gc
+
 
 class Config():
     def __init__(self):
@@ -42,12 +44,12 @@ class Config():
 
         #sigma_np = -5
         self.alpha_i = 1
-        self.alpha_r = 0.75
+        self.alpha_r = 0.9
         self.alpha_b = 0.
         self.alpha_s = 2
 
-        self.beta_i = 0.1
-        self.beta_r = 0.1
+        self.beta_i = 0.9
+        self.beta_r = 0.05
         self.beta_b = 0.1
 
         self.lambda0 = 0.1
@@ -146,14 +148,15 @@ def run_network(mode):
 
         any_hs_change = np.any(hs!=hs_prev)
 
-        # record
-        Rs[n]=rs
-        Hx[n]=hx
-        Hs[n]=hs
-        Yx[n]=yx
-        Ys[n]=ys
-        Us[n]=us
-        Ds[n]=ds
+        if c.plot:
+            # record
+            Rs[n]=rs
+            Hx[n]=hx
+            Hs[n]=hs
+            Yx[n]=yx
+            Ys[n]=ys
+            Us[n]=us
+            Ds[n]=ds
 
     # オーバーフローを検出する。
     global cnt_overflow
@@ -240,7 +243,7 @@ def execute():
     ### generate data
     if c.dataset==1:
         #delay = 1,2,3,4,5
-        t_i,t_t,v_i,v_t = generate_santafe(delay = 30)
+        t_i,t_t,v_i,v_t = generate_santafe(delay = 1)
     
     D1 = t_t 
     U1 = t_i  
@@ -253,7 +256,14 @@ def execute():
 
     Dp = D1
     Up = np.tanh(U1)
+    if c.plot:
+        del U1,D1
+        gc.collect()
+
     train_network()
+
+    
+
 
     ### test
     #print("test...")
@@ -261,6 +271,9 @@ def execute():
 
     Dp = fy(D2)
     Up = np.tanh(U2)
+    if c.plot:
+        del U2,D2
+        gc.collect()
     test_network()
 
 
