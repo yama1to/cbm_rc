@@ -15,11 +15,11 @@ import numpy as np
 
 def generate_santafe(delay = 1):
     #"""
-    with open('/home/yamato/Downloads/cbm_rc/santafeA.txt', 'r', encoding='UTF-8') as f:
+    with open('santafeA.txt', 'r', encoding='UTF-8') as f:
         data = np.array(list(f)).astype(int)
 
     #"""
-    with open('/home/yamato/Downloads/cbm_rc/santafeA2.txt', 'r', encoding='UTF-8') as f:
+    with open('santafeA2.txt', 'r', encoding='UTF-8') as f:
         tmp =  np.array(list(f)).astype(int)
         #data = tmp
         data = np.hstack((data,tmp))
