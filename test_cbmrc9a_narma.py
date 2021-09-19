@@ -81,9 +81,9 @@ def gridsearch(X1,min=0,max=1,num=41,samples=10):
     plt.figure(figsize=(6,8))
 
     plt.subplot(2,1,1)
-    x,ymean,ystd,ymin,ymax = vs.analyze(df,X1,"NNSE")
-    plot1(x,ymean,ystd,ymin,ymax,color=cmap(1),label="NNSE")
-    plt.ylabel("NNSE")
+    x,ymean,ystd,ymin,ymax = vs.analyze(df,X1,"NMSE")
+    plot1(x,ymean,ystd,ymin,ymax,color=cmap(1),label="NMSE")
+    plt.ylabel("NMSE")
     plt.grid(linestyle="dotted")
 
     plt.subplot(2,1,2)
