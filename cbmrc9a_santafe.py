@@ -243,7 +243,7 @@ def execute():
     ### generate data
     if c.dataset==1:
         #delay = 1,2,3,4,5
-        t_i,t_t,v_i,v_t = generate_santafe(delay = 1)
+        t_i,t_t,v_i,v_t = generate_santafe(delay = 5)
     
     D1 = t_t 
     U1 = t_i  
@@ -284,7 +284,7 @@ def execute():
         sum += (Yp[j] - Dp[j])**2
 
     SUM=np.sum(sum)
-    NMSE = SUM/np.var(Dp)
+    NMSE = SUM/c.MM/np.var(Dp)
 
     c.NMSE = NMSE
     c.cnt_overflow=cnt_overflow
