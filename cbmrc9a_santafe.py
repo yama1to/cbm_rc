@@ -34,7 +34,7 @@ class Config():
         self.MM0 = 0 #
 
         self.Nu = 1   #size of input
-        self.Nh = 300 #size of dynamical reservior
+        self.Nh = 400 #size of dynamical reservior
         self.Ny = 1   #size of output
 
         self.Temp=1.0
@@ -79,8 +79,8 @@ def run_network(mode):
     Hx = np.zeros((c.MM*c.NN, c.Nh))
     Hs = np.zeros((c.MM*c.NN, c.Nh))
     hsign = np.zeros(c.Nh)
-    #hx = np.zeros(Nh)
-    hx = np.random.uniform(0,1,c.Nh) # [0,1]の連続値
+    hx = np.zeros(c.Nh)
+    #hx = np.random.uniform(0,1,c.Nh) # [0,1]の連続値
     hs = np.zeros(c.Nh) # {0,1}の２値
     hs_prev = np.zeros(c.Nh)
     hc = np.zeros(c.Nh) # ref.clockに対する位相差を求めるためのカウント
@@ -169,7 +169,7 @@ def train_network():
     run_network(1) # run netwrok with teacher forcing
 
     M = Hp[c.MM0:, :]
-    invD = fyi(Dp)
+    invD = Dp
     G = invD[c.MM0:, :]
 
     #print("Hp\n",Hp)
@@ -212,10 +212,11 @@ def plot1():
 
     ax = fig.add_subplot(Nr,1,5)
     ax.cla()
-    ax.set_title("Yp")
+    ax.set_title("Yp - Dp")
     
-    ax.plot(Dp)
-    ax.plot(Yp)
+    ax.plot(Dp,label = "Dp")
+    ax.plot(Yp,label = "Yp")
+    ax.legend()
 
 
     ax = fig.add_subplot(Nr,1,6)
@@ -250,7 +251,7 @@ def execute():
     #print("training...")
     c.MM= D1.size
 
-    Dp = np.tanh(D1)
+    Dp = D1
     Up = np.tanh(U1)
     train_network()
 
@@ -258,21 +259,20 @@ def execute():
     #print("test...")
     c.MM= D2.size
 
-    Dp = np.tanh(D2)
+    Dp = fy(D2)
     Up = np.tanh(U2)
     test_network()
 
+
     ### evaluation
-    
     sum=0
-    for j in range(c.MM0,c.MM):
+
+    for j in range(c.MM):
         sum += (Yp[j] - Dp[j])**2
 
     SUM=np.sum(sum)
-    RMSE1 = np.sqrt(SUM/c.Ny/(c.MM-c.MM0))
-    NMSE = SUM/(np.max(Dp)-np.min(Dp))
+    NMSE = SUM/np.var(Dp)
 
-    c.RMSE1=RMSE1
     c.NMSE = NMSE
     c.cnt_overflow=cnt_overflow
 
