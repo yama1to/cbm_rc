@@ -34,21 +34,21 @@ class Config():
         self.MM=50 # サイクル数
         self.MM0 = 0 #
 
-        self.Nu = 77   #size of input
+        self.Nu = 86   #size of input
         self.Nh:int = 200#815 #size of dynamical reservior
         self.Ny = 10   #size of output
 
 
         #sigma_np = -5
-        self.alpha_i = 1
-        self.alpha_r = 0.9
+        self.alpha_i = 1000
+        self.alpha_r = 0.8
         self.alpha_b = 0.
 
         self.alpha0 = 1#0.1
         self.alpha1 = 0#-5.8
 
         self.beta_i = 0.9
-        self.beta_r = 0.05
+        self.beta_r = 0.1
         self.beta_b = 0.1
 
         self.lambda0 = 0.
@@ -151,13 +151,7 @@ def execute(c):
 
     ### generate data
     
-    U1,U2,D1,D2,SHAPE = generate_coch(seed = c.seed,shuffle = 0)
-    MAX1 = np.max(np.max(U1,axis = 1),axis=0)
-    MAX2 = np.max(np.max(U2,axis = 1),axis=0)
-    #print(MAX1,MAX2)
-    MAX = max(MAX1,MAX2)
-    U1 = U1#/MAX
-    U2 = U2# /MAX
+    U1,U2,D1,D2,SHAPE = load_datasets()
     (dataset_num,length,Nu) = SHAPE
 
 
@@ -167,7 +161,7 @@ def execute(c):
 
     #Scale to (-1,1)
     DP = D1                     # TARGET   #(MM,len(delay))   
-    UP = U1                 # INPUT    #(MM,1)
+    UP = U1                     # INPUT    #(MM,1)
     
     x = U1.shape[0]
     collect_state_matrix = np.empty((x,c.Nh))
@@ -191,7 +185,7 @@ def execute(c):
     G = target_matrix
 
     #Wout = np.linalg.inv(M.T@M + c.lambda0 * np.identity(c.Nh)) @ M.T @ G
-    print(G.shape,M.shape)
+    #print(G.shape,M.shape)
     Wout = np.dot(G.T,np.linalg.pinv(M).T)
     #print(Wout.shape,M.shape)
     Y_pred = Wout @ M.T
@@ -252,7 +246,6 @@ def execute(c):
         start = start + length
     
     dp = [DP[i] for i in range(0,U1.shape[0],length)]
-    dp = dp
     test_WER = np.sum(abs(pred_test-dp)/2)/dataset_num
     #print("test Word error rate:",test_WER)
     print("train vs test :",train_WER,test_WER)

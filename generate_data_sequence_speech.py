@@ -14,7 +14,7 @@ import wave
 import itertools
 import pandas as pd
 import copy
-import soundfile as sf
+#import soundfile as sf
 from tqdm import tqdm_notebook as tqdm
 #import pyaudio
 
@@ -46,7 +46,7 @@ def getwaves(train,valid,save):
     for i in range(10):
         for j in range(train.shape[1]):
             file_name = train[i,j]
-            file = "/home/yamato/Downloads/cbm_rc/ti-yamato/"+ str(file_name)+".wav"
+            file = "./ti-yamato/"+ str(file_name)+".wav"
             #
             with wave.open(file,mode='r') as W:
                 W.rewind()
@@ -57,13 +57,13 @@ def getwaves(train,valid,save):
                 train_data[x,:y] = wa[:y]
                 
                 if save:
-                    save_file = "/home/yamato/Downloads/cbm_rc/fig_dir/"+ str(file_name)+".wav"
+                    save_file = "./fig_dir/"+ str(file_name)+".wav"
                     save_wave_fig(wa,save_file)
                 
                 x+= 1
         for j in range(valid.shape[1]):
             file_name = valid[i,j]
-            file = "/home/yamato/Downloads/cbm_rc/ti-yamato/"+ str(file_name)+".wav"
+            file = "./ti-yamato/"+ str(file_name)+".wav"
             #
             with wave.open(file,mode='r') as W:
                 W.rewind()
@@ -75,7 +75,7 @@ def getwaves(train,valid,save):
                 valid_data[x1,:y] = wa[:y]
 
                 if save:
-                    save_file = "/home/yamato/Downloads/cbm_rc/fig_dir/"+ str(file_name)+".wav"
+                    save_file = "./fig_dir/"+ str(file_name)+".wav"
                     save_wave_fig(wa,save_file)
                 x1+= 1
 
@@ -95,7 +95,7 @@ def convert2cochlea(train_data,valid_data,save):
         train_coch[:,i*t_num:(i+1)*t_num] = c.T
         
         if save:
-            file = "/home/yamato/Downloads/cbm_rc/coch_dir/train-fig"+str(i)+".png"
+            file = "./coch_dir/train-fig"+str(i)+".png"
             save_coch(c,file)
 
     waveform = valid_data
@@ -107,7 +107,7 @@ def convert2cochlea(train_data,valid_data,save):
         valid_coch[:,i*t_num:(i+1)*t_num] = c.T
         #
         if save:
-            file = "/home/yamato/Downloads/cbm_rc/coch_dir/valid-fig"+str(i)+".png"
+            file = "./coch_dir/valid-fig"+str(i)+".png"
             save_coch(c,file)
 
     return train_coch,valid_coch
@@ -127,7 +127,7 @@ def generate_target():
     return train_target,valid_target
     
 
-def generate_coch(new=1,seed = 0,save=0,shuffle=True):
+def generate_coch(seed = 1,save=0,shuffle=True):
     global data_num,t_num,input_num,SHAPE
 
     input_num = 86
@@ -135,13 +135,6 @@ def generate_coch(new=1,seed = 0,save=0,shuffle=True):
     data_num = 250
     SHAPE = (data_num,t_num,input_num)
 
-    if new:
-        train_coch   = np.load("generate_cochlear_speech5train_coch.npy")
-        valid_coch   = np.load("generate_cochlear_speech5valid_coch.npy")
-        train_target = np.load("generate_cochlear_speech5train_target.npy")
-        valid_target = np.load("generate_cochlear_speech5valid_target.npy")
-
-        return train_coch,valid_coch ,train_target, valid_target, (SHAPE)
     np.random.seed(seed=seed)
 
     #file name
@@ -183,17 +176,28 @@ def generate_coch(new=1,seed = 0,save=0,shuffle=True):
     return train_coch,valid_coch ,train_target, valid_target, (SHAPE)
 
 def save_data():
-    file = "generate_cochlear_speech5"
+    file = "generate_cochlear_speech"
     np.save(file+"train_coch",arr=t,)
     np.save(file+"valid_coch",arr=v,)
     np.save(file+"train_target",arr=tD,)
     np.save(file+"valid_target",arr=vD,)
 
+
+def load_datasets():
+    SHAPE = (250,50,86)
+    train_coch   = np.load("generate_cochlear_speechtrain_coch.npy")
+    valid_coch   = np.load("generate_cochlear_speechvalid_coch.npy")
+    train_target = np.load("generate_cochlear_speechtrain_target.npy")
+    valid_target = np.load("generate_cochlear_speechvalid_target.npy")
+
+    return train_coch,valid_coch ,train_target, valid_target, SHAPE
+    
+
 if __name__ == "__main__":
     
     #tD,vD = generate_target()
     #print(tD.shape,vD.shape)
-    t,v,tD,vD ,s= generate_coch(new = 0,seed = 0,save=0,shuffle=1)
+    t,v,tD,vD ,s= generate_coch()
     print(t)
     
     save_data()
