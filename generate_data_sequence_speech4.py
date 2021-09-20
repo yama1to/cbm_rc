@@ -24,9 +24,10 @@ def num_split_data(num,person,times):
     all_data_join = [''.join(v) for v in all_data]
     return all_data_join
 
-def save_wave_fig(wave,file):
+def save_wave_fig(wave,file_name):
+    save_file = "./fig_dir/"+ str(file_name)+".png"
     plt.plot(wave)
-    plt.savefig(file)
+    plt.savefig(save_file)
     plt.clf()
     plt.close()
 
@@ -36,47 +37,71 @@ def save_coch(c,file):
     plt.clf()
     plt.close()
 
-def getwaves(train,valid,save):
-    x = 0
-    x1 = 0
-    train_data = np.zeros((250,19000))
-    valid_data = np.zeros((250,19000))
 
-    for i in range(10):
-        for j in range(train.shape[1]):
-            file_name = train[i,j]
-            file = "/home/yamato/Downloads/cbm_rc/ti-yamato/"+ str(file_name)+".wav"
-            #
-            with wave.open(file,mode='r') as W:
-                W.rewind()
-                buf = W.readframes(-1)  # read allA
-                #16bitごとに10進数
-                wa = np.frombuffer(buf, dtype='int16')
-                y = len(wa)
-                train_data[x,:y] = wa[:y]
-                
+def cut(wave):
+    len_output=10000 # 出力波形の長さ
+    #print(len(wave))
+    
+    count = 0
+    start=0
+    for i in range(len(wave)):
+        if np.fabs(wave[i]) > 200:
+            count += 1
+            if count==10:
+                start = i
+                break 
+
+    start = i-2500
+    start = max(start,0)
+    end = min(len_output+start,wave.shape[0])
+    output = np.zeros(len_output)
+
+    output[:end-start] = wave[start:end]
+    return output
+
+def loadwave(file_name):
+    file = "./ti-yamato/"+ str(file_name)+".wav"
+    #
+    with wave.open(file,mode='r') as W:
+        W.rewind()
+        buf = W.readframes(-1)  # read allA
+        #16bitごとに10進数
+        wa = np.frombuffer(buf,dtype='int16').astype(np.float64)
+
+    return cut(wa)
+
+
+
+def getwaves(train,valid,save,load=1):
+    if load:
+        train_data = np.load("train_data_wave.npy")
+        valid_data = np.load("valid_data_wave.npy")
+    if not load:
+        x = 0
+        x1 = 0
+        len = 10000
+        train_data = np.zeros((250,len))
+        valid_data = np.zeros((250,len))
+
+        for i in range(10):
+            for j in range(train.shape[1]):
+                file_name = train[i,j]
+                train_data[x] = loadwave(file_name=file_name)
+
                 if save:
-                    save_file = "/home/yamato/Downloads/cbm_rc/fig_dir/"+ str(file_name)+".wav"
-                    save_wave_fig(wa,save_file)
-                
-                x+= 1
-        for j in range(valid.shape[1]):
-            file_name = valid[i,j]
-            file = "/home/yamato/Downloads/cbm_rc/ti-yamato/"+ str(file_name)+".wav"
-            #
-            with wave.open(file,mode='r') as W:
-                W.rewind()
-                buf = W.readframes(-1)  # read all
-
-                #16bitごとに10進数
-                wa = np.frombuffer(buf, dtype='int16')
-                y = len(wa)
-                valid_data[x1,:y] = wa[:y]
+                    save_wave_fig(train_data[x],file_name)
+                    
+                    x+= 1
+            for j in range(valid.shape[1]):
+                file_name = valid[i,j]
+                valid_data[x1] = loadwave(file_name)
 
                 if save:
-                    save_file = "/home/yamato/Downloads/cbm_rc/fig_dir/"+ str(file_name)+".wav"
-                    save_wave_fig(wa,save_file)
+                    save_wave_fig(valid_data[x1],file_name)
                 x1+= 1
+        if save:
+            np.save("train_data_wave",arr=train_data)
+            np.save("valid_data_wave",arr=valid_data)
 
     return train_data,valid_data
         
@@ -88,35 +113,35 @@ def convert2cochlea(train_data,valid_data,save):
     sample_rate = 12500
     train_coch = np.empty((input_num,data_num*t_num))
 
-    for i in range(data_num):                                               #64                                 #3
-        c = calc.lyon_passive_ear(waveform[i], sample_rate, decimation_factor=375, ear_q=8, step_factor=1, tau_factor=3)#
-        c = c*10**4
-        plt.plot(c)
-        plt.show()
-        print(c.shape)
+
+    for i in range(data_num):
+                                                                        #64                                 #3
+        c = calc.lyon_passive_ear(waveform[i], sample_rate, decimation_factor=200, ear_q=8,step_factor=0.254, tau_factor=1)#
+        # print(c.shape)
+        # plt.plot(c)
+        # plt.show()
         train_coch[:,i*t_num:(i+1)*t_num] = c.T
         
         if save:
-            file = "/home/yamato/Downloads/cbm_rc/coch_dir/train-fig"+str(i)+".png"
+            file = "./coch_dir/train-fig"+str(i)+".png"
             save_coch(c,file)
 
     waveform = valid_data
     valid_coch = np.empty((input_num,data_num*t_num))
 
     for i in range(data_num):
-        c = calc.lyon_passive_ear(waveform[i], sample_rate, decimation_factor=375, ear_q=6, step_factor=None, tau_factor=3)
+        c = calc.lyon_passive_ear(waveform[i], sample_rate, decimation_factor=200, ear_q=8, step_factor=0.254, tau_factor=1)
 
         valid_coch[:,i*t_num:(i+1)*t_num] = c.T
         #
         if save:
-            file = "/home/yamato/Downloads/cbm_rc/coch_dir/valid-fig"+str(i)+".png"
+            file = "./coch_dir/valid-fig"+str(i)+".png"
             save_coch(c,file)
 
     return train_coch,valid_coch
 
 def generate_target():
-    shap = (250*t_num,10)
-    collecting_target = np.zeros(shap)
+    collecting_target = np.zeros((SHAPE[0]*SHAPE[1],10))
 
     start = 0
     for i in range(250):
@@ -163,7 +188,7 @@ def generate_coch(load=1,seed = 0,save=0,shuffle=True):
     
     # generate wave
     print("~ generate wave ~")
-    train_data,valid_data = getwaves(train,valid,save = save)
+    train_data,valid_data = getwaves(train,valid,save = save,load = 1)
 
     #generate cochlear
     print("~ generate cochlear ~")
@@ -190,7 +215,5 @@ if __name__ == "__main__":
     #tD,vD = generate_target()
     #print(tD.shape,vD.shape)
     t,v,tD,vD ,s= generate_coch(load = 0,seed = 0,save=0,shuffle=1)
-    print(t)
-    
     save_data()
     #print(np.max(t),np.min(t),np.max(v),np.min(v))
