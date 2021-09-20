@@ -12,7 +12,7 @@ def generate_narma(N,seed=0):
 
     # Generate NARMA sequence
     d = np.zeros((N))
-    for i in range(9, N-1):
+    for i in range(N-1):
         d[i+1] = 0.3*d[i] + 0.05*d[i] * \
             np.sum(d[i-9:i+1]) + 1.5*u[i-9]*u[i] + 0.1
 
