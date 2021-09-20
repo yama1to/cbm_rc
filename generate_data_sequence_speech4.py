@@ -66,8 +66,8 @@ def loadwave(file_name):
         buf = W.readframes(-1)  # read allA
         #16bitごとに10進数
         wa = np.frombuffer(buf,dtype='int16').astype(np.float64)
-
-    return cut(wa)
+    wa = cut(wa)
+    return wa
 
 
 
@@ -110,11 +110,13 @@ def convert2cochlea(train_data,valid_data,save):
 
 
     for i in range(data_num):
+        #plt.plot(waveform[i])
+        #plt.show()
                                                                         #64                                 #3
         c = calc.lyon_passive_ear(waveform[i], sample_rate, decimation_factor=200, ear_q=8,step_factor=0.254, tau_factor=3)#
-        print(c.shape)
-        plt.plot(c)
-        plt.show()
+        #print(c.shape)
+        #plt.plot(c)
+        #plt.show()
         train_coch[:,i*t_num:(i+1)*t_num] = c.T
         
         if save:
@@ -219,6 +221,6 @@ if __name__ == "__main__":
     
     #tD,vD = generate_target()
     #print(tD.shape,vD.shape)
-    t,v,tD,vD ,s= generate_coch(save_arr=1)
+    t,v,tD,vD ,s= generate_coch(save_arr=1,save=1)
     print(t)
     #print(np.max(t),np.min(t),np.max(v),np.min(v))

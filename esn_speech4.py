@@ -34,7 +34,7 @@ class Config():
         self.MM=50 # サイクル数
         self.MM0 = 0 #
 
-        self.Nu = 86   #size of input
+        self.Nu = 77   #size of input
         self.Nh:int = 200#815 #size of dynamical reservior
         self.Ny = 10   #size of output
 
