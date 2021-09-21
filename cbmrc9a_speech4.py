@@ -62,7 +62,7 @@ def generate_weight_matrix():
     global Wr, Wb, Wo, Wi
     Wr = generate_random_matrix(c.Nh,c.Nh,c.alpha_r,c.beta_r,distribution="one",normalization="sr")
     Wb = generate_random_matrix(c.Nh,c.Ny,c.alpha_b,c.beta_b,distribution="one",normalization="none")
-    Wi = generate_random_matrix(c.Nh,c.Nu,c.alpha_i,c.beta_i,distribution="one",normalization="none")
+    Wi = generate_random_matrix(c.Nh,c.Nu,1,c.beta_i,distribution="one",normalization="none")
     Wo = np.zeros(c.Nh * c.Ny).reshape(c.Ny, c.Nh)
 
 def fy(h):
@@ -209,8 +209,8 @@ def execute():
 
     (dataset_num,length,c.Nu) = SHAPE
 
-    U1 = U1[:dataset_num*length]
-    U2 = U2[:dataset_num*length]
+    U1 = fy(U1[:dataset_num*length]*c.alpha_i)
+    U2 = fy(U2[:dataset_num*length]*c.alpha_i)
     D1 = D1[:dataset_num*length]
     D2 = D2[:dataset_num*length]
 
