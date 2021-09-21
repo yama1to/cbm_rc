@@ -90,7 +90,7 @@ def getwaves(train,valid,save=0,load=0):
                 if save:
                     save_wave_fig(train_data[x],file_name)
                     
-                    x+= 1
+                x+= 1
             for j in range(valid.shape[1]):
                 file_name = valid[i,j]
                 valid_data[x1] = loadwave(file_name)
@@ -221,6 +221,6 @@ if __name__ == "__main__":
     
     #tD,vD = generate_target()
     #print(tD.shape,vD.shape)
-    t,v,tD,vD ,s= generate_coch(save_arr=1,save=1)
+    t,v,tD,vD ,s= generate_coch(save_arr=1,save=0)
     print(t)
     #print(np.max(t),np.min(t),np.max(v),np.min(v))

@@ -145,15 +145,15 @@ def run_network(mode):
             m+=1
 
         any_hs_change = np.any(hs!=hs_prev)
-
-        # record
-        Rs[n]=rs
-        Hx[n]=hx
-        Hs[n]=hs
-        Yx[n]=yx
-        Ys[n]=ys
-        Us[n]=us
-        Ds[n]=ds
+        if c.plot:
+            # record
+            Rs[n]=rs
+            Hx[n]=hx
+            Hs[n]=hs
+            Yx[n]=yx
+            Ys[n]=ys
+            Us[n]=us
+            Ds[n]=ds
 
     # オーバーフローを検出する。
     global cnt_overflow
@@ -197,6 +197,7 @@ def execute():
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM
     global collect_state_matrix,target_matrix
     global UP,DP,pred_test,dp,test_WER
+    c.Nh = int(c.Nh)
     if c.seed>=0:
         np.random.seed(int(c.seed))
 
@@ -221,7 +222,7 @@ def execute():
 
     DP = D1                     #one-hot vector
     UP = U1
-
+    
     x = U1.shape[0]
     collect_state_matrix = np.empty((x,c.Nh))
     

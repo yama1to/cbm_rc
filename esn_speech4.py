@@ -15,6 +15,7 @@ from explorer import common
 from generate_data_sequence_speech4 import *
 from generate_matrix import *
 from tqdm import tqdm
+from pprint import pprint
 
 class Config():
     def __init__(self):
@@ -30,7 +31,7 @@ class Config():
 
         # config
         self.dataset=6
-        self.seed:int=2 # 乱数生成のためのシード
+        self.seed:int=0 # 乱数生成のためのシード
         self.MM=50 # サイクル数
         self.MM0 = 0 #
 
@@ -40,8 +41,8 @@ class Config():
 
 
         #sigma_np = -5
-        self.alpha_i = 1000
-        self.alpha_r = 0.8
+        self.alpha_i = 400
+        self.alpha_r = 0.9
         self.alpha_b = 0.
 
         self.alpha0 = 1#0.1
@@ -246,7 +247,8 @@ def execute(c):
         start = start + length
     
     dp = [DP[i] for i in range(0,U1.shape[0],length)]
-    test_WER = np.sum(abs(pred_test-dp)/2)/dataset_num
+    
+    test_WER = np.sum(pred_test!=dp)/2/dataset_num
     #print("test Word error rate:",test_WER)
     print("train vs test :",train_WER,test_WER)
     # for i in range(250):
