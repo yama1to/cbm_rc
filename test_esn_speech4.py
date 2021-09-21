@@ -59,6 +59,11 @@ def optimize():
     opt.append("alpha_r",value=0.9,min=0.7,max=1,round=2)
     opt.append("alpha0",value=1,min=0.01,max=1,round=2)
     opt.minimize(target="WER",iteration=50,population=50,samples=3)
+    #opt.append("alpha_i",value=1,min=1,max=10000,round=2)
+    opt.append("alpha_r",value=0.9,min=0.7,max=1,round=2)
+    opt.append("alpha0",value=1,min=0.01,max=1,round=2)
+    opt.minimize(target="WER",iteration=50,population=20,samples=3)
+    #opt.minimize(TARGET=func,iteration=5,population=10,samples=4)
     common.config = opt.best_config # 最適化で得られた設定を基本設定とする
 optimize()
 
@@ -104,5 +109,7 @@ def gs2():
     # gridsearch("beta_i",min=0.05,max=1,num=30,samples=ns)
     #gridsearch("alpha_r",min=0.05,max=1,num=30,samples=ns)
     gridsearch("alpha_i",min=1,max=1000,num=1001,samples=ns)
+    gridsearch("alpha_i",min=1,max=1000,num=1001,samples=ns)
+
     
 gs2()
