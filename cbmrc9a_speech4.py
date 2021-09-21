@@ -224,8 +224,10 @@ def execute():
 
     x = U1.shape[0]
     collect_state_matrix = np.empty((x,c.Nh))
+    
     start = 0
     target_matrix = DP.copy()
+    #print(np.linalg.pinv(collect_state_matrix).T.shape,target_matrix.T.shape)
 
     if c.tqdm_set:
         bar = tqdm(total = dataset_num) 
@@ -252,8 +254,8 @@ def execute():
     M = collect_state_matrix[c.MM0:]
     G = target_matrix[c.MM0:]
 
-
-    Wout = np.dot(G.T@np.linalg.pinv(M).T)
+    
+    Wout = np.dot(G.T,np.linalg.pinv(M).T)
     Y_pred = Wout @ M.T
 
     pred_train = np.zeros((dataset_num,10))
@@ -304,7 +306,7 @@ def execute():
         
     Y_pred = Wout @ collect_state_matrix[c.MM0:].T
 
-    
+
 
     pred_test = np.zeros((dataset_num,10))
     start = 0
@@ -324,8 +326,6 @@ def execute():
     dp = [DP[i] for i in range(0,U1.shape[0],length)]
     dp = dp
     test_WER = np.sum(abs(pred_test-dp)/2)/dataset_num
-    print("\n")
-    print("test Word error rate:",test_WER)
     print("train vs test :",train_WER,test_WER)
 
 
