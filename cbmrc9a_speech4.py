@@ -36,14 +36,14 @@ class Config():
         self.MM0 = 0 #
 
         self.Nu = 77   #size of input
-        self.Nh = 300 #size of dynamical reservior
+        self.Nh = 350 #size of dynamical reservior
         self.Ny = 10   #size of output
 
         self.Temp=1.0
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 1
+        self.alpha_i = 500
         self.alpha_r = 0.9
         self.alpha_b = 0.
         self.alpha_s = 2
@@ -52,7 +52,7 @@ class Config():
         self.beta_r = 0.1
         self.beta_b = 0.0
 
-        self.lambda0 = 0.1
+        self.lambda0 = 0.
 
         # Results
         self.WER = None
@@ -115,8 +115,8 @@ def run_network(mode):
         ys = p2s(theta,yp)
 
         sum = np.zeros(c.Nh)
-        sum += c.alpha_s*rs # ラッチ動作を用いないref.clockと同期させるための結合
-        #sum += alpha_s*(hs-rs)*ht # ref.clockと同期させるための結合
+        #sum += c.alpha_s*rs # ラッチ動作を用いないref.clockと同期させるための結合
+        sum += c.alpha_s*(hs-rs)*ht # ref.clockと同期させるための結合
         sum += Wi@(2*us-1) # 外部入力
         sum += Wr@(2*hs-1) # リカレント結合
 

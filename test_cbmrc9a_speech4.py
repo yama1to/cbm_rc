@@ -53,7 +53,7 @@ def optimize():
     # 変数の追加([変数名],[基本値],[下端],[上端],[まるめの桁数])
     opt.append("beta_r",value=0.1,min=0.01,max=1,round=2)
     opt.append("beta_i",value=0.9,min=0.01,max=1,round=2)
-    opt.append("alpha_i",value=400,min=1,max=1000,round=2)
+    #opt.append("alpha_i",value=400,min=1,max=1000,round=2)
     opt.append("alpha_r",value=0.9,min=0.7,max=1,round=2)
     opt.append("alpha_s",value=1,min=1,max=10,round=2)
     opt.minimize(target="WER",iteration=10,population=20,samples=3)
@@ -79,9 +79,9 @@ def gridsearch(X1,min=0,max=1,num=41,samples=10):
     plt.figure(figsize=(6,8))
 
     plt.subplot(2,1,1)
-    x,ymean,ystd,ymin,ymax = vs.analyze(df,X1,"BER")
-    plot1(x,ymean,ystd,ymin,ymax,color=cmap(1),label="BER")
-    plt.ylabel("BER")
+    x,ymean,ystd,ymin,ymax = vs.analyze(df,X1,"WER")
+    plot1(x,ymean,ystd,ymin,ymax,color=cmap(1),label="WER")
+    plt.ylabel("WER")
     plt.grid(linestyle="dotted")
 
     plt.subplot(2,1,2)
@@ -98,9 +98,9 @@ def gridsearch(X1,min=0,max=1,num=41,samples=10):
 def gs2():
     ns=3
     gridsearch("Nh",min=100,max=1000,num=41,samples=ns)
-    gridsearch("alpha_r",min=0.01,max=1,num=41,samples=ns)
-    gridsearch("alpha_i",min=0.01,max=1000,num=41,samples=ns)
-    gridsearch("alpha_s",min=0.01,max=10,num=41,samples=ns)
-    gridsearch("beta_i",min=0.01,max=1,num=41,samples=ns)
-    gridsearch("beta_r",min=0.01,max=1,num=41,samples=ns)
+    #gridsearch("alpha_r",min=0.01,max=1,num=41,samples=ns)
+    gridsearch("alpha_i",min=400,max=600,num=41,samples=ns)
+    #gridsearch("alpha_s",min=0.01,max=10,num=41,samples=ns)
+    #gridsearch("beta_i",min=0.01,max=1,num=41,samples=ns)
+    #gridsearch("beta_r",min=0.01,max=1,num=41,samples=ns)
 gs2()
