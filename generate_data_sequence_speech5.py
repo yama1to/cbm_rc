@@ -1,22 +1,20 @@
 #katoriLab
 #
-# speech4 のコクリアグラム生成時のパラメータ変化させる
+# speech5 のコクリアグラム生成時のパラメータ変化させる
 #
-
 from time import time
 import numpy as np
 import matplotlib.pyplot as plt
 import glob
 import os
 from scipy.io import loadmat
-from tqdm.notebook import tqdm
 import wave 
 import itertools
 import pandas as pd
 import copy
-import soundfile as sf
-from tqdm import tqdm_notebook as tqdm
-#import pyaudio
+
+
+from tqdm import tqdm
 
 from lyon.calc import LyonCalc
 
@@ -25,9 +23,10 @@ def num_split_data(num,person,times):
     all_data_join = [''.join(v) for v in all_data]
     return all_data_join
 
-def save_wave_fig(wave,file):
+def save_wave_fig(wave,file_name):
+    save_file = "./fig_dir/"+ str(file_name)+".png"
     plt.plot(wave)
-    plt.savefig(file)
+    plt.savefig(save_file)
     plt.clf()
     plt.close()
 
@@ -37,48 +36,68 @@ def save_coch(c,file):
     plt.clf()
     plt.close()
 
-def getwaves(train,valid,save):
-    x = 0
-    x1 = 0
-    train_data = np.zeros((250,19000))
-    valid_data = np.zeros((250,19000))
 
-    for i in range(10):
-        for j in range(train.shape[1]):
-            file_name = train[i,j]
-            file = "/home/yamato/Downloads/cbm_rc/ti-yamato/"+ str(file_name)+".wav"
-            #
-            with wave.open(file,mode='r') as W:
-                W.rewind()
-                buf = W.readframes(-1)  # read allA
-                #16bitごとに10進数
-                wa = np.frombuffer(buf, dtype='int16')
-                y = len(wa)
-                train_data[x,:y] = wa[:y]
-                
+def cut(wave):
+    len_output=10000 # 出力波形の長さ
+    #print(len(wave))
+    
+    count = 0
+    start=0
+    for i in range(len(wave)):
+        if np.fabs(wave[i]) > 200:
+            count += 1
+            if count==10:
+                start = i
+                break 
+
+    start = i-2500
+    start = max(start,0)
+    end = min(len_output+start,wave.shape[0])
+    output = np.zeros(len_output)
+
+    output[:end-start] = wave[start:end]
+    return output
+
+def loadwave(file_name):
+    file = "./ti-yamato/"+ str(file_name)+".wav"
+    #
+    with wave.open(file,mode='r') as W:
+        W.rewind()
+        buf = W.readframes(-1)  # read allA
+        #16bitごとに10進数
+        wa = np.frombuffer(buf,dtype='int16').astype(np.float64)
+    wa = cut(wa)
+    return wa
+
+
+
+def getwaves(train,valid,save=0,load=0):
+    if load:
+        train_data = np.load("train_data_wave.npy")
+        valid_data = np.load("valid_data_wave.npy")
+    if not load:
+        x = 0
+        x1 = 0
+        len = 10000
+        train_data = np.zeros((250,len))
+        valid_data = np.zeros((250,len))
+
+        for i in range(10):
+            for j in range(train.shape[1]):
+                file_name = train[i,j]
+                train_data[x] = loadwave(file_name=file_name)
+
                 if save:
-                    save_file = "/home/yamato/Downloads/cbm_rc/fig_dir/"+ str(file_name)+".wav"
-                    save_wave_fig(wa,save_file)
-                
+                    save_wave_fig(train_data[x],file_name)
+                    
                 x+= 1
-        for j in range(valid.shape[1]):
-            file_name = valid[i,j]
-            file = "/home/yamato/Downloads/cbm_rc/ti-yamato/"+ str(file_name)+".wav"
-            #
-            with wave.open(file,mode='r') as W:
-                W.rewind()
-                buf = W.readframes(-1)  # read all
-
-                #16bitごとに10進数
-                wa = np.frombuffer(buf, dtype='int16')
-                y = len(wa)
-                valid_data[x1,:y] = wa[:y]
+            for j in range(valid.shape[1]):
+                file_name = valid[i,j]
+                valid_data[x1] = loadwave(file_name)
 
                 if save:
-                    save_file = "/home/yamato/Downloads/cbm_rc/fig_dir/"+ str(file_name)+".wav"
-                    save_wave_fig(wa,save_file)
+                    save_wave_fig(valid_data[x1],file_name)
                 x1+= 1
-
     return train_data,valid_data
         
 def convert2cochlea(train_data,valid_data,save):
@@ -89,32 +108,35 @@ def convert2cochlea(train_data,valid_data,save):
     sample_rate = 12500
     train_coch = np.empty((input_num,data_num*t_num))
 
-    for i in range(data_num):                                               #64                                 #3
-        c = calc.lyon_passive_ear(waveform[i], sample_rate, decimation_factor=375, ear_q=8, step_factor=0.2259, tau_factor=3)#
-        #print(c.shape)
+
+    for i in range(data_num):
+        #plt.plot(waveform[i])
+        #plt.show()
+                                                                        #64                                 #3
+        c = calc.lyon_passive_ear(waveform[i], sample_rate, decimation_factor=200, ear_q=3,step_factor=0.091, tau_factor=3)#
+
         train_coch[:,i*t_num:(i+1)*t_num] = c.T
         
         if save:
-            file = "/home/yamato/Downloads/cbm_rc/coch_dir/train-fig"+str(i)+".png"
+            file = "./coch_dir/train-fig"+str(i)+".png"
             save_coch(c,file)
 
     waveform = valid_data
     valid_coch = np.empty((input_num,data_num*t_num))
 
     for i in range(data_num):
-        c = calc.lyon_passive_ear(waveform[i], sample_rate, decimation_factor=375, ear_q=8, step_factor=0.2259, tau_factor=3)
+        c = calc.lyon_passive_ear(waveform[i], sample_rate, decimation_factor=200, ear_q=3, step_factor=0.091, tau_factor=3)
 
         valid_coch[:,i*t_num:(i+1)*t_num] = c.T
         #
         if save:
-            file = "/home/yamato/Downloads/cbm_rc/coch_dir/valid-fig"+str(i)+".png"
+            file = "./coch_dir/valid-fig"+str(i)+".png"
             save_coch(c,file)
 
     return train_coch,valid_coch
 
 def generate_target():
-    shap = (250*t_num,10)
-    collecting_target = np.zeros(shap)
+    collecting_target = np.zeros((data_num*t_num,10))
 
     start = 0
     for i in range(250):
@@ -127,21 +149,13 @@ def generate_target():
     return train_target,valid_target
     
 
-def generate_coch(new=1,seed = 0,save=0,shuffle=True):
+def generate_coch(load=0,seed = 0,save_arr=1,save=0,shuffle=True):  
     global data_num,t_num,input_num,SHAPE
 
-    input_num = 86
+    input_num = 77
     t_num = 50
     data_num = 250
     SHAPE = (data_num,t_num,input_num)
-
-    if new:
-        train_coch   = np.load("generate_cochlear_speech5train_coch.npy")
-        valid_coch   = np.load("generate_cochlear_speech5valid_coch.npy")
-        train_target = np.load("generate_cochlear_speech5train_target.npy")
-        valid_target = np.load("generate_cochlear_speech5valid_target.npy")
-
-        return train_coch,valid_coch ,train_target, valid_target, (SHAPE)
     np.random.seed(seed=seed)
 
     #file name
@@ -161,7 +175,11 @@ def generate_coch(new=1,seed = 0,save=0,shuffle=True):
     
     # generate wave
     print("~ generate wave ~")
-    train_data,valid_data = getwaves(train,valid,save = save)
+    train_data,valid_data = getwaves(train,valid,save = save,load = load)
+
+    if save_arr:
+        np.save("train_data_wave",arr=train_data)
+        np.save("valid_data_wave",arr=valid_data)
 
     #generate cochlear
     print("~ generate cochlear ~")
@@ -173,37 +191,34 @@ def generate_coch(new=1,seed = 0,save=0,shuffle=True):
 
     train_coch = train_coch.T
     valid_coch = valid_coch.T
-
-    
-
-
-
-
+    if save_arr:
+        save_data(train_coch,valid_coch ,train_target, valid_target)
 
     return train_coch,valid_coch ,train_target, valid_target, (SHAPE)
 
-def save_data():
+def save_data(t,v,tD,vD):
     file = "generate_cochlear_speech5"
     np.save(file+"train_coch",arr=t,)
     np.save(file+"valid_coch",arr=v,)
     np.save(file+"train_target",arr=tD,)
     np.save(file+"valid_target",arr=vD,)
 
+def load_datasets():
+    SHAPE = (250,50,77)
+    train_coch   = np.load("generate_cochlear_speech5train_coch.npy")
+    valid_coch   = np.load("generate_cochlear_speech5valid_coch.npy")
+    train_target = np.load("generate_cochlear_speech5train_target.npy")
+    valid_target = np.load("generate_cochlear_speech5valid_target.npy")
+
+    return train_coch,valid_coch ,train_target, valid_target, SHAPE
+    
+
+
+
 if __name__ == "__main__":
     
     #tD,vD = generate_target()
     #print(tD.shape,vD.shape)
-    t,v,tD,vD ,s= generate_coch(new = 0,seed = 0,save=0,shuffle=1)
+    t,v,tD,vD ,s= generate_coch(save_arr=1,save=0)
     print(t)
-    
-    save_data()
     #print(np.max(t),np.min(t),np.max(v),np.min(v))
-
-
-
-    #print(t.shape,v.shape)
-    # plt.plot(t.T)
-    # plt.show()
-    #for i in range(250):
-    #    print(tD[i,0],vD[i,0])
-        
