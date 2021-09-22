@@ -30,7 +30,7 @@ class Config():
         self.dataset=1
         self.seed:int=0 # 乱数生成のためのシード
         self.NN=256 # １サイクルあたりの時間ステップ
-        self.MM=200 # サイクル数
+        self.MM=500 # サイクル数
         self.MM0 = 10 #
 
         self.Nu = 1   #size of input
@@ -50,11 +50,11 @@ class Config():
         self.beta_r = 0.1
         self.beta_b = 0.1
 
-        self.lambda0 = 1
+        self.lambda0 = 0.1
 
         # Results
         self.RMSE1=None
-        self.RMSE2=None
+        self.NRMSE=None
         self.cnt_overflow=None
 
 def generate_weight_matrix():
@@ -187,7 +187,7 @@ def test_network():
     run_network(0)
 
 def plot1():
-    fig=plt.figure(figsize=(20, 12))
+    fig=plt.figure(figsize=(10, 6))
     Nr=6
     ax = fig.add_subplot(Nr,1,1)
     ax.cla()
@@ -226,7 +226,7 @@ def plot1():
 
 def execute():
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM
-    global RMSE1,RMSE2
+    global RMSE1,NRMSE
     t_start=time.time()
     #if c.seed>=0:
     np.random.seed(int(c.seed))
@@ -236,9 +236,9 @@ def execute():
 
     ### generate data
     if c.dataset==1:
-        MM1 = 200
+        MM1 = c.MM - 100 
         MM2 = 100
-        U,D = generate_data(num=300)
+        U,D = generate_data(num=c.MM,delay=5, logv=-1, f=np.sin)
 
 
     D1 = D[0:MM1]
@@ -266,21 +266,24 @@ def execute():
     c.MM0 = 10
     for j in range(c.MM0,c.MM):
         sum += (Yp[j] - Dp[j])**2
+
     SUM=np.sum(sum)
     RMSE1 = np.sqrt(SUM/c.Ny/(c.MM-c.MM0))
-    RMSE2 = 0
+    NRMSE = RMSE1 / np.var(Dp)
 
     c.RMSE1=RMSE1
-    c.RMSE2=RMSE2
+    c.NRMSE=NRMSE
     c.cnt_overflow=cnt_overflow
 
-    print(RMSE1)
+    print("RMSE: ",RMSE1)
+    print("NRMSE: ",NRMSE)
     #print("time: %.6f [sec]" % (time.time()-t_start))
 
     #return c.RMSE
     if c.plot: plot1()
 
 if __name__ == "__main__":
+
     ap = argparse.ArgumentParser()
     ap.add_argument("-config", type=str)
     a = ap.parse_args()
