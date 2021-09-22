@@ -126,7 +126,7 @@ def convert2cochlea(train_data,valid_data,save):
     valid_coch = np.empty((input_num,data_num*t_num))
 
     for i in range(data_num):
-        c = calc.lyon_passive_ear(waveform[i], sample_rate, decimation_factor=200, ear_q=3, step_factor=0.091, tau_factor=3)
+        c = calc.lyon_passive_ear(waveform[i], sample_rate, decimation_factor=200, ear_q=1, step_factor=0.0255, tau_factor=3)
 
         valid_coch[:,i*t_num:(i+1)*t_num] = c.T
         #
