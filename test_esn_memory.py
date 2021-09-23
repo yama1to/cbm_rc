@@ -25,7 +25,7 @@ common.dir_path= "data/data%s_esn_memory" % common.string_now() # 実験デー�
 common.exe     = "python esn_memory.py " # 実行されるプログラム
 common.columns=['dataset','seed','id','Nh','alpha_i','alpha_r','alpha0','beta_i','beta_r',
 'lambda0',"delay",'MC','MC2','MC3','MC4']
-common.parallel= 24
+common.parallel= 32
 common.setup()
 common.report_common()
 common.report_config(config)
@@ -55,10 +55,10 @@ def optimize():
     #opt.append("Nh",value=500,min=300,max=1000,round=1)
     opt.append("beta_r",value=0.01,min=0.01,max=1,round=2)
     opt.append("beta_i",value=0.01,min=0.01,max=1,round=2)
-    opt.append("alpha_i",value=1,min=0.01,max=5,round=2)
-    opt.append("alpha_r",value=0.75,min=0.01,max=1.5,round=2)
-    opt.append("alpha0",value=0.75,min=0.01,max=0.99,round=2)
-    opt.maximize(target="MC",iteration=20,population=10,samples=3)
+    opt.append("alpha_i",value=1,min=0.01,max=10,round=2)
+    opt.append("alpha_r",value=0.75,min=0.5,max=1.5,round=2)
+    opt.append("alpha0",value=0.75,min=0,max=1,round=2)
+    opt.maximize(target="MC",iteration=30,population=30,samples=3)
     #opt.minimize(TARGET=func,iteration=5,population=10,samples=4)
     common.config = opt.best_config # 最適化で得られた設定を基本設定とする
 optimize()

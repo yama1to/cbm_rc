@@ -33,7 +33,7 @@ class Config():
         self.MM0 = 0 #
 
         self.Nu = 1   #size of input
-        self.Nh:int = 100#815 #size of dynamical reservior
+        self.Nh:int = 200#815 #size of dynamical reservior
         self.Ny = 20   #size of output
 
 
@@ -51,7 +51,7 @@ class Config():
 
         self.lambda0 = 0.0
 
-        self.delay = 20
+        self.delay = 100
 
 
         # Results
@@ -108,10 +108,14 @@ def train_network():
     #print("M\n",M)
 
     ### Ridge regression
-    E = np.identity(c.Nh)
-    TMP1 = np.linalg.inv(M.T@M + c.lambda0 * E)
-    WoT = TMP1@M.T@G
-    Wo = WoT.T
+    if c.lambda0 == 0:
+        Wo = np.dot(G.T,np.linalg.pinv(M).T)
+        #print("a")
+    else:
+        E = np.identity(c.Nh)
+        TMP1 = np.linalg.inv(M.T@M + c.lambda0 * E)
+        WoT = TMP1@M.T@G
+        Wo = WoT.T
 
     #print("WoT\n", WoT)
 

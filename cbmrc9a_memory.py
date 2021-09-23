@@ -34,7 +34,7 @@ class Config():
         self.MM0 = 0 #
 
         self.Nu = 1   #size of input
-        self.Nh:int = 200#815 #size of dynamical reservior
+        self.Nh:int = 50#815 #size of dynamical reservior
         self.Ny = 20   #size of output
 
         self.Temp=1
@@ -53,11 +53,11 @@ class Config():
         self.beta_r = 0.2
         self.beta_b = 0.1
 
-        self.lambda0 = 0.1
+        self.lambda0 = 0.
 
         self.delay = 20
 
-        # Results
+        # ResultsX
         self.RMSE1=None
         self.RMSE2=None
         self.MC = None 
@@ -125,8 +125,8 @@ def run_network(mode):
         ys = p2s(theta,yp)
 
         sum = np.zeros(c.Nh)
-        sum += c.alpha_s*rs # ラッチ動作を用いないref.clockと同期させるための結合
-        #sum += alpha_s*(hs-rs)*ht # ref.clockと同期させるための結合
+       # sum += c.alpha_s*rs # ラッチ動作を用いないref.clockと同期させるための結合
+        sum += c.alpha_s*(hs-rs)*ht # ref.clockと同期させるための結合
         sum += Wi@(2*us-1) # 外部入力
         sum += Wr@(2*hs-1) # リカレント結合
         
@@ -156,14 +156,15 @@ def run_network(mode):
 
         any_hs_change = np.any(hs!=hs_prev)
 
-        # record
-        Rs[n]=rs
-        Hx[n]=hx
-        Hs[n]=hs
-        Yx[n]=yx
-        Ys[n]=ys
-        Us[n]=us
-        Ds[n]=ds
+        if c.plot:
+            # record
+            Rs[n]=rs
+            Hx[n]=hx
+            Hs[n]=hs
+            Yx[n]=yx
+            Ys[n]=ys
+            Us[n]=us
+            Ds[n]=ds
 
     # オーバーフローを検出する。
     global cnt_overflow
@@ -186,10 +187,14 @@ def train_network():
     #print("M\n",M)
 
     ### Ridge regression
-    E = np.identity(c.Nh)
-    TMP1 = np.linalg.inv(M.T@M + c.lambda0 * E)
-    WoT = TMP1@M.T@G
-    Wo = WoT.T
+    if c.lambda0 == 0:
+        Wo = np.dot(G.T,np.linalg.pinv(M).T)
+        #print("a")
+    else:
+        E = np.identity(c.Nh)
+        TMP1 = np.linalg.inv(M.T@M + c.lambda0 * E)
+        WoT = TMP1@M.T@G
+        Wo = WoT.T
     #print("WoT\n", WoT)
 
 def test_network():
