@@ -34,11 +34,11 @@ class Config():
         self.dataset=5
         self.seed:int=0 # 乱数生成のためのシード
         self.NN=256 # １サイクルあたりの時間ステップ
-        self.MM=500 # サイクル数
+        self.MM=50 # サイクル数
         self.MM0 = 0 #
 
         self.Nu = 1   #size of input
-        self.Nh:int =300 #size of dynamical reservior
+        self.Nh:int =40 #size of dynamical reservior
         self.Ny = 1   #size of output
 
         self.Temp=1
@@ -123,8 +123,8 @@ def run_network(mode):
         ys = p2s(theta,yp)
 
         sum = np.zeros(c.Nh)
-        sum += c.alpha_s*rs # ラッチ動作を用いないref.clockと同期させるための結合
-        #sum += alpha_s*(hs-rs)*ht # ref.clockと同期させるための結合
+        #sum += c.alpha_s*rs # ラッチ動作を用いないref.clockと同期させるための結合
+        sum += c.alpha_s*(hs-rs)*ht # ref.clockと同期させるための結合
         sum += Wi@(2*us-1) # 外部入力
         sum += Wr@(2*hs-1) # リカレント結合
         
@@ -154,14 +154,15 @@ def run_network(mode):
 
         any_hs_change = np.any(hs!=hs_prev)
 
-        # record
-        Rs[n]=rs
-        Hx[n]=hx
-        Hs[n]=hs
-        Yx[n]=yx
-        Ys[n]=ys
-        Us[n]=us
-        Ds[n]=ds
+        if c.plot:
+            # record
+            Rs[n]=rs
+            Hx[n]=hx
+            Hs[n]=hs
+            Yx[n]=yx
+            Ys[n]=ys
+            Us[n]=us
+            Ds[n]=ds
 
     # オーバーフローを検出する。
     global cnt_overflow
@@ -221,8 +222,6 @@ def plot1():
     ax = fig.add_subplot(Nr,1,5)
     ax.cla()
     ax.set_title("Yp")
-    ax.plot(Yp)
-    #print(Yp.shape,Dp.shape)
     ax.plot(y)
 
     ax = fig.add_subplot(Nr,1,6)
