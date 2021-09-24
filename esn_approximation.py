@@ -51,6 +51,9 @@ class Config():
 
         self.lambda0 = 0.0
 
+        self.delay = 5
+        self.logv = 1
+
         # Results
         self.RMSE1=None
         self.NRMSE=None
@@ -130,9 +133,9 @@ def execute(c):
     ### generate data
     
     if c.dataset==6:
-        MM1 = c.MM - 100 
+        MM1 = c.MM - 100    
         MM2 = 100
-        U,D = generate_data(num=c.MM,delay=5, logv=-1, f=np.sin)
+        U,D = generate_data(num=c.MM,delay=c.delay,logv=c.logv, f=np.sin)
 
     D1 = D[0:MM1]
     U1 = U[0:MM1]
