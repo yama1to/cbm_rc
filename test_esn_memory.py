@@ -24,7 +24,7 @@ common.prefix  = "data%s_esn_memory" % common.string_now() # 実験名（ファ�
 common.dir_path= "data/data%s_esn_memory" % common.string_now() # 実験データを出力するディレクトリのパス
 common.exe     = "python esn_memory.py " # 実行されるプログラム
 common.columns=['dataset','seed','id','Nh','alpha_i','alpha_r','alpha0','beta_i','beta_r',
-'lambda0',"delay",'MC','MC2','MC3','MC4']
+'lambda0',"delay",'MC',"MC1",'MC2','MC3','MC4']
 common.parallel= 32
 common.setup()
 common.report_common()
@@ -58,7 +58,7 @@ def optimize():
     opt.append("alpha_i",value=1,min=0.01,max=10,round=2)
     opt.append("alpha_r",value=0.75,min=0.5,max=1.5,round=2)
     opt.append("alpha0",value=0.75,min=0,max=1,round=2)
-    opt.maximize(target="MC",iteration=30,population=30,samples=3)
+    opt.maximize(target="MC",iteration=10,population=30,samples=3)
     #opt.minimize(TARGET=func,iteration=5,population=10,samples=4)
     common.config = opt.best_config # 最適化で得られた設定を基本設定とする
 optimize()
@@ -78,31 +78,52 @@ def gridsearch(X1,min=0,max=1,num=41,samples=10):
     df = common.load_dataframe()
     #print(df)
     cmap = plt.get_cmap("tab10")
-    plt.figure(figsize=(6,8))
+    plt.figure(figsize=(12,16))
 
-    plt.subplot(2,1,1)
+    plt.subplot(5,1,1)
     x,ymean,ystd,ymin,ymax = vs.analyze(df,X1,"MC")
     plot1(x,ymean,ystd,ymin,ymax,color=cmap(1),label="MC")
     plt.ylabel("MC")
     plt.grid(linestyle="dotted")
+    plt.ylim([0,101]) # y軸の範囲
 
-    plt.subplot(2,1,2)
-    x,ymean,ystd,ymin,ymax = vs.analyze(df,X1,"cnt_overflow")
-    plot1(x,ymean,ystd,ymin,ymax,color=cmap(2),label="cnt_overflow")
-    plt.ylabel("overflow")
-    #plt.yscale('log')
+    plt.subplot(5,1,2)
+    x,ymean,ystd,ymin,ymax = vs.analyze(df,X1,"MC1")
+    plot1(x,ymean,ystd,ymin,ymax,color=cmap(1),label="MC1")
+    plt.ylabel("MC1:delay=5")
     plt.grid(linestyle="dotted")
-    #plt.ylim([0,1]) # y軸の範囲
+    plt.ylim([0,6]) # y軸の範囲
+
+    plt.subplot(5,1,3)
+    x,ymean,ystd,ymin,ymax = vs.analyze(df,X1,"MC2")
+    plot1(x,ymean,ystd,ymin,ymax,color=cmap(1),label="MC2")
+    plt.ylabel("MC2:delay=10")
+    plt.grid(linestyle="dotted")
+    plt.ylim([0,11]) # y軸の範囲
+    
+    plt.subplot(5,1,4)
+    x,ymean,ystd,ymin,ymax = vs.analyze(df,X1,"MC3")
+    plot1(x,ymean,ystd,ymin,ymax,color=cmap(1),label="MC3")
+    plt.ylabel("MC3:delay=20")
+    plt.grid(linestyle="dotted")
+    plt.ylim([0,21]) # y軸の範囲
+
+    plt.subplot(5,1,5)
+    x,ymean,ystd,ymin,ymax = vs.analyze(df,X1,"MC4")
+    plot1(x,ymean,ystd,ymin,ymax,color=cmap(1),label="MC4")
+    plt.ylabel("MC4:delay=50")
+    plt.grid(linestyle="dotted")
+    plt.ylim([0,51]) # y軸の範囲
 
     plt.xlabel(X1)
     vs.plt_output()
 
 def gs2():
     ns=3
-    gridsearch("Nh",min=100,max=1000,num=41,samples=ns)
+    gridsearch("Nh",min=20,max=500,num=25,samples=ns)
     #gridsearch("Temp",min=0.01,max=10,num=100,samples=ns)
     # gridsearch("beta_i",min=0.05,max=1,num=30,samples=ns)
     # gridsearch("alpha_r",min=0.05,max=1,num=30,samples=ns)
     # gridsearch("alpha_i",min=0.05,max=1,num=30,samples=ns)
     
-#gs2()
+gs2()

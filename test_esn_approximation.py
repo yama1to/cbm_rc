@@ -16,14 +16,15 @@ from explorer import randomsearch as rs
 from explorer import optimization as opt
 
 ### 共通設定
-from cbmrc9a_memory import Config
+from esn_approximation import Config
+
 config = Config()
 common.config  = config
-common.prefix  = "data%s_cbmrc9a_memory" % common.string_now() # 実験名（ファイルの接頭辞）
-common.dir_path= "data/data%s_cbmrc9a_memory" % common.string_now() # 実験データを出力するディレクトリのパス
-common.exe     = "python cbmrc9a_memory.py " # 実行されるプログラム
-common.columns=['dataset','seed','id','NN','Nh','alpha_i','alpha_r','alpha_b','alpha_s','beta_i','beta_r','beta_b',
-'Temp','lambda0',"delay",'RMSE1','RMSE2','cnt_overflow','MC',"MC1",'MC2','MC3','MC4']
+common.prefix  = "data%s_esn_approximation" % common.string_now() # 実験名（ファイルの接頭辞）
+common.dir_path= "data/data%s_esn_approximation" % common.string_now() # 実験データを出力するディレクトリのパス
+common.exe     = "python esn_approximation.py " # 実行されるプログラム
+common.columns =['dataset','seed','id','Nh','alpha_i','alpha_r','alpha0','beta_i','beta_r',
+'lambda0',"RMSE1","NRMSE"]
 common.parallel= 32
 common.setup()
 common.report_common()
@@ -36,7 +37,7 @@ def rs1():
     rs.append("alpha_i",min=0,max=5)
     rs.random(num=60,samples=2)
     df = common.load_dataframe() # 直前に保存されたcsvファイルをデータフレーム(df)に読み込む
-    df = df[['alpha_r','alpha_i','cnt_overflow','MC']] # 指定した列のみでデータフレームを構成する
+    df = df[['alpha_r','alpha_i','RMSE1','NRMSE']] # 指定した列のみでデータフレームを構成する
     #df = df[(df['y1']<=10.0)] # 条件を満たすデータについてデータフレームを構成する。
     #print(df)
     scatter_matrix(df, alpha=0.8, figsize=(6, 6), diagonal='kde')
@@ -51,16 +52,16 @@ def optimize():
     opt.clear()#設定をクリアする
     opt.appendid()#id:必ず加える
     opt.appendseed()# 乱数のシード（０から始まる整数値）
-    #opt.append("Nh",value=500,min=300,max=1000,round=1)
+     #opt.append("alpha0",value=1,min=0.01,max=1,round=2)
     opt.append("beta_r",value=0.01,min=0.01,max=1,round=2)
     opt.append("beta_i",value=0.01,min=0.01,max=1,round=2)
-    opt.append("alpha_i",value=1,min=0.01,max=20,round=2)
-    opt.append("alpha_r",value=1,min=0.7,max=1,round=2)
-    opt.append("alpha_s",value=10,min=1,max=10,round=2)
-    opt.maximize(target="MC2",iteration=10,population=10,samples=3)
+    opt.append("alpha_i",value=1,min=0.01,max=1,round=2)
+    opt.append("alpha_r",value=0.9,min=0.7,max=1,round=2)
+    opt.append("alpha0",value=1,min=0.01,max=1,round=2)
+    opt.minimize(target="NRMSE",iteration=30,population=30,samples=3)
     #opt.minimize(TARGET=func,iteration=5,population=10,samples=4)
     common.config = opt.best_config # 最適化で得られた設定を基本設定とする
-#optimize()
+optimize()
 
 def plot1(x,y,ystd,ymin,ymax,color=None,width=1,label=None):
     # エラーバーをつけてグラフを描画、平均、標準偏差、最大値、最小値をプロットする。
@@ -70,7 +71,6 @@ def plot1(x,y,ystd,ymin,ymax,color=None,width=1,label=None):
     plt.plot(x,ymin,color=color,linestyle=':',linewidth=1)
     plt.plot(x,ymax,color=color,linestyle=':',linewidth=1)
 
-
 def gridsearch(X1,min=0,max=1,num=41,samples=10):
     # 指定された変数(X1)についてグリッドサーチを行い、評価基準の変化をまとめてプロット
 
@@ -78,53 +78,28 @@ def gridsearch(X1,min=0,max=1,num=41,samples=10):
     df = common.load_dataframe()
     #print(df)
     cmap = plt.get_cmap("tab10")
-    plt.figure(figsize=(12,16))
+    plt.figure(figsize=(6,8))
 
-    plt.subplot(5,1,1)
-    x,ymean,ystd,ymin,ymax = vs.analyze(df,X1,"MC")
-    plot1(x,ymean,ystd,ymin,ymax,color=cmap(1),label="MC")
-    plt.ylabel("MC")
+    plt.subplot(2,1,1)
+    x,ymean,ystd,ymin,ymax = vs.analyze(df,X1,"NRMSE")
+    plot1(x,ymean,ystd,ymin,ymax,color=cmap(1),label="NRMSE")
+    plt.ylabel("NRMSE")
     plt.grid(linestyle="dotted")
-    plt.ylim([0,101]) # y軸の範囲
 
-    plt.subplot(5,1,2)
-    x,ymean,ystd,ymin,ymax = vs.analyze(df,X1,"MC1")
-    plot1(x,ymean,ystd,ymin,ymax,color=cmap(1),label="MC1")
-    plt.ylabel("MC1:delay=5")
+    plt.subplot(2,1,2)
+    x,ymean,ystd,ymin,ymax = vs.analyze(df,X1,"RMSE1")
+    plot1(x,ymean,ystd,ymin,ymax,color=cmap(2),label="RMSE1")
+    plt.ylabel("RMSE")
+    #plt.yscale('log')
     plt.grid(linestyle="dotted")
-    plt.ylim([0,6]) # y軸の範囲
-
-    plt.subplot(5,1,3)
-    x,ymean,ystd,ymin,ymax = vs.analyze(df,X1,"MC2")
-    plot1(x,ymean,ystd,ymin,ymax,color=cmap(1),label="MC2")
-    plt.ylabel("MC2:delay=10")
-    plt.grid(linestyle="dotted")
-    plt.ylim([0,11]) # y軸の範囲
-    
-    plt.subplot(5,1,4)
-    x,ymean,ystd,ymin,ymax = vs.analyze(df,X1,"MC3")
-    plot1(x,ymean,ystd,ymin,ymax,color=cmap(1),label="MC3")
-    plt.ylabel("MC3:delay=20")
-    plt.grid(linestyle="dotted")
-    plt.ylim([0,21]) # y軸の範囲
-
-    plt.subplot(5,1,5)
-    x,ymean,ystd,ymin,ymax = vs.analyze(df,X1,"MC4")
-    plot1(x,ymean,ystd,ymin,ymax,color=cmap(1),label="MC4")
-    plt.ylabel("MC4:delay=50")
-    plt.grid(linestyle="dotted")
-    plt.ylim([0,51]) # y軸の範囲
+    #plt.ylim([0,1]) # y軸の範囲
 
     plt.xlabel(X1)
     vs.plt_output()
 
-
 def gs2():
-    ns=5
-    gridsearch("Nh",min=20,max=500,num=25,samples=ns)
-    #gridsearch("Temp",min=0.01,max=10,num=100,samples=ns)
-    # gridsearch("beta_i",min=0.05,max=1,num=30,samples=ns)
-    # gridsearch("alpha_r",min=0.05,max=1,num=30,samples=ns)
-    # gridsearch("alpha_i",min=0.05,max=1,num=30,samples=ns)
-    
+    ns=3
+    #gridsearch("Nh",min=100,max=1000,num=41,samples=ns)
+    gridsearch("alpha_r",min=0.01,max=2,num=41,samples=ns)
+    gridsearch("alpha_i",min=0.01,max=2,num=41,samples=ns)
 gs2()

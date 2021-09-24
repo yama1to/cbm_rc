@@ -41,16 +41,16 @@ class Config():
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 2.6
-        self.alpha_r = 0.72
+        self.alpha_i = 5.53
+        self.alpha_r = 0.84
         self.alpha_b = 0.
-        self.alpha_s = 4.48
+        self.alpha_s = 3.4
 
         self.alpha0 = 0#0.1
         self.alpha1 = 0#-5.8
 
-        self.beta_i = 0.92
-        self.beta_r = 0.08
+        self.beta_i = 0.88
+        self.beta_r = 0.37
         self.beta_b = 0.1
 
         self.lambda0 = 0.0
@@ -174,7 +174,7 @@ def train_network():
     run_network(1) # run netwrok with teacher forcing
 
     M = Hp[c.MM0:, :]
-    invD = Dp
+    invD = fyi(Dp)
     G = invD[c.MM0:, :]
 
     #print("Hp\n",Hp)
@@ -254,15 +254,15 @@ def execute():
     ### training
     #print("training...")
     c.MM = MM1
-    Dp = D1
-    Up = U1
+    Dp = np.tanh(D1)
+    Up = np.tanh(U1)
     train_network()                     #Up,Dpからネットワークを学習する
 
     ### test
     #print("test...")
     c.MM = MM2
     Dp = D2
-    Up = U2
+    Up = np.tanh(U2)
 
 
     test_network()                      #output = Yp
@@ -275,13 +275,13 @@ def execute():
 
     train_Y = Yp[tau:-1]     #(T-tau,1)
     Dp      = Dp[tau:-1]     #(T-tau,1)
-    rang    = 1
+    rang    = max(train_Y)
 
 
     #閾値を0.5としてバイナリ変換する
     for n in range(T-tau):
         if train_Y[n, 0] > rang/2:
-            train_Y_binary[n] = rang
+            train_Y_binary[n] = 1
         else:
             train_Y_binary[n] = 0
     

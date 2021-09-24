@@ -99,12 +99,12 @@ def gridsearch(X1,min=0,max=1,num=41,samples=10):
 
 def gs2():
     ns=3
-    #gridsearch("Nh",min=100,max=1000,num=41,samples=ns)
+    gridsearch("Nh",min=100,max=1000,num=41,samples=ns)
     #gridsearch("")
     # gridsearch("Temp",min=0.01,max=10,num=100,samples=ns)
-    #gridsearch("beta_i",min=0.05,max=1,num=30,samples=ns)
-    #gridsearch("alpha_r",min=0.05,max=1,num=30,samples=ns)
-    gridsearch("alpha_i",min=10,max=10000,num=101,samples=ns)
+    gridsearch("beta_i",min=0.05,max=1,num=30,samples=ns)
+    gridsearch("alpha_r",min=0.05,max=1,num=30,samples=ns)
+    gridsearch("alpha_i",min=8000,max=10000,num=1001,samples=ns)
 
     
 gs2()

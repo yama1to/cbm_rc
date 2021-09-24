@@ -3,10 +3,6 @@
 NOTE: cbm_rc　時系列生成タスク　
 cbmrc6e.pyを改変
 Configクラスによるパラメータ設定
-
-
-入力から予測を出力する
-
 """
 
 import argparse
@@ -16,10 +12,8 @@ import matplotlib.pyplot as plt
 import copy
 import time
 from explorer import common
-from generate_data_sequence_narma import *
+from generate_data_sequence import *
 from generate_matrix import *
-import gc
-
 
 class Config():
     def __init__(self):
@@ -27,7 +21,7 @@ class Config():
         self.columns = None # 結果をCSVに保存する際のコラム
         self.csv = None # 結果を保存するファイル
         self.id  = None
-        self.plot = 1 # 図の出力のオンオフ
+        self.plot = True # 図の出力のオンオフ
         self.show = True # 図の表示（plt.show()）のオンオフ、explorerは実行時にこれをオフにする。
         self.savefig = True
         self.fig1 = "fig1.png" ### 画像ファイル名
@@ -36,30 +30,31 @@ class Config():
         self.dataset=1
         self.seed:int=0 # 乱数生成のためのシード
         self.NN=256 # １サイクルあたりの時間ステップ
-        self.MM=1000 # サイクル数
-        self.MM0 = 0 #
+        self.MM=300 # サイクル数
+        self.MM0 = 50 #
 
-        self.Nu = 1   #size of input
-        self.Nh = 300 #size of dynamical reservior
-        self.Ny = 1   #size of output
+        self.Nu = 2   #size of input
+        self.Nh = 100 #size of dynamical reservior
+        self.Ny = 2   #size of output
 
         self.Temp=1.0
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 0.65
-        self.alpha_r = 0.9
+        self.alpha_i = 0.2
+        self.alpha_r = 0.25
         self.alpha_b = 0.
-        self.alpha_s = 2
+        self.alpha_s = 0.6
 
-        self.beta_i = 0.9
+        self.beta_i = 0.1
         self.beta_r = 0.1
         self.beta_b = 0.1
 
-        self.lambda0 = 0.0001
+        self.lambda0 = 0.1
 
         # Results
-        self.NMSE=None
+        self.RMSE1=None
+        self.RMSE2=None
         self.cnt_overflow=None
 
 def generate_weight_matrix():
@@ -96,7 +91,6 @@ def run_network(mode):
     Yx = np.zeros((c.MM*c.NN, c.Ny))
     Ys = np.zeros((c.MM*c.NN, c.Ny))
     #ysign = np.zeros(Ny)
-    
     yp = np.zeros(c.Ny)
     yx = np.zeros(c.Ny)
     ys = np.zeros(c.Ny)
@@ -153,15 +147,13 @@ def run_network(mode):
         any_hs_change = np.any(hs!=hs_prev)
 
         # record
-
-        if c.plot:
-            Rs[n]=rs
-            Hx[n]=hx
-            Hs[n]=hs
-            Yx[n]=yx
-            Ys[n]=ys
-            Us[n]=us
-            Ds[n]=ds
+        Rs[n]=rs
+        Hx[n]=hx
+        Hs[n]=hs
+        Yx[n]=yx
+        Ys[n]=ys
+        Us[n]=us
+        Ds[n]=ds
 
     # オーバーフローを検出する。
     global cnt_overflow
@@ -177,7 +169,7 @@ def train_network():
     run_network(1) # run netwrok with teacher forcing
 
     M = Hp[c.MM0:, :]
-    invD =Dp
+    invD = fyi(Dp)
     G = invD[c.MM0:, :]
 
     #print("Hp\n",Hp)
@@ -221,74 +213,71 @@ def plot1():
     ax = fig.add_subplot(Nr,1,5)
     ax.cla()
     ax.set_title("Yp")
-    ax.plot(Y)
+    ax.plot(Yp)
 
     ax = fig.add_subplot(Nr,1,6)
     ax.cla()
-    ax.set_title("Y,Dp")
+    ax.set_title("Dp")
     ax.plot(Dp)
-    ax.plot(Y)
+
     plt.show()
     plt.savefig(c.fig1)
-    
-    plt.plot((Y-Dp)**2)
-    plt.title("squared error")
-    plt.show()
 
 def execute():
-    global D,Ds,Dp,U,Us,Up,Rs,R2s,MM,Y
-
+    global D,Ds,Dp,U,Us,Up,Rs,R2s,MM
+    global RMSE1,RMSE2
     t_start=time.time()
-    c.seed = int(c.seed)
-    c.Nh = int(c.Nh)
+    #if c.seed>=0:
+    np.random.seed(int(c.seed))
+    #np.random.seed(c.seed)
 
-    np.random.seed(c.seed)
     generate_weight_matrix()
 
     ### generate data
     if c.dataset==1:
-        MM1 = 1000
-        MM2 = 2200
-        U1,D1  = generate_narma(N=MM1)
-        U2,D2  = generate_narma(N=MM2)
-        #print(U1.shape)
+        MM1=300 # length of training data
+        MM2=400 # length of test data
+        D, U = generate_simple_sinusoidal(MM1+MM2)
+    if c.dataset==2:
+        MM1=300 # length of training data
+        MM2=300 # length of test data
+        D, U = generate_complex_sinusoidal(MM1+MM2)
+    if c.dataset==3:
+        MM1=1000 # length of training data
+        MM2=1000 # length of test data
+        D, U = generate_coupled_lorentz(MM1+MM2)
+    D1 = D[0:MM1]
+    U1 = U[0:MM1]
+    D2 = D[MM1:MM1+MM2]
+    U2 = U[MM1:MM1+MM2]
 
     ### training
     #print("training...")
     c.MM=MM1
-    Dp = D1
-    Up = U1
+    Dp = np.tanh(D1)
+    Up = np.tanh(U1)
     train_network()
-
-    if not c.plot: 
-        del D1,U1,Us,Rs
-        gc.collect()
-        
 
     ### test
     #print("test...")
     c.MM=MM2
-    Dp = D2
-    Up = U2
+    Dp = np.tanh(D2)
+    Up = np.tanh(U2)
     test_network()
 
-    if not c.plot: 
-        del U2,D2,Up
-        gc.collect()
-
     ### evaluation
-    Y = fyi(Yp[200:-1])
-    Dp = Dp[200:-1]
+    sum=0
+    for j in range(c.MM0,c.MM):
+        sum += (Yp[j] - Dp[j])**2
+    SUM=np.sum(sum)
+    RMSE1 = np.sqrt(SUM/c.Ny/(c.MM-c.MM0))
+    RMSE2 = 0
 
-    error = (Y-Dp)**2
-    ave = np.mean(error)
-    NMSE = ave/np.var(Dp)
-
-    #print(1/np.var(Dp))
-    print("NMSE:",NMSE)
-
-    c.NMSE = NMSE
+    c.RMSE1=RMSE1
+    c.RMSE2=RMSE2
     c.cnt_overflow=cnt_overflow
+
+    print(RMSE1)
     #print("time: %.6f [sec]" % (time.time()-t_start))
 
     if c.plot: plot1()
