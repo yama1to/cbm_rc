@@ -16,6 +16,7 @@ from generate_data_sequence_speech4 import *
 from generate_matrix import *
 from tqdm import tqdm
 from pprint import pprint
+import gc
 
 class Config():
     def __init__(self):
@@ -31,7 +32,7 @@ class Config():
 
         # config
         self.dataset=6
-        self.seed:int=0 # 乱数生成のためのシード
+        self.seed:int=1 # 乱数生成のためのシード
         self.MM=50 # サイクル数
         self.MM0 = 0 #
 
@@ -41,14 +42,14 @@ class Config():
 
 
         #sigma_np = -5
-        self.alpha_i = 400
-        self.alpha_r = 0.9
+        self.alpha_i = 907
+        self.alpha_r = 0.7
         self.alpha_b = 0.
 
-        self.alpha0 = 1#0.1
+        self.alpha0 = 0.15#0.1
         self.alpha1 = 0#-5.8
 
-        self.beta_i = 0.9
+        self.beta_i = 0.03
         self.beta_r = 0.1
         self.beta_b = 0.1
 
@@ -88,8 +89,6 @@ def run_network(mode):
         x= next_x
 
         
-
-
 def train_network():
     global Wo
 
@@ -147,7 +146,7 @@ def execute(c):
 
     c.Nh = int(c.Nh)
 
-    np.random.seed(seed = int(c.seed))    
+    np.random.seed(seed = int(c.seed))
     generate_weight_matrix()
 
     ### generate data
@@ -169,6 +168,9 @@ def execute(c):
     start = 0
     target_matrix = DP.copy()
     
+    del U1,D1
+    gc.collect()
+
     for _ in tqdm(range(dataset_num),disable=c.isNotUseTqdm):
         Dp = DP[start:start + length]
         Up = UP[start:start + length]
@@ -206,7 +208,7 @@ def execute(c):
         pred_train[i][idx] = 1              # 最頻値
         start = start + length
 
-    dp = [DP[i] for i in range(0,U1.shape[0],length)]
+    dp = [DP[i] for i in range(0,x,length)]
 
     train_WER = np.sum(abs(pred_train-dp)/2)/dataset_num 
 
@@ -217,6 +219,8 @@ def execute(c):
     #print("test...")
     DP = D2                 #one-hot vector
     UP = U2
+    del U2,D2
+    gc.collect()
     start = 0
 
     target_matrix = Dp.copy()
@@ -246,7 +250,7 @@ def execute(c):
 
         start = start + length
     
-    dp = [DP[i] for i in range(0,U1.shape[0],length)]
+    dp = [DP[i] for i in range(0,UP.shape[0],length)]
     
     test_WER = np.sum(pred_test!=dp)/2/dataset_num
     #print("test Word error rate:",test_WER)

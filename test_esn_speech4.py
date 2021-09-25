@@ -25,7 +25,7 @@ common.dir_path= "data/data%s_esn_speech4" % common.string_now() # 実験デー�
 common.exe     = "python esn_speech4.py " # 実行されるプログラム
 common.columns =['dataset','seed','id','Nh','alpha_i','alpha_r','alpha0','beta_i','beta_r',
 'lambda0',"train_WER","WER"]
-common.parallel= 24
+common.parallel= 32
 common.setup()
 common.report_common()
 common.report_config(config)
@@ -55,14 +55,10 @@ def optimize():
     #opt.append("alpha0",value=1,min=0.01,max=1,round=2)
     opt.append("beta_r",value=0.01,min=0.01,max=1,round=2)
     opt.append("beta_i",value=0.01,min=0.01,max=1,round=2)
-    opt.append("alpha_i",value=400,min=1,max=1000,round=2)
+    opt.append("alpha_i",value=400,min=100,max=10000,round=2)
     opt.append("alpha_r",value=0.9,min=0.7,max=1,round=2)
     opt.append("alpha0",value=1,min=0.01,max=1,round=2)
     opt.minimize(target="WER",iteration=50,population=50,samples=3)
-    #opt.append("alpha_i",value=1,min=1,max=10000,round=2)
-    opt.append("alpha_r",value=0.9,min=0.7,max=1,round=2)
-    opt.append("alpha0",value=1,min=0.01,max=1,round=2)
-    opt.minimize(target="WER",iteration=50,population=20,samples=3)
     #opt.minimize(TARGET=func,iteration=5,population=10,samples=4)
     common.config = opt.best_config # 最適化で得られた設定を基本設定とする
 optimize()
@@ -106,9 +102,8 @@ def gs2():
     gridsearch("Nh",min=100,max=1000,num=41,samples=ns)
     #gridsearch("")
     # gridsearch("Temp",min=0.01,max=10,num=100,samples=ns)
-    # gridsearch("beta_i",min=0.05,max=1,num=30,samples=ns)
-    #gridsearch("alpha_r",min=0.05,max=1,num=30,samples=ns)
-    gridsearch("alpha_i",min=1,max=1000,num=1001,samples=ns)
+    gridsearch("beta_i",min=0.05,max=1,num=30,samples=ns)
+    gridsearch("alpha_r",min=0.05,max=1,num=30,samples=ns)
     gridsearch("alpha_i",min=1,max=1000,num=1001,samples=ns)
 
     

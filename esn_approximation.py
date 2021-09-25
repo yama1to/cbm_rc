@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import copy
 import time
 from explorer import common
-from generate_data_sequence import *
+from generate_data_sequence_approximation import generate_data
 from generate_matrix import *
 
 class Config():
@@ -30,11 +30,11 @@ class Config():
         self.dataset=6
         self.seed:int=2 # 乱数生成のためのシード
         self.MM=500 # サイクル数
-        self.MM0 = 0 #
+        self.MM0 = 10 #
 
         self.Nu = 1   #size of input
         self.Nh:int = 300#815 #size of dynamical reservior
-        self.Ny = 20   #size of output
+        self.Ny = 1   #size of output
 
 
         #sigma_np = -5
@@ -51,17 +51,12 @@ class Config():
 
         self.lambda0 = 0.0
 
-        self.delay = 100
-
+        self.delay = 5
+        self.logv = 1
 
         # Results
         self.RMSE1=None
-        self.RMSE2=None
-        self.MC = None
-        self.MC1 = None 
-        self.MC2 = None
-        self.MC3 = None
-        self.MC4 = None
+        self.NRMSE=None
 
 
 
@@ -126,41 +121,10 @@ def test_network():
     YpT = Wo @ Hp.T
     Yp = YpT.T
 
-
-
-
-def plot_delay():
-    fig=plt.figure(figsize=(16,16 ))
-    Nr=20
-    if c.delay< 20: Nr = c.delay 
-    
-    for i in range(Nr):
-            ax = fig.add_subplot(Nr,1,i+1)
-            ax.cla()
-            ax.set_title("Yp,Dp, delay = %s" % str(i))
-            ax.plot(Yp.T[i,i:])
-            ax.plot(Dp.T[i,i:])
-
-    plt.show()
-
-
-def plot_MC():
-    plt.plot(DC)
-    plt.ylabel("determinant coefficient")
-    plt.xlabel("Delay k")
-    plt.ylim([0,1])
-    plt.xlim([0,c.delay])
-    plt.title('MC ~ %3.2lf' % MC, x=0.8, y=0.7)
-    plt.show()
-
 def execute(c):
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM,Yp
     global RMSE1,RMSE2
-    global train_Y_binary,MC,DC
 
-
-    c.delay = int(c.delay)
-    c.Ny = c.delay
     c.Nh = int(c.Nh)
 
     np.random.seed(seed = int(c.seed))    
@@ -169,77 +133,54 @@ def execute(c):
     ### generate data
     
     if c.dataset==6:
-        T = c.MM
-        U,D = generate_white_noise(c.delay,T=T,)
+        MM1 = c.MM - 100    
+        MM2 = 100
+        U,D = generate_data(num=c.MM,delay=c.delay,logv=c.logv, f=np.sin)
 
+    D1 = D[0:MM1]
+    U1 = U[0:MM1]
+    D2 = D[MM1:MM1+MM2]
+    U2 = U[MM1:MM1+MM2]
     ### training
     #print("training...")
     
     #Scale to (-1,1)
-    Dp = D                # TARGET   #(MM,len(delay))   
-    Up = U                # INPUT    #(MM,1)
-
+    c.MM=MM1
+    Dp = D1
+    Up = U1
     train_network()
     #print("...end") 
     
     ### test
     #print("test...")
+    c.MM=MM2
+    Dp = D2
+    Up = U2
     test_network()                  #OUTPUT = Yp
 
-    #print("...end")
 
-    DC = np.zeros((c.delay, 1))  # 決定係数
-    MC = 0.0                        # 記憶容量
+    ### evaluation
+    sum=0
+    c.MM0 = 10
+    for j in range(c.MM0,c.MM):
+        sum += (Yp[j] - Dp[j])**2
 
+    SUM=np.sum(sum)
+    RMSE1 = np.sqrt(SUM/c.Ny/(c.MM-c.MM0))
+    NRMSE = RMSE1 / np.var(Dp)
 
-    #print(np.max(Dp),np.max(Yp))
-    """
-    予測と目標から決定係数を求める。
-    決定係数の積分が記憶容量
-    """ 
-
-
-    for k in range(c.delay):
-        corr = np.corrcoef(np.vstack((Dp.T[k, k:], Yp.T[k, k:])))   #相関係数
-        DC[k] = corr[0, 1] ** 2                                     #決定係数 = 相関係数 **2
-
-
-    MC = np.sum(DC)
-    #print(MC)
    
-    #print(MC,MC1,MC2,MC3,MC4)
+
 ######################################################################################
      # Results
-    c.RMSE1=None
-    c.RMSE2=None
-    c.MC = MC
-
-    if c.delay >=5:
-        MC1 = np.sum(DC[:5])
-        c.MC1 = MC1
-
-    if c.delay >=10:
-        MC2 = np.sum(DC[:10])
-        c.MC2 = MC2
-
-    if c.delay >=20:
-        MC3 = np.sum(DC[:20])
-        c.MC3 = MC3
-
-    if c.delay >=50:
-        MC4 = np.sum(DC[:50])
-        c.MC4 = MC4
-    
-    
-    
-    
-    #print("MC =",c.MC)
+    c.RMSE1=RMSE1
+    c.NRMSE=NRMSE
 
 #####################################################################################
     if c.plot:
-        #plot_delay()
-        plot_MC()
-        #plot1()
+        plt.plot(Dp)
+        plt.plot(Yp)
+        plt.show()
 
 
 if __name__ == "__main__":

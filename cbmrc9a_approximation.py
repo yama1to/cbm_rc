@@ -34,7 +34,7 @@ class Config():
         self.MM0 = 10 #
 
         self.Nu = 1   #size of input
-        self.Nh = 250 #size of dynamical reservior
+        self.Nh = 400 #size of dynamical reservior
         self.Ny = 1   #size of output
 
         self.Temp=1.0
@@ -50,12 +50,14 @@ class Config():
         self.beta_r = 0.1
         self.beta_b = 0.1
 
-        self.lambda0 = 0.1
-
+        self.lambda0 = 0.
+        self.delay = 5
+        self.logv = 1
+        
         # Results
         self.RMSE1=None
         self.NRMSE=None
-        self.cnt_overflow=None
+        self.cnt_overflow = None 
 
 def generate_weight_matrix():
     global Wr, Wb, Wo, Wi
@@ -177,11 +179,14 @@ def train_network():
     #print("M\n",M)
 
     ### Ridge regression
-    E = np.identity(c.Nh)
-    TMP1 = np.linalg.inv(M.T@M + c.lambda0 * E)
-    WoT = TMP1@M.T@G
-    Wo = WoT.T
-    #print("WoT\n", WoT)
+    if c.lambda0 == 0:
+        Wo = np.dot(G.T,np.linalg.pinv(M).T)
+        #print("a")
+    else:
+        E = np.identity(c.Nh)
+        TMP1 = np.linalg.inv(M.T@M + c.lambda0 * E)
+        WoT = TMP1@M.T@G
+        Wo = WoT.T
 
 def test_network():
     run_network(0)
@@ -238,7 +243,7 @@ def execute():
     if c.dataset==1:
         MM1 = c.MM - 100 
         MM2 = 100
-        U,D = generate_data(num=c.MM,delay=5, logv=-1, f=np.sin)
+        U,D = generate_data(num=c.MM,delay=c.delay,logv=c.logv, f=np.sin)
 
 
     D1 = D[0:MM1]

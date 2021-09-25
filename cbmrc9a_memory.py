@@ -30,37 +30,41 @@ class Config():
         self.dataset=6
         self.seed:int=2 # 乱数生成のためのシード
         self.NN=256 # １サイクルあたりの時間ステップ
-        self.MM=300 # サイクル数
+        self.MM=500 # サイクル数
         self.MM0 = 0 #
 
         self.Nu = 1   #size of input
-        self.Nh:int = 200#815 #size of dynamical reservior
+        self.Nh:int = 300#815 #size of dynamical reservior
         self.Ny = 20   #size of output
 
         self.Temp=1
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 1
-        self.alpha_r = 0.75
+        self.alpha_i = 4.64
+        self.alpha_r = 0.9
         self.alpha_b = 0.
-        self.alpha_s = 2
+        self.alpha_s = 5.91
 
         self.alpha0 = 0#0.1
         self.alpha1 = 0#-5.8
 
-        self.beta_i = 0.9
-        self.beta_r = 0.2
+        self.beta_i = 0.67
+        self.beta_r = 0.5
         self.beta_b = 0.1
 
-        self.lambda0 = 0.1
+        self.lambda0 = 0.
 
-        self.delay = 20
+        self.delay = 200
 
-        # Results
+        # ResultsX
         self.RMSE1=None
         self.RMSE2=None
-        self.MC = None 
+        self.MC = None
+        self.MC1 = None 
+        self.MC2 = None
+        self.MC3 = None
+        self.MC4 = None
         self.cnt_overflow=None
         #self.BER = None
         
@@ -125,8 +129,8 @@ def run_network(mode):
         ys = p2s(theta,yp)
 
         sum = np.zeros(c.Nh)
-        sum += c.alpha_s*rs # ラッチ動作を用いないref.clockと同期させるための結合
-        #sum += alpha_s*(hs-rs)*ht # ref.clockと同期させるための結合
+       # sum += c.alpha_s*rs # ラッチ動作を用いないref.clockと同期させるための結合
+        sum += c.alpha_s*(hs-rs)*ht # ref.clockと同期させるための結合
         sum += Wi@(2*us-1) # 外部入力
         sum += Wr@(2*hs-1) # リカレント結合
         
@@ -156,14 +160,15 @@ def run_network(mode):
 
         any_hs_change = np.any(hs!=hs_prev)
 
-        # record
-        Rs[n]=rs
-        Hx[n]=hx
-        Hs[n]=hs
-        Yx[n]=yx
-        Ys[n]=ys
-        Us[n]=us
-        Ds[n]=ds
+        if c.plot:
+            # record
+            Rs[n]=rs
+            Hx[n]=hx
+            Hs[n]=hs
+            Yx[n]=yx
+            Ys[n]=ys
+            Us[n]=us
+            Ds[n]=ds
 
     # オーバーフローを検出する。
     global cnt_overflow
@@ -186,10 +191,14 @@ def train_network():
     #print("M\n",M)
 
     ### Ridge regression
-    E = np.identity(c.Nh)
-    TMP1 = np.linalg.inv(M.T@M + c.lambda0 * E)
-    WoT = TMP1@M.T@G
-    Wo = WoT.T
+    if c.lambda0 == 0:
+        Wo = np.dot(G.T,np.linalg.pinv(M).T)
+        #print("a")
+    else:
+        E = np.identity(c.Nh)
+        TMP1 = np.linalg.inv(M.T@M + c.lambda0 * E)
+        WoT = TMP1@M.T@G
+        Wo = WoT.T
     #print("WoT\n", WoT)
 
 def test_network():
@@ -323,6 +332,22 @@ def execute(c):
     c.cnt_overflow=cnt_overflow
 
     c.MC = MC
+
+    if c.delay >=5:
+        MC1 = np.sum(DC[:5])
+        c.MC1 = MC1
+
+    if c.delay >=10:
+        MC2 = np.sum(DC[:10])
+        c.MC2 = MC2
+
+    if c.delay >=20:
+        MC3 = np.sum(DC[:20])
+        c.MC3 = MC3
+
+    if c.delay >=50:
+        MC4 = np.sum(DC[:50])
+        c.MC4 = MC4
     print("MC =",c.MC)
 
 #####################################################################################
