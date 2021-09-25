@@ -130,12 +130,12 @@ if __name__ == "__main__":
     # setting for production
     #logv = np.arange(-2,2,0.5)
     #delay = np.arange(0,20,10,dtype=np.int)
-    #f = list(np.sin,np.tan,lambda x: x(1-x**2))
+    f = np.array([np.sin,np.tan])
 
     # test
     logv = np.arange(-2,2,4)
     delay = np.arange(0,20,20,dtype=np.int)
-    f = np.array([np.sin])
+    #f = np.array([np.sin])
 
     x = logv.shape[0]
     y = delay.shape[0]
@@ -189,7 +189,6 @@ if __name__ == "__main__":
         ax.legend()
     
     fig.tight_layout()
-
     fig.savefig(file_name)
     fig.show()
 
