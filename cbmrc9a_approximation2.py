@@ -208,7 +208,7 @@ def execute():
         MM1 = c.MM - 100 
         MM2 = 100
         #print(c.delay,c.logv)
-        U,D = generate_data(num=c.MM,delay=c.delay,logv=c.logv, f=np.sin)
+        U,D = generate_data(num=c.MM,delay=c.delay,logv=c.logv, f=c.f)
         #print(U.shape,D.shape)
 
     D1 = D[0:MM1]

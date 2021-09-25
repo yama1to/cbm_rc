@@ -26,7 +26,7 @@ def esn_optimize(Config,iteration,population,samples):
     common.dir_path= "data/data%s_esn/data%s_esn_approximation2" % (common.string_today(),common.string_now()) # 実験データを出力するディレクトリのパス
     common.exe     = "python esn_approximation2.py " # 実行されるプログラム
     common.columns =['dataset','seed','id','Nh','alpha_i','alpha_r','alpha0',
-    'beta_i','beta_r',"delay","logv",'lambda0',"RMSE1","NRMSE"]
+    'beta_i','beta_r',"delay","logv","f",'lambda0',"RMSE1","NRMSE"]
     common.parallel= 1
     #common.dir_path = "/Users/yamato/pypr/cbm_rc/"
     common.setup()

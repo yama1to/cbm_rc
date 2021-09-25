@@ -2,8 +2,8 @@ import numpy as np
 from test_cbmrc9a_approximation2 import cbm_optimize
 from test_esn_approximation2 import esn_optimize
 import matplotlib.pyplot as plt 
-
-
+from explorer import common 
+import os 
 """
 approximation task のdelay,logvで２次元マップを作るためのコード
 
@@ -60,15 +60,17 @@ class Config1():
         self.lambda0 = 0.
         self.delay =1
         self.logv = 1
-        
+        self.f = np.sin 
+
         # Results
         self.RMSE1=None
         self.NRMSE=None
         self.cnt_overflow = None 
 
-    def change(self,logv,delay):
+    def update(self,logv,delay,f):
         self.logv = logv
         self.delay = delay
+        self.f = f
 
 
 class Config2():
@@ -109,22 +111,35 @@ class Config2():
 
         self.delay = 1
         self.logv = 1
+        self.f = np.sin
 
         # Results
         self.RMSE1=None
         self.NRMSE=None
 
-    def change(self,logv,delay):
+    def update(self,logv,delay,f):
         self.logv = logv
         self.delay = delay
+        self.f = f
 
 if __name__ == "__main__":
+    # save fiqure 
+    common.prepare_directory("%s/trade-off_fig_dir" % os.getcwd())
+    file_name = "trade-off_fig_dir/%s_trade-off.png" % common.string_now()
 
-    logv = np.arange(-2,2,0.5)
-    delay = np.arange(0,20,10,dtype=np.int)
+    # setting for production
+    #logv = np.arange(-2,2,0.5)
+    #delay = np.arange(0,20,10,dtype=np.int)
+    #f = list(np.sin,np.tan,lambda x: x(1-x**2))
+
+    # test
+    logv = np.arange(-2,2,4)
+    delay = np.arange(0,20,20,dtype=np.int)
+    f = np.array([np.sin])
 
     x = logv.shape[0]
     y = delay.shape[0]
+    z = f.shape[0]
 
     result = np.zeros((x,y))
     
@@ -133,38 +148,49 @@ if __name__ == "__main__":
     population = 1
     samples = 1
 
+    fig = plt.figure()
+
+    
+
 #"""
-    for j in range(y):              #遅延長
-        for i in range(x):          #非線形性
-            print("delay = {0}, logv = {1}".format(i,j))
-            c2 = Config2()
-            c2.change(logv = logv[i],delay= delay[j])
-            c1 = Config1()
-            c1.change(logv = logv[i],delay= delay[j])
+    for k in range(z):                  #非線形関数
+        ax = fig.add_subplot(130+k+1)
 
-            esn = esn_optimize(c2,iteration,population,samples)
+        for j in range(y):              #遅延長
+            for i in range(x):          #非線形性
+                print("delay = {0}, logv = {1}".format(i,j))
+                c2 = Config2()
+                c2.update(logv = logv[i],delay= delay[j],f = f[k])
+                c1 = Config1()
+                c1.update(logv = logv[i],delay= delay[j],f = f[k])
 
-            cbm = cbm_optimize(c1,iteration,population,samples)
+                esn = esn_optimize(c2,iteration,population,samples)
 
-            print(esn,cbm)
-            diff = esn - cbm
+                cbm = cbm_optimize(c1,iteration,population,samples)
+
+                per = esn/cbm
+                print(per)
+
+                if per>1.05:                #cbmが勝ったら = 1
+                    print("cbmの勝ち")
+                    result[i][j] = 1
+                    ax.scatter(j,i,marker = "o",label="cbm",color="b")
+                elif per<0.95:              #esnが勝ったら = -1
+                    print("esnの勝ち")
+                    result[i][j] = -1
+                    ax.scatter(j,i,marker = "x",label = "esn",color="r")
+                else:
+                    ax.scatter(j,i,marker = "^",label="draw",color="k")
 
 
-            if diff>0:                #cbmが勝ったら = 1
-                print("cbmの勝ち")
-                result[i][j] = 1
-                plt.scatter(j,i,marker = "o",label="cbm",color="b")
-            elif diff<0:              #esnが勝ったら = -1
-                print("esnの勝ち")
-                result[i][j] = -1
-                plt.scatter(j,i,marker = "x",label = "esn",color="r")
-            else:
-                plt.scatter(j,i,marker = "^",label="draw",color="k")
+        ax.title.set_text("%s" % str(f[k]))
+        ax.set_ylabel("delay")
+        ax.set_xlabel("logv")
+        ax.legend()
+    
+    fig.tight_layout()
 
-    plt.title("cbm vs esn on memory and nonlinearlity")
-    plt.ylabel("delay")
-    plt.xlabel("logv")
-    plt.legend()
-    plt.show()
+    fig.savefig(file_name)
+    fig.show()
 
 #"""

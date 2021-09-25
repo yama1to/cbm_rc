@@ -24,7 +24,7 @@ def cbm_optimize(Config,iteration,population,samples):
     common.dir_path= "data/data%s_cbmrc9a/data%s_cbmrc9a_approximation2/" % (common.string_today(),common.string_now()) # 実験データを出力するディレクトリのパス
     common.exe     = "python cbmrc9a_approximation2.py " # 実行されるプログラム
     common.columns =['dataset','seed','id','NN','Nh','alpha_i','alpha_r','alpha_b','alpha_s',
-    'beta_i','beta_r','beta_b','Temp','lambda0',"delay","logv",'cnt_overflow',"RMSE1",'NRMSE']
+    'beta_i','beta_r','beta_b','Temp','lambda0',"delay","logv","f",'cnt_overflow',"RMSE1",'NRMSE']
     common.parallel= 1
     common.setup()
     common.report_common()
