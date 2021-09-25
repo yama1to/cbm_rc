@@ -120,16 +120,19 @@ class Config2():
 
 if __name__ == "__main__":
 
-    logv = np.arange(-2,2,10)
-    delay = np.arange(0,20,1,dtype=np.int)
-
+    logv = np.arange(-2,2,0.5)
+    delay = np.arange(0,20,10,dtype=np.int)
 
     x = logv.shape[0]
     y = delay.shape[0]
 
     result = np.zeros((x,y))
     
-    #Config2.change(Config2,logv = 0,delay= 1,)
+    #optimize
+    iteration = 1
+    population = 1
+    samples = 1
+
 #"""
     for j in range(y):              #遅延長
         for i in range(x):          #非線形性
@@ -139,9 +142,9 @@ if __name__ == "__main__":
             c1 = Config1()
             c1.change(logv = logv[i],delay= delay[j])
 
-            esn = esn_optimize(c2)
+            esn = esn_optimize(c2,iteration,population,samples)
 
-            cbm = cbm_optimize(c1)
+            cbm = cbm_optimize(c1,iteration,population,samples)
 
             print(esn,cbm)
             diff = esn - cbm

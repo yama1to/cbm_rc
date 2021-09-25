@@ -17,7 +17,7 @@ from explorer import randomsearch as rs
 from explorer import optimization as opt
 
 
-def cbm_optimize(Config):
+def cbm_optimize(Config,iteration,population,samples):
     config = Config
     common.config  = config
     common.prefix  = "data%s_cbmrc9a_approximation2" % common.string_now() # 実験名（ファイルの接頭辞）
@@ -35,7 +35,7 @@ def cbm_optimize(Config):
     def func(row):# 関数funcでtargetを指定する。
         return row['y1'] + 0.3*row['y2']
 
-    def optimize():
+    def optimize(iteration,population,samples):
         opt.clear()#設定をクリアする
         opt.appendid()#id:必ず加える
         opt.appendseed()# 乱数のシード（０から始まる整数値）
@@ -47,10 +47,10 @@ def cbm_optimize(Config):
         opt.append("beta_i",value=2,min=0.01,max=1,round=2)
         opt.append("beta_r",value=2,min=0.01,max=1,round=2)
 
-        opt.minimize(target="NRMSE",iteration=1,population=1,samples=1)
+        opt.minimize(target="NRMSE",iteration=iteration,population=population,samples=samples)
         #opt.minimize(TARGET=func,iteration=5,population=10,samples=4)
         common.config = opt.best_config # 最適化で得られた設定を基本設定とする
-    optimize()
+    optimize(iteration,population,samples)
     return common.config.NRMSE
 
     def plot1(x,y,ystd,ymin,ymax,color=None,width=1,label=None):
