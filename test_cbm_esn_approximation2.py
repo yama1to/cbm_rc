@@ -135,8 +135,8 @@ if __name__ == "__main__":
     #f = np.array([np.sin,np.tan])
 
     # for test
-    logv = np.arange(-2,2,4)
-    delay = np.arange(0,20,20,dtype=np.int)
+    logv = np.arange(-2,2,1)
+    delay = np.arange(0,20,5,dtype=np.int)
     f = np.array(["sin","tan","x(1-x^2)"],dtype=np.str)
 
     x = logv.shape[0]
@@ -153,6 +153,9 @@ if __name__ == "__main__":
 #"""
     for k in range(z):                  #非線形関数
         ax = fig.add_subplot(130+k+1)
+        flag1 = 0
+        flag2 = 0
+        flag3 = 0
 
         for j in range(y):              #遅延長
             for i in range(x):          #非線形性
@@ -172,13 +175,26 @@ if __name__ == "__main__":
 
                 if per>1.05:                #cbmが勝ったら = 1
                     print("cbmの勝ち")
-                    ax.scatter(j,i,marker = "o",label= "cbm",color= "b")
+                    if not flag1:
+                        ax.scatter(j,i,marker = "o",label= "cbm",color= "b")
+                        flag1 = 1
+                    else:
+                        ax.scatter(j,i,marker = "o",color= "b")
 
                 elif per<0.95:              #esnが勝ったら = -1
                     print("esnの勝ち")
-                    ax.scatter(j,i,marker = "x",label = "esn",color= "r")
+                    if not flag2:
+                        ax.scatter(j,i,marker = "x",label= "esn",color= "r")
+                        flag2 = 1
+                    else:
+                        ax.scatter(j,i,marker = "x",color= "r")
+
                 else:
-                    ax.scatter(j,i,marker = "^",label= "draw",color= "k")
+                    if not flag3:
+                        ax.scatter(j,i,marker = "^",label= "draw",color= "k")
+                        flag3 = 1
+                    else:
+                        ax.scatter(j,i,marker = "^",color= "k")
 
 
         ax.title.set_text("%s" % str(f[k]))
