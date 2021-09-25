@@ -8,7 +8,7 @@ Configクラスによるパラメータ設定
 import argparse
 import numpy as np
 import scipy.linalg
-import matplotlib.pyplot as plta
+import matplotlib.pyplot as plt
 import copy
 import time
 from explorer import common
@@ -39,17 +39,17 @@ class Config():
         self.Nh = 300 #size of dynamical reservior
         self.Ny = 10   #size of output
 
-        self.Temp=1.0
+        self.Temp=100.0
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 500
-        self.alpha_r = 0.78
+        self.alpha_i = 1
+        self.alpha_r = 0.9
         self.alpha_b = 0.
         self.alpha_s = 9.38
 
-        self.beta_i = 0.11
-        self.beta_r = 0.23
+        self.beta_i = 0.01
+        self.beta_r = 0.42
         self.beta_b = 0.0
 
         self.lambda0 = 0.
@@ -62,7 +62,7 @@ def generate_weight_matrix():
     global Wr, Wb, Wo, Wi
     Wr = generate_random_matrix(c.Nh,c.Nh,c.alpha_r,c.beta_r,distribution="one",normalization="sr")
     Wb = generate_random_matrix(c.Nh,c.Ny,c.alpha_b,c.beta_b,distribution="one",normalization="none")
-    Wi = generate_random_matrix(c.Nh,c.Nu,1,c.beta_i,distribution="one",normalization="none")
+    Wi = generate_random_matrix(c.Nh,c.Nu,c.alpha_i,c.beta_i,distribution="one",normalization="none")
     Wo = np.zeros(c.Nh * c.Ny).reshape(c.Ny, c.Nh)
 
 def fy(h):
@@ -208,9 +208,10 @@ def execute():
         U1,U2,D1,D2, SHAPE = load_datasets()
 
     (dataset_num,length,c.Nu) = SHAPE
+    #print(max(np.max(U1),np.max(U2)))
 
-    U1 = fy(U1[:dataset_num*length]*c.alpha_i)
-    U2 = fy(U2[:dataset_num*length]*c.alpha_i)
+    U1 = U1[:dataset_num*length] * 200
+    U2 = U2[:dataset_num*length] * 200
     D1 = D1[:dataset_num*length]
     D2 = D2[:dataset_num*length]
 
@@ -262,7 +263,6 @@ def execute():
     pred_train = np.zeros((dataset_num,10))
     start = 0
 
-    
     for i in range(dataset_num):
 
         tmp = Y_pred[:,start:start+length]  # 1つのデータに対する出力
@@ -306,8 +306,6 @@ def execute():
 
         
     Y_pred = Wout @ collect_state_matrix[c.MM0:].T
-
-
 
     pred_test = np.zeros((dataset_num,10))
     start = 0
