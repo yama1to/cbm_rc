@@ -37,7 +37,7 @@ class Config():
 
         self.Nu = 1   #size of input
         self.Nh = 400 #size of dynamical reservior
-        self.Ny = 1   #size of output
+        self.Ny = 5   #size of output
 
         self.Temp=1.0
         self.dt=1.0/self.NN #0.01
@@ -243,19 +243,16 @@ def execute():
     ### generate data
     if c.dataset==1:
         #delay = 1,2,3,4,5
-        t_i,t_t,v_i,v_t = generate_santafe(delay = 5)
+        delay =  [1,2,3,4,5]
+        U1,D1,U2,D2 = generate_santafe(delay = delay)
     
-    D1 = t_t 
-    U1 = t_i  
-    D2 = v_t  
-    U2 = v_i 
 
     ### training
     #print("training...")
-    c.MM= D1.size
+    c.MM= U1.size
 
     Dp = D1
-    Up = np.tanh(U1)
+    Up = U1
     if c.plot:
         del U1,D1
         gc.collect()
@@ -267,10 +264,10 @@ def execute():
 
     ### test
     #print("test...")
-    c.MM= D2.size
+    c.MM= U2.size
 
-    Dp = fy(D2)
-    Up = np.tanh(U2)
+    Dp = D2
+    Up = U2
     if c.plot:
         del U2,D2
         gc.collect()
@@ -281,16 +278,17 @@ def execute():
     sum=0
 
     for j in range(c.MM):
-        sum += (Yp[j] - Dp[j])**2
+        sum += (fyi(Yp[j]) - Dp[j])**2
 
-    SUM=np.sum(sum)
-    NMSE = SUM/c.MM/np.var(Dp)
 
-    c.NMSE = NMSE
+    NMSE = sum/c.MM/np.var(Dp)
+    print("それぞれのdelayのNMSE: "+str(NMSE))
+
+    c.NMSE = np.sum(NMSE)
     c.cnt_overflow=cnt_overflow
 
     #print(RMSE1)
-    print(NMSE)
+    print("それぞれのdelayでのNMSEを全部加算した場合のNMSE: "+str(c.NMSE))
     #print("time: %.6f [sec]" % (time.time()-t_start))
 
     if c.plot: plot1()
