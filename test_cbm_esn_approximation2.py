@@ -4,6 +4,7 @@ from test_esn_approximation2 import esn_optimize
 import matplotlib.pyplot as plt 
 from explorer import common 
 import os 
+from tqdm import tqdm 
 
 """
 approximation task のdelay,logvで２次元マップを作るためのコード
@@ -22,7 +23,7 @@ approximation task のdelay,logvで２次元マップを作るためのコード
 
 """
 
-class Config1():
+class Config1():#cbm
     def __init__(self):
         # columns, csv, id: データの管理のために必須の変数
         self.columns = None # 結果をCSVに保存する際のコラム
@@ -37,8 +38,8 @@ class Config1():
         self.dataset=1
         self.seed:int=0 # 乱数生成のためのシード
         self.NN=256 # １サイクルあたりの時間ステップ
-        self.MM=500 # サイクル数
-        self.MM0 = 10 #
+        self.MM=300 # サイクル数
+        self.MM0 = 0 #
 
         self.Nu = 1   #size of input
         self.Nh = 300 #size of dynamical reservior
@@ -74,7 +75,7 @@ class Config1():
         self.f = f
 
 
-class Config2():
+class Config2(): #esn
     def __init__(self):
         # columns, csv, id: データの管理のために必須の変数
         self.columns = None # 結果をCSVに保存する際のコラム
@@ -88,8 +89,8 @@ class Config2():
         # config
         self.dataset=6
         self.seed:int=2 # 乱数生成のためのシード
-        self.MM=500 # サイクル数
-        self.MM0 = 10 #
+        self.MM=300 # サイクル数
+        self.MM0 = 0 #
 
         self.Nu = 1   #size of input
         self.Nh:int = 300#815 #size of dynamical reservior
@@ -129,36 +130,41 @@ if __name__ == "__main__":
     common.prepare_directory("%s/trade-off_fig_dir" % os.getcwd())
     file_name = "trade-off_fig_dir/%s_trade-off.png" % common.string_now()
 
-    # setting for production
-    #logv = np.arange(-2,2,0.5)
-    #delay = np.arange(0,20,10,dtype=np.int)
-    #f = np.array([np.sin,np.tan])
-
-    # for test
-    logv = np.arange(-2,2,1)
-    delay = np.arange(0,20,5,dtype=np.int)
+    # # setting for production
+    logv = np.arange(-2,2,0.1)
+    delay = np.arange(0,20,1,dtype=np.int)
     f = np.array(["sin","tan","x(1-x^2)"],dtype=np.str)
+
+    #optimize
+    iteration = 10
+    population = 10
+    samples = 3
+
+    # # for test
+    # logv = np.arange(-2,-1,0.1)
+    # delay = np.arange(0,5,1,dtype=np.int)
+    # #f = np.array(["sin","tan","x(1-x^2)"],dtype=np.str)
+    # f = np.array(["sin"])
+    # #optimize
+    # iteration = 1
+    # population = 1
+    # samples = 1
 
     x = logv.shape[0]
     y = delay.shape[0]
     z = f.shape[0]
 
-    #optimize
-    iteration = 1
-    population = 1
-    samples = 1
-
-    fig = plt.figure()
+    fig = plt.figure(figsize=(18,6))
 
 #"""
-    for k in range(z):                  #非線形関数
+    for k in tqdm(range(z)):                  #非線形関数
         ax = fig.add_subplot(130+k+1)
         flag1 = 0
         flag2 = 0
         flag3 = 0
 
-        for j in range(y):              #遅延長
-            for i in range(x):          #非線形性
+        for j in tqdm(range(y)):              #遅延長
+            for i in tqdm(range(x)):          #非線形性
                 print("delay = {0}, logv = {1}".format(i,j))
                 c2 = Config2()
                 c2.update(logv = logv[i],delay= delay[j],f = f[k])
@@ -173,37 +179,47 @@ if __name__ == "__main__":
                 per = esn/cbm
                 print(per)
 
+                scatter_x = logv[i]
+                scatter_y = delay[j]
+
                 if per>1.05:                #cbmが勝ったら = 1
                     print("cbmの勝ち")
                     if not flag1:
-                        ax.scatter(j,i,marker = "o",label= "cbm",color= "b")
+                        ax.scatter(scatter_x,scatter_y,marker = "o",label= "cbm",color= "b",s = 10)
                         flag1 = 1
                     else:
-                        ax.scatter(j,i,marker = "o",color= "b")
+                        ax.scatter(scatter_x,scatter_y,marker = "o",color= "b",s = 10)
 
                 elif per<0.95:              #esnが勝ったら = -1
                     print("esnの勝ち")
                     if not flag2:
-                        ax.scatter(j,i,marker = "x",label= "esn",color= "r")
+                        ax.scatter(scatter_x,scatter_y,marker = "s",label= "esn",color= "r",s = 10)
                         flag2 = 1
                     else:
-                        ax.scatter(j,i,marker = "x",color= "r")
+                        ax.scatter(scatter_x,scatter_y,marker = "s",color= "r",s = 10)
 
-                else:
+                else: #引き分け
                     if not flag3:
-                        ax.scatter(j,i,marker = "^",label= "draw",color= "k")
+                        ax.scatter(scatter_x,scatter_y,marker = "^",label= "draw",color= "k",s = 10)
                         flag3 = 1
                     else:
-                        ax.scatter(j,i,marker = "^",color= "k")
+                        ax.scatter(scatter_x,scatter_y,marker = "^",color= "k",s = 10)
 
 
         ax.title.set_text("%s" % str(f[k]))
         ax.set_ylabel("delay")
         ax.set_xlabel("logv")
+        ax.set_ylim([-0.5,20.5])
+        ax.set_xlim([-2.2,2.5])
+        ax.set_xticks(np.arange(-2.5,2.5,0.5))
+        ax.set_yticks(np.arange(0,21,2))
+        ax.grid(color = "green", linestyle = "--", linewidth = 0.05)
         ax.legend()
+        
     
     fig.tight_layout()
     fig.savefig(file_name)
     fig.show()
+    print("optimize in each point : iteration={0},population={1},samples={2}".format(iteration,population,samples))
 
 #"""
