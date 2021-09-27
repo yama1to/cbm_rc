@@ -21,7 +21,7 @@ def cbm_optimize(Config,iteration,population,samples):
     config = Config
     common.config  = config
     common.prefix  = "data%s_cbmrc9a_approximation2" % common.string_now() # 実験名（ファイルの接頭辞）
-    common.dir_path= "data/data%s_cbmrc9a/data%s_cbmrc9a_approximation2/" % (common.string_today(),common.string_now()) # 実験データを出力するディレクトリのパス
+    common.dir_path= "data/data%s_cbmrc9a_approximation/data%s_cbmrc9a_approximation2/" % (common.string_today(),common.string_now()) # 実験データを出力するディレクトリのパス
     common.exe     = "python cbmrc9a_approximation2.py " # 実行されるプログラム
     common.columns =['dataset','seed','id','NN','Nh','alpha_i','alpha_r','alpha_b','alpha_s',
     'beta_i','beta_r','beta_b','Temp','lambda0',"delay","logv","f",'cnt_overflow',"RMSE1",'NRMSE']
