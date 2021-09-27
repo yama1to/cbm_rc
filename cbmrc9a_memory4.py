@@ -14,6 +14,7 @@ import time
 from explorer import common
 from generate_data_sequence import *
 from generate_matrix import *
+import gc 
 
 from test_cbm_esn_memory import Config1
 
@@ -246,7 +247,9 @@ def execute(c):
     #Scale to (-1,1)
     Dp = np.tanh(D)                # TARGET   #(MM,len(delay))   
     Up = np.tanh(U)                # INPUT    #(MM,1)
-
+    if not c.plot:
+        del D,U 
+        gc.collect()
     train_network()
 
     
@@ -291,7 +294,7 @@ def execute(c):
 
 if __name__ == "__main__":
     Config = Config1
-    
+
     ap = argparse.ArgumentParser()
     ap.add_argument("-config", type=str)
     a = ap.parse_args()

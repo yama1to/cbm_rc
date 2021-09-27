@@ -47,7 +47,7 @@ class Config1():#cbm
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 1
+        self.alpha_i = 4.64
         self.alpha_r = 0.9
         self.alpha_b = 0.
         self.alpha_s = 5.91
@@ -55,13 +55,13 @@ class Config1():#cbm
         self.alpha0 = 0#0.1
         self.alpha1 = 0#-5.8
 
-        self.beta_i = 0.8
+        self.beta_i = 0.67
         self.beta_r = 0.5
         self.beta_b = 0.1
 
         self.lambda0 = 0.
 
-        self.delay = 200
+        self.delay = 20
 
         # ResultsX
         self.MC = None
@@ -142,11 +142,11 @@ if __name__ == "__main__":
             Nh = np.arange(20,401,10,dtype = np.int)
             
         else:#動作確認
-            iteration = 2
+            iteration = 5
             population = 2
             samples = 1
             delay = np.array([10,20])
-            Nh = np.array([50,100])
+            Nh = np.array([300])
 
     settingOptimize(0)
 
