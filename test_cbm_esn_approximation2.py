@@ -59,7 +59,7 @@ class Config1():#cbm
         self.beta_r = 0.1
         self.beta_b = 0.1
 
-        self.lambda0 = 0.
+        self.lambda0 = 0.1
         self.delay =1
         self.logv = 1
         self.f = np.sin 
@@ -109,7 +109,7 @@ class Config2(): #esn
         self.beta_r = 1
         self.beta_b = 0.1
 
-        self.lambda0 = 0.0
+        self.lambda0 = 0.1
 
         self.delay = 1
         self.logv = 1
@@ -131,9 +131,10 @@ if __name__ == "__main__":
     file_name = "trade-off_fig_dir/%s_trade-off.png" % common.string_now()
 
     # # setting for production
-    logv = np.arange(-2,2,0.1)
-    delay = np.arange(0,20,1,dtype=np.int)
-    f = np.array(["sin","tan","x(1-x^2)"],dtype=np.str)
+    logv = np.arange(-2,2,0.2)
+    delay = np.arange(0,20,2,dtype=np.int)
+    #f = np.array(["sin","tan","x(1-x^2)"],dtype=np.str)
+    f = np.array(["sin"])
 
     #optimize
     iteration = 10
@@ -158,20 +159,21 @@ if __name__ == "__main__":
 
 #"""
     for k in tqdm(range(z)):                  #非線形関数
-        ax = fig.add_subplot(130+k+1)
+        ax = fig.add_subplot(100+10*(z)+k+1)
         flag1 = 0
         flag2 = 0
         flag3 = 0
 
         for j in tqdm(range(y)):              #遅延長
             for i in tqdm(range(x)):          #非線形性
-                print("delay = {0}, logv = {1}".format(i,j))
+
+                #print("delay = {0}, logv = {1}".format(delay[j],logv[i]))
+
                 c2 = Config2()
                 c2.update(logv = logv[i],delay= delay[j],f = f[k])
                 
                 c1 = Config1()
                 c1.update(logv = logv[i],delay= delay[j],f = f[k])
-
 
                 esn = esn_optimize(c2,iteration,population,samples)
                 cbm = cbm_optimize(c1,iteration,population,samples)
