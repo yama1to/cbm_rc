@@ -7,7 +7,7 @@ import os
 from tqdm import tqdm 
 
 """
-memory task のdelay,logvで２次元マップを作るためのコード
+memory task のdelay,Nh で２次元マップを作るためのコード
     test_cbmrc9a_memory4.py
     test_esn_memory4.py
 
@@ -17,7 +17,6 @@ memory task のdelay,logvで２次元マップを作るためのコード
     generate_data_sequence_memory.py
 
     explorer 
-
     などを使用する。
 
 """
@@ -143,8 +142,8 @@ if __name__ == "__main__":
             Nh = np.arange(20,401,10,dtype = np.int)
             
         else:#動作確認
-            iteration = 1
-            population = 3
+            iteration = 2
+            population = 2
             samples = 1
             delay = np.array([10,20])
             Nh = np.array([50,100])
@@ -167,8 +166,7 @@ if __name__ == "__main__":
 
             cbm_mc[j] = cbm_optimize(c1,iteration=iteration,population=population,samples=samples)
             esn_mc[j] = esn_optimize(c2,iteration=iteration,population=population,samples=samples)
-        print(cbm_mc)
-        print(esn_mc)
+
         plt.plot(Nh,cbm_mc,marker = "o",label = "cbm")
         plt.plot(Nh,esn_mc,marker = "^",label = "esn")
         plt.title("optimizing MC, delay ={0}".format(delay[i]))
@@ -178,6 +176,7 @@ if __name__ == "__main__":
         plt.legend()
         plt.savefig(file_name+"_delay={0}.png".format(delay[i]))
         #plt.show()
+        plt.clf()
 
             
 
