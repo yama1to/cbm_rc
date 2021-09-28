@@ -95,31 +95,21 @@ def execute(c):
 
     ### generate data
     
-    
-    MM1 = c.MM - 100    
-    MM2 = 100
+ 
     #print(c.MM,c.delay,c.logv)
     U,D = generate_data(num=c.MM,delay=c.delay,logv=c.logv, f=c.f)
 
-    D1 = D[0:MM1]
-    U1 = U[0:MM1]
-    D2 = D[MM1:MM1+MM2]
-    U2 = U[MM1:MM1+MM2]
     ### training
     #print("training...")
     
     #Scale to (-1,1)
-    c.MM=MM1
-    Dp = D1
-    Up = U1
+    Dp = D
+    Up = U
     train_network()
     #print("...end") 
     
     ### test
     #print("test...")
-    c.MM=MM2
-    Dp = D2
-    Up = U2
     test_network()                  #OUTPUT = Yp
 
 

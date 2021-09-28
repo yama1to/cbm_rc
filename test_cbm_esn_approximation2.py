@@ -59,7 +59,7 @@ class Config1():#cbm
         self.beta_r = 0.1
         self.beta_b = 0.1
 
-        self.lambda0 = 0.1
+        self.lambda0 = 0
         self.delay =1
         self.logv = 1
         self.f = np.sin 
@@ -109,7 +109,7 @@ class Config2(): #esn
         self.beta_r = 1
         self.beta_b = 0.1
 
-        self.lambda0 = 0.1
+        self.lambda0 = 0
 
         self.delay = 1
         self.logv = 1
@@ -131,7 +131,7 @@ if __name__ == "__main__":
     file_name = "trade-off_fig_dir/%s_trade-off.png" % common.string_now()
 
     # # setting for production
-    logv = np.arange(-2,2,0.2)
+    logv = np.arange(0,1,0.2)
     delay = np.arange(0,20,2,dtype=np.int)
     #f = np.array(["sin","tan","x(1-x^2)"],dtype=np.str)
     f = np.array(["sin"])
@@ -155,7 +155,7 @@ if __name__ == "__main__":
     y = delay.shape[0]
     z = f.shape[0]
 
-    fig = plt.figure(figsize=(18,6))
+    fig = plt.figure(figsize=(10,6))
 
 #"""
     for k in tqdm(range(z)):                  #非線形関数

@@ -27,7 +27,7 @@ def esn_optimize(Config,iteration,population,samples):
     common.exe     = "python esn_approximation2.py " # 実行されるプログラム
     common.columns =['dataset','seed','id','Nh','alpha_i','alpha_r','alpha0',
     'beta_i','beta_r',"delay","logv","f",'lambda0',"RMSE1","NRMSE"]
-    common.parallel= 1
+    common.parallel= 32
     #common.dir_path = "/Users/yamato/pypr/cbm_rc/"
     common.setup()
     common.report_common()
