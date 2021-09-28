@@ -25,7 +25,7 @@ def cbm_optimize(Config,iteration,population,samples):
     common.exe     = "python cbmrc9a_memory4.py " # 実行されるプログラム
     common.columns =['dataset','seed','id','NN','Nh','alpha_i','alpha_r','alpha_b','alpha_s',
     'beta_i','beta_r','beta_b','Temp','lambda0',"delay",'cnt_overflow','MC']
-    common.parallel= 2
+    common.parallel= 100
     common.setup()
     common.report_common()
     common.report_config(config)
@@ -41,13 +41,13 @@ def cbm_optimize(Config,iteration,population,samples):
         opt.appendseed()# 乱数のシード（０から始まる整数値）
         # 変数の追加([変数名],[基本値],[下端],[上端],[まるめの桁数])
 
-        #opt.append("alpha_i",value=4.64,min=0.1,max=10,round=2)
-        #opt.append("alpha_r",value=0.75,min=0.7,max=1,round=2)
-        #opt.append("alpha_s",value=2,min=1,max=10,round=2)
+        opt.append("alpha_i",value=4.64,min=0.1,max=10,round=2)
+        opt.append("alpha_r",value=0.75,min=0.7,max=1,round=2)
+        opt.append("alpha_s",value=2,min=1,max=10,round=2)
         opt.append("beta_i",value=0.67,min=0.01,max=1,round=2)
         opt.append("beta_r",value=0.5,min=0.01,max=1,round=2)
 
-        opt.minimize(target="MC",iteration=iteration,population=population,samples=samples)
+        opt.maximize(target="MC",iteration=iteration,population=population,samples=samples)
         #opt.minimize(TARGET=func,iteration=5,population=10,samples=4)
         common.config = opt.best_config # 最適化で得られた設定を基本設定とする
     optimize(iteration,population,samples)

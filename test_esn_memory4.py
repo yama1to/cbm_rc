@@ -27,7 +27,7 @@ def esn_optimize(Config,iteration,population,samples):
     common.exe     = "python esn_memory4.py " # 実行されるプログラム
     common.columns =['dataset','seed','id','Nh','alpha_i','alpha_r','alpha0',
     'beta_i','beta_r',"delay",'lambda0',"MC"]
-    common.parallel= 2
+    common.parallel= 100
     #common.dir_path = "/Users/yamato/pypr/cbm_rc/"
     common.setup()
     common.report_common()
@@ -48,7 +48,7 @@ def esn_optimize(Config,iteration,population,samples):
         opt.append("beta_i",value=0.1,min=0.01,max=1,round=2)
         opt.append("alpha_i",value=1,min=0.1,max=1,round=2)
         opt.append("alpha_r",value=0.9,min=0.7,max=1,round=2)
-        opt.minimize(target="MC",iteration=iteration,population=population,samples=samples)
+        opt.maximize(target="MC",iteration=iteration,population=population,samples=samples)
         #opt.minimize(TARGET=func,iteration=5,population=10,samples=4)
 
         common.config = opt.best_config # 最適化で得られた設定を基本設定とする
