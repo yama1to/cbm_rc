@@ -42,7 +42,7 @@ class Config1():#cbm
         self.MM0 = 0 #
 
         self.Nu = 1   #size of input
-        self.Nh = 300 #size of dynamical reservior
+        self.Nh = 200 #size of dynamical reservior
         self.Ny = 1   #size of output
 
         self.Temp=1.0
@@ -93,7 +93,7 @@ class Config2(): #esn
         self.MM0 = 0 #
 
         self.Nu = 1   #size of input
-        self.Nh:int = 300#815 #size of dynamical reservior
+        self.Nh:int = 200#815 #size of dynamical reservior
         self.Ny = 1   #size of output
 
 
@@ -130,11 +130,12 @@ if __name__ == "__main__":
     common.prepare_directory("%s/trade-off_fig_dir" % os.getcwd())
     file_name = "trade-off_fig_dir/%s_trade-off.png" % common.string_now()
 
+    
     # # setting for production
-    logv = np.arange(0,1,0.2)
-    delay = np.arange(0,20,2,dtype=np.int)
+    logv = np.arange(-2.5,1,0.5)
+    delay = np.arange(10,20,2,dtype=np.int)
     #f = np.array(["sin","tan","x(1-x^2)"],dtype=np.str)
-    f = np.array(["sin"])
+    f = np.array(["x(1-x^2)"])
 
     #optimize
     iteration = 10

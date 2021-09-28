@@ -200,7 +200,6 @@ def execute():
     #if c.seed>=0:
     np.random.seed(int(c.seed))
     #np.random.seed(c.seed)
-    c.lambda0 = 0.01
     generate_weight_matrix()
 
     ### generate data
@@ -226,7 +225,7 @@ def execute():
     ### evaluation
     sum=0
     c.MM0 = 10
-    for j in range(c.MM0,c.MM):
+    for j in range(c.MM0,c.MM-1):
         sum += (Yp[j] - Dp[j])**2
 
     SUM=np.sum(sum)

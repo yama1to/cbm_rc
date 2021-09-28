@@ -116,7 +116,7 @@ def execute(c):
     ### evaluation
     sum=0
     c.MM0 = 10
-    for j in range(c.MM0,c.MM):
+    for j in range(c.MM0,c.MM-1):
         sum += (Yp[j] - Dp[j])**2
 
     SUM=np.sum(sum)

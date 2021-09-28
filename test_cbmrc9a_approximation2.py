@@ -46,7 +46,7 @@ def cbm_optimize(Config,iteration,population,samples):
         opt.append("alpha_s",value=2,min=1,max=10,round=2)
         opt.append("beta_i",value=2,min=0.01,max=1,round=2)
         opt.append("beta_r",value=2,min=0.01,max=1,round=2)
-        opt.append("lambda0",value=2,min=0.01,max=1,round=2)
+        #opt.append("lambda0",value=2,min=0.01,max=1,round=2)
 
         opt.minimize(target="NRMSE",iteration=iteration,population=population,samples=samples)
         #opt.minimize(TARGET=func,iteration=5,population=10,samples=4)

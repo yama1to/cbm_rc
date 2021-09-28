@@ -46,9 +46,9 @@ def esn_optimize(Config,iteration,population,samples):
         #opt.append("alpha0",value=1,min=0.01,max=1,round=2)
         opt.append("beta_r",value=0.01,min=0.01,max=1,round=2)
         opt.append("beta_i",value=0.01,min=0.01,max=1,round=2)
-        opt.append("alpha_i",value=1,min=0.01,max=1,round=2)
+        opt.append("alpha_i",value=1,min=0.01,max=10,round=2)
         opt.append("alpha_r",value=0.9,min=0.7,max=1,round=2)
-        opt.append("alpha0",value=1,min=0.01,max=1,round=2)
+
         opt.minimize(target="NRMSE",iteration=iteration,population=population,samples=samples)
         #opt.minimize(TARGET=func,iteration=5,population=10,samples=4)
 
