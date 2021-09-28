@@ -29,7 +29,7 @@ class Config():
         # config
         self.dataset=6
         self.seed:int=2 # 乱数生成のためのシード
-        self.MM=500 # サイクル数
+        self.MM=300 # サイクル数
         self.MM0 = 0 #
 
         self.Nu = 1   #size of input
@@ -38,20 +38,20 @@ class Config():
 
 
         #sigma_np = -5
-        self.alpha_i = 0.02
-        self.alpha_r = 0.52
+        self.alpha_i = 0.1
+        self.alpha_r = 1
         self.alpha_b = 0.
 
         self.alpha0 = 1#0.1
         self.alpha1 = 0#-5.8
 
-        self.beta_i = 0.9
-        self.beta_r = 1
+        self.beta_i = 1
+        self.beta_r = 0.05
         self.beta_b = 0.1
 
         self.lambda0 = 0.0
 
-        self.delay = 100
+        self.delay = 20
 
 
         # Results
@@ -81,7 +81,7 @@ def run_network(mode):
     Hp = np.zeros((c.MM, c.Nh))
     #x = np.random.uniform(-1, 1, Nh)/ 10**4
     x = np.zeros(c.Nh)
-    
+    x = np.random.uniform(-1, 1, c.Nh)
 
     for n in range(c.MM - 1):
         

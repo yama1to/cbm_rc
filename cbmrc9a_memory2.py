@@ -31,7 +31,7 @@ class Config():
         self.seed:int=2 # 乱数生成のためのシード
         self.NN=256 # １サイクルあたりの時間ステップ
         self.MM=500 # サイクル数
-        self.MM0 = 200 #
+        self.MM0 = 0 #
 
         self.Nu = 1         #size of input
         self.Nh:int = 300   #815 #size of dynamical reservior
@@ -252,11 +252,11 @@ def plot_delay():
     Nr=20
     start = 0
     for i in range(20):
-            ax = fig.add_subplot(Nr,1,i+1)
-            ax.cla()
-            ax.set_title("Yp,Dp, delay = %s" % str(i))
-            ax.plot(Yp.T[i,i:])
-            ax.plot(Dp.T[i,i:])
+        ax = fig.add_subplot(Nr,1,i+1)
+        ax.cla()
+        ax.set_title("Yp,Dp, delay = %s" % str(i))
+        ax.plot(Yp.T[i,i:])
+        ax.plot(Dp.T[i,i:])
 
     plt.show()
 

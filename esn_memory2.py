@@ -29,35 +29,32 @@ class Config():
         # config
         self.dataset=6
         self.seed:int=2 # 乱数生成のためのシード
-        self.NN=256 # １サイクルあたりの時間ステップ
         self.MM=500 # サイクル数
         self.MM0 = 200 #
 
-        self.Nu = 1         #size of input
-        self.Nh:int = 300   #815 #size of dynamical reservior
-        self.Ny = 20        #size of output
+        self.Nu = 1   #size of input
+        self.Nh:int = 300#815 #size of dynamical reservior
+        self.Ny = 20   #size of output
 
-        self.Temp=1
-        self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 1
-        self.alpha_r = 0.9
+        self.alpha_i = 0.1
+        self.alpha_r = 1
         self.alpha_b = 0.
-        self.alpha_s = 5.91
 
-        self.alpha0 = 0#0.1
+        self.alpha0 = 1#0.1
         self.alpha1 = 0#-5.8
 
-        self.beta_i = 0.1
+        self.beta_i = 1
         self.beta_r = 0.01
         self.beta_b = 0.1
 
-        self.lambda0 = 0.
+        self.lambda0 = 0.0
 
         self.delay = 20
 
-        # ResultsX
+
+        # Results
         self.RMSE1=None
         self.RMSE2=None
         self.MC = None
@@ -65,10 +62,7 @@ class Config():
         self.MC2 = None
         self.MC3 = None
         self.MC4 = None
-        self.cnt_overflow=None
-        #self.BER = None
-        
-        #self.DC = None 
+
 
 
 def generate_weight_matrix():
@@ -81,102 +75,25 @@ def generate_weight_matrix():
 def fy(h):
     return np.tanh(h)
 
-def fyi(h):
-    return np.arctanh(h)
-
-def p2s(theta,p):
-    return np.heaviside( np.sin(np.pi*(2*theta-p)),1)
-
 def run_network(mode):
-    global Hx, Hs, Hp, Y, Yx, Ys, Yp, Y, Us, Ds,Rs
+    global Hp
+    
     Hp = np.zeros((c.MM, c.Nh))
-    Hx = np.zeros((c.MM*c.NN, c.Nh))
-    Hs = np.zeros((c.MM*c.NN, c.Nh))
-    hsign = np.zeros(c.Nh)
-    #hx = np.zeros(c.Nh)
-    hx = np.random.uniform(0,1,c.Nh) # [0,1]の連続値
-    hs = np.zeros(c.Nh) # {0,1}の２値
-    hs_prev = np.zeros(c.Nh)
-    hc = np.zeros(c.Nh) # ref.clockに対する位相差を求めるためのカウント
-    hp = np.zeros(c.Nh) # [-1,1]の連続値
-    ht = np.zeros(c.Nh) # {0,1}
-
-    Yp = np.zeros((c.MM, c.Ny))
-    Yx = np.zeros((c.MM*c.NN, c.Ny))
-    Ys = np.zeros((c.MM*c.NN, c.Ny))
-    #ysign = np.zeros(Ny)
-    yp = np.zeros(c.Ny)
-    yx = np.zeros(c.Ny)
-    ys = np.zeros(c.Ny)
-    #yc = np.zeros(Ny)
-
-    Us = np.zeros((c.MM*c.NN, c.Nu))
-    Ds = np.zeros((c.MM*c.NN, c.Ny))
-    Rs = np.zeros((c.MM*c.NN, 1))
-
-    rs = 1
-    rs_prev = 0
-    any_hs_change = True
-    m=0
-    for n in range(c.NN * c.MM):
-        theta = np.mod(n/c.NN,1) # (0,1)
-        rs_prev = rs
-        hs_prev = hs.copy()
-
-        rs = p2s(theta,0)# 参照クロック
-        us = p2s(theta,Up[m]) # エンコードされた入力
-        ds = p2s(theta,Dp[m]) #
-        ys = p2s(theta,yp)
-
-        sum = np.zeros(c.Nh)
-        sum += c.alpha_s*rs # ラッチ動作を用いないref.clockと同期させるための結合
-        #sum += c.alpha_s*(hs-rs)*ht # ref.clockと同期させるための結合
-        sum += Wi@(2*us-1) # 外部入力
-        sum += Wr@(2*hs-1) # リカレント結合
+    #x = np.random.uniform(-1, 1, Nh)/ 10**4
+    #x = np.zeros(c.Nh)
+    x = np.random.uniform(-1, 1, c.Nh)
+    
+    for n in range(c.MM - 1):
         
-        #if mode == 0:
-        #    sum += Wb@ys
-        #if mode == 1:  # teacher forcing
-        #    sum += Wb@ds
+        u = Up[n, :]
 
-        hsign = 1 - 2*hs
-        hx = hx + hsign*(1.0+np.exp(hsign*sum/c.Temp))*c.dt
-        hs = np.heaviside(hx+hs-1,0)
-        hx = np.fmin(np.fmax(hx,0),1)
+        #Hp[n+1,:] = x + 1.0/tau * (-alpha0 * x + fx(Wi@u + Wr@x))
+        next_x = (1 - c.alpha0) * x + c.alpha0*fy(Wi@u + Wr@x)
+        Hp[n+1,:] = next_x
+        x= next_x
 
-        if rs==1:
-            hc+=hs # デコードのためのカウンタ、ref.clockとhsのANDでカウントアップ
+        
 
-        # ref.clockの立ち上がり
-        if rs_prev==0 and rs==1:
-            hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
-            hc = np.zeros(c.Nh) #カウンタをリセット
-            #ht = 2*hs-1 リファレンスクロック同期用ラッチ動作をコメントアウト
-            yp = Wo@hp
-            # record
-            Hp[m]=hp
-            Yp[m]=yp
-            m+=1
-
-        any_hs_change = np.any(hs!=hs_prev)
-
-        if c.plot:
-            # record
-            Rs[n]=rs
-            Hx[n]=hx
-            Hs[n]=hs
-            Yx[n]=yx
-            Ys[n]=ys
-            Us[n]=us
-            Ds[n]=ds
-
-    # オーバーフローを検出する。
-    global cnt_overflow
-    cnt_overflow = 0
-    for m in range(2,c.MM-1):
-        tmp = np.sum( np.heaviside( np.fabs(Hp[m+1]-Hp[m]) - 0.6 ,0))
-        cnt_overflow += tmp
-        #print(tmp)
 
 def train_network():
     global Wo
@@ -199,59 +116,25 @@ def train_network():
         TMP1 = np.linalg.inv(M.T@M + c.lambda0 * E)
         WoT = TMP1@M.T@G
         Wo = WoT.T
+
     #print("WoT\n", WoT)
 
 def test_network():
+    global Yp
     run_network(0)
 
-def plot1():
-    fig=plt.figure(figsize=(20, 12))
-    Nr=6
-    ax = fig.add_subplot(Nr,1,1)
-    ax.cla()
-    ax.set_title("Up")
-    ax.plot(Up)
+    YpT = Wo @ Hp.T
+    Yp = YpT.T
 
-    ax = fig.add_subplot(Nr,1,2)
-    ax.cla()
-    ax.set_title("Us")
-    ax.plot(Us)
-    ax.plot(Rs,"r:")
-    #ax.plot(R2s,"b:")
 
-    ax = fig.add_subplot(Nr,1,3)
-    ax.cla()
-    ax.set_title("Hx")
-    ax.plot(Hx)
 
-    ax = fig.add_subplot(Nr,1,4)
-    ax.cla()
-    ax.set_title("Hp")
-    ax.plot(Hp)
-
-    ax = fig.add_subplot(Nr,1,5)
-    ax.cla()
-    ax.set_title("Yp")
-    ax.plot(Yp)
-    #ax.plot(y)
-
-    ax = fig.add_subplot(Nr,1,6)
-    ax.cla()
-    ax.plot(DC)
-    ax.set_ylabel("determinant coefficient")
-    ax.set_xlabel("Delay k")
-    ax.set_ylim([0,1])
-    ax.set_xlim([0,c.delay])
-    ax.set_title('MC ~ %3.2lf' % MC, x=0.8, y=0.7)
-
-    plt.show()
-    plt.savefig(c.fig1)
 
 def plot_delay():
     fig=plt.figure(figsize=(16,16 ))
     Nr=20
-    start = 0
-    for i in range(20):
+    if c.delay< 20: Nr = c.delay 
+    
+    for i in range(Nr):
             ax = fig.add_subplot(Nr,1,i+1)
             ax.cla()
             ax.set_title("Yp,Dp, delay = %s" % str(i))
@@ -278,7 +161,6 @@ def execute(c):
 
     c.delay = int(c.delay)
     c.Ny = c.delay
-    c.NN = int(c.NN)
     c.Nh = int(c.Nh)
 
     np.random.seed(seed = int(c.seed))    
@@ -298,43 +180,42 @@ def execute(c):
     Up = U                # INPUT    #(MM,1)
 
     train_network()
-
-    
+    #print("...end") 
     
     ### test
     #print("test...")
-    Up = Up[c.MM0:]
-    Dp = Dp[c.MM0:]
     c.MM = c.MM - c.MM0
+    Dp = D[c.MM0:]
+    Up = U[c.MM0:]
+
     test_network()                  #OUTPUT = Yp
 
+    #print("...end")
 
-    
     DC = np.zeros((c.delay, 1))  # 決定係数
     MC = 0.0                        # 記憶容量
 
-    #inv scale
-    
-    Dp = Dp                    # TARGET    #(MM,len(delay))
-    Yp = Yp                    # PRED      #(MM,len(delay))
+
     #print(np.max(Dp),np.max(Yp))
     """
     予測と目標から決定係数を求める。
     決定係数の積分が記憶容量
-    """
+    """ 
+
+
     for k in range(c.delay):
         corr = np.corrcoef(np.vstack((Dp.T[k, k:], Yp.T[k, k:])))   #相関係数
         DC[k] = corr[0, 1] ** 2                                     #決定係数 = 相関係数 **2
 
+
     MC = np.sum(DC)
-    
+    #print(MC)
    
+    #print(MC,MC1,MC2,MC3,MC4)
 ######################################################################################
      # Results
     c.RMSE1=None
     c.RMSE2=None
-    c.cnt_overflow=cnt_overflow
-
     c.MC = MC
 
     if c.delay >=5:
@@ -352,13 +233,17 @@ def execute(c):
     if c.delay >=50:
         MC4 = np.sum(DC[:50])
         c.MC4 = MC4
-    print("MC =",c.MC)
+    
+    
+    
+    
+    #print("MC =",c.MC)
 
 #####################################################################################
     if c.plot:
-        plot_delay()
+        #plot_delay()
         plot_MC()
-        plot1()
+        #plot1()
 
 
 if __name__ == "__main__":

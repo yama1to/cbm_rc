@@ -55,9 +55,9 @@ def optimize():
     #opt.append("Nh",value=500,min=300,max=1000,round=1)
     opt.append("beta_r",value=0.01,min=0.01,max=1,round=2)
     opt.append("beta_i",value=0.01,min=0.01,max=1,round=2)
-    opt.append("alpha_i",value=1,min=0.01,max=10,round=2)
-    opt.append("alpha_r",value=0.75,min=0.5,max=1.5,round=2)
-    opt.append("alpha0",value=0.75,min=0,max=1,round=2)
+    opt.append("alpha_i",value=1,min=0.1,max=10,round=2)
+    opt.append("alpha_r",value=0.75,min=0.5,max=1.,round=2)
+    #opt.append("alpha0",value=0.75,min=0,max=1,round=2)
     opt.maximize(target="MC",iteration=10,population=30,samples=3)
     #opt.minimize(TARGET=func,iteration=5,population=10,samples=4)
     common.config = opt.best_config # 最適化で得られた設定を基本設定とする
