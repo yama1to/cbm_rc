@@ -30,27 +30,27 @@ class Config():
         self.dataset=1
         self.seed:int=0 # 乱数生成のためのシード
         self.NN=256 # １サイクルあたりの時間ステップ
-        self.MM=500 # サイクル数
-        self.MM0 = 10 #
+        self.MM=300 # サイクル数
+        self.MM0 = 0 #
 
         self.Nu = 1   #size of input
-        self.Nh = 400 #size of dynamical reservior
+        self.Nh = 300 #size of dynamical reservior
         self.Ny = 1   #size of output
 
         self.Temp=1.0
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 1
-        self.alpha_r = 0.75
+        self.alpha_i = 5.6
+        self.alpha_r = 0.76
         self.alpha_b = 0.
-        self.alpha_s = 2
+        self.alpha_s = 5.03
 
-        self.beta_i = 0.9
+        self.beta_i = 0.1
         self.beta_r = 0.1
         self.beta_b = 0.1
 
-        self.lambda0 = 0.
+        self.lambda0 = 0
         self.delay = 5
         self.logv = 1
         
@@ -241,35 +241,25 @@ def execute():
 
     ### generate data
     if c.dataset==1:
-        MM1 = c.MM - 100 
-        MM2 = 100
         U,D = generate_data(num=c.MM,delay=c.delay,logv=c.logv, f=np.sin)
 
 
-    D1 = D[0:MM1]
-    U1 = U[0:MM1]
-    D2 = D[MM1:MM1+MM2]
-    U2 = U[MM1:MM1+MM2]
 
     ### training
     #print("training...")
-    c.MM=MM1
-    Dp = D1
-    Up = U1
+    Dp = D
+    Up = U
     train_network()
 
     ### test
     #print("test...")
-    c.MM=MM2
-    Dp = D2
-    Up = U2
     test_network()
     
 
     ### evaluation
     sum=0
     c.MM0 = 10
-    for j in range(c.MM0,c.MM):
+    for j in range(c.MM0,c.MM-1):
         sum += (Yp[j] - Dp[j])**2
 
     SUM=np.sum(sum)
