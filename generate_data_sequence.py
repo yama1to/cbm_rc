@@ -7,16 +7,18 @@ import matplotlib.pyplot as plt
 
 def generate_white_noise(delay_s,T=500,):
     # 時系列入力データ生成
-    #T = 500  # 長さ
-    T = T + 200
-    u = np.random.rand(T,1)-0.5  # 区間[-0.5, 0.5]の乱数系列
-    delay = np.arange(delay_s)
-    d = np.empty((T, delay_s))
-    for k in range(delay_s):
-        for t in range(T):
-            d[t, k] = u[t-delay[k]]  # 遅延系列
-    u=u[200:]
-    d=d[200:]
+    
+    L = T + delay_s
+    u = np.random.rand(L,1)-0.5  # 区間[-0.5, 0.5]の乱数系列
+    u = u.reshape((L))
+
+    d = np.zeros((T,delay_s))
+
+    for i in range(delay_s):
+        d[:,i] = u[i:T+i]
+    
+    u = u[:T].reshape((T,1))
+    print(u.shape,d.shape)
     return u,d
 
     
@@ -68,9 +70,6 @@ def generate_xor(MM,tau = 2,Nu=1,Ny=1):
     trainD = D[tau:MM].reshape(-1, 1)
     #print(trainU.T  == U[2:].T)
     return trainU,trainD
-
-
-
 
 def generate_simple_sinusoidal(MM, Nu=2, Ny=2):
     D = np.zeros((MM, Ny))
@@ -253,14 +252,16 @@ if __name__ == "__main__":
 
     #D,U,d,u = generate_parity(10,1,1)
     #U,D= generate_xor(50)
-    U,D = generate_white_noise()
+    U,D = generate_white_noise(20,500)
     plt.subplot(2, 1, 1)
     plt.plot(U)
     plt.ylabel('U')
 
     plt.subplot(2, 1, 2)
-    plt.plot(D)
+    plt.plot(D[:,0],label = "0")
+    #plt.plot(D[:,1],label="1")
     plt.ylabel('D')
+    plt.legend()
     plt.show()
     
     # plt.savefig("test.png")
