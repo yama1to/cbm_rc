@@ -41,16 +41,16 @@ class Config():
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 1
-        self.alpha_r = 0.9
+        self.alpha_i = 5
+        self.alpha_r = 0.95
         self.alpha_b = 0.
-        self.alpha_s = 5.91
+        self.alpha_s = 5.19
 
         self.alpha0 = 0#0.1
         self.alpha1 = 0#-5.8
 
-        self.beta_i = 0.1
-        self.beta_r = 0.01
+        self.beta_i = 0.98
+        self.beta_r = 0.3
         self.beta_b = 0.1
 
         self.lambda0 = 0.
