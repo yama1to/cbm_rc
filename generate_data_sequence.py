@@ -18,7 +18,7 @@ def generate_white_noise(delay_s,T=500,):
         d[:,i] = u[i:T+i]
     
     u = u[:T].reshape((T,1))
-    print(u.shape,d.shape)
+    #print(u.shape,d.shape)
     return u,d
 
     
