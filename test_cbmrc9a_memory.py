@@ -57,7 +57,8 @@ def optimize():
     opt.append("alpha_i",value=1,min=0.01,max=10,round=2)
     opt.append("alpha_r",value=1,min=0.7,max=1,round=2)
     opt.append("alpha_s",value=10,min=1,max=10,round=2)
-    opt.maximize(target="MC",iteration=10,population=10,samples=3)
+    #opt.append("Temp",value=10,min=1,max=10,round=2)
+    opt.maximize(target="MC",iteration=50,population=50,samples=3)
     #opt.minimize(TARGET=func,iteration=5,population=10,samples=4)
     common.config = opt.best_config # 最適化で得られた設定を基本設定とする
 optimize()
@@ -121,10 +122,11 @@ def gridsearch(X1,min=0,max=1,num=41,samples=10):
 
 def gs2():
     ns=5
-    gridsearch("Nh",min=20,max=500,num=25,samples=ns)
-    #gridsearch("Temp",min=0.01,max=10,num=100,samples=ns)
-    # gridsearch("beta_i",min=0.05,max=1,num=30,samples=ns)
-    # gridsearch("alpha_r",min=0.05,max=1,num=30,samples=ns)
-    # gridsearch("alpha_i",min=0.05,max=1,num=30,samples=ns)
+    gridsearch("Nh",min=200,max=500,num=25,samples=ns)
+    gridsearch("alpha_s",min=0.01,max=100,num=100,samples=ns)
+    gridsearch("beta_i",min=0.01,max=1,num=30,samples=ns)
+    gridsearch("beta_r",min=0.01,max=1,num=30,samples=ns)
+    gridsearch("alpha_r",min=0.1,max=20,num=30,samples=ns)
+    gridsearch("alpha_i",min=0.1,max=20,num=30,samples=ns)
     
 gs2()
