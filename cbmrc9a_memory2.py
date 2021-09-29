@@ -30,7 +30,7 @@ class Config():
         self.dataset=6
         self.seed:int=2 # 乱数生成のためのシード
         self.NN=256 # １サイクルあたりの時間ステップ
-        self.MM=500 # サイクル数
+        self.MM=300 # サイクル数
         self.MM0 = 0 #
 
         self.Nu = 1         #size of input
@@ -129,8 +129,8 @@ def run_network(mode):
         ys = p2s(theta,yp)
 
         sum = np.zeros(c.Nh)
-        sum += c.alpha_s*rs # ラッチ動作を用いないref.clockと同期させるための結合
-        #sum += c.alpha_s*(hs-rs)*ht # ref.clockと同期させるための結合
+        #sum += c.alpha_s*rs # ラッチ動作を用いないref.clockと同期させるための結合
+        sum += c.alpha_s*(hs-rs)*ht # ref.clockと同期させるための結合
         sum += Wi@(2*us-1) # 外部入力
         sum += Wr@(2*hs-1) # リカレント結合
         
@@ -151,7 +151,7 @@ def run_network(mode):
         if rs_prev==0 and rs==1:
             hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
             hc = np.zeros(c.Nh) #カウンタをリセット
-            #ht = 2*hs-1 リファレンスクロック同期用ラッチ動作をコメントアウト
+            ht = 2*hs-1 #リファレンスクロック同期用ラッチ動作をコメントアウト
             yp = Wo@hp
             # record
             Hp[m]=hp
@@ -303,12 +303,8 @@ def execute(c):
     
     ### test
     #print("test...")
-    Up = Up[c.MM0:]
-    Dp = Dp[c.MM0:]
-    c.MM = c.MM - c.MM0
+    
     test_network()                  #OUTPUT = Yp
-
-
     
     DC = np.zeros((c.delay, 1))  # 決定係数
     MC = 0.0                        # 記憶容量
