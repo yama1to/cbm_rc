@@ -11,7 +11,6 @@ import scipy.linalg
 import matplotlib.pyplot as plt
 import copy
 import time
-from explorer import common
 from generate_data_sequence import *
 from generate_matrix import *
 
@@ -30,7 +29,7 @@ class Config():
         self.dataset=6
         self.seed:int=2 # 乱数生成のためのシード
         self.NN=256 # １サイクルあたりの時間ステップ
-        self.MM=500 # サイクル数
+        self.MM=750 # サイクル数
         self.MM0 = 200 #
 
         self.Nu = 1         #size of input
@@ -41,22 +40,21 @@ class Config():
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 1
-        self.alpha_r = 0.9
+        self.alpha_i = 6
+        self.alpha_r = 0.95
         self.alpha_b = 0.
-        self.alpha_s = 5.91
+        self.alpha_s = 8.3
 
         self.alpha0 = 0#0.1
         self.alpha1 = 0#-5.8
 
-        self.beta_i = 0.1
-        self.beta_r = 0.01
+        self.beta_i = 1
+        self.beta_r = 0.16
         self.beta_b = 0.1
 
         self.lambda0 = 0.
-
-        self.delay = 20
-
+        self.delay = 500
+        
         # ResultsX
         self.RMSE1=None
         self.RMSE2=None
@@ -303,9 +301,6 @@ def execute(c):
     
     ### test
     #print("test...")
-    Up = Up[c.MM0:]
-    Dp = Dp[c.MM0:]
-    c.MM = c.MM - c.MM0
     test_network()                  #OUTPUT = Yp
 
 
@@ -315,8 +310,8 @@ def execute(c):
 
     #inv scale
     
-    Dp = Dp                    # TARGET    #(MM,len(delay))
-    Yp = Yp                    # PRED      #(MM,len(delay))
+    Dp = Dp[c.MM0:]                    # TARGET    #(MM,len(delay))
+    Yp = Yp[c.MM0:]                    # PRED      #(MM,len(delay))
     #print(np.max(Dp),np.max(Yp))
     """
     予測と目標から決定係数を求める。
@@ -362,11 +357,5 @@ def execute(c):
 
 
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser()
-    ap.add_argument("-config", type=str)
-    a = ap.parse_args()
-
     c=Config()
-    if a.config: c=common.load_config(a)
     execute(c)
-    if a.config: common.save_config(c)
