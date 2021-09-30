@@ -77,15 +77,16 @@ def fyi(h):
 
 def p2s(theta,p):
     return np.heaviside( np.sin(np.pi*(2*theta-p)),1)
-
 def run_network(mode):
     global Hx, Hs, Hp, Y, Yx, Ys, Yp, Y, Us, Ds,Rs
     Hp = np.zeros((c.MM, c.Nh))
     Hx = np.zeros((c.MM*c.NN, c.Nh))
     Hs = np.zeros((c.MM*c.NN, c.Nh))
     hsign = np.zeros(c.Nh)
-    #hx = np.zeros(Nh)
-    hx = np.random.uniform(0,1,c.Nh) # [0,1]の連続値
+
+    if not mode:hx = np.zeros(c.Nh)
+    else:hx = np.random.uniform(0,1,c.Nh) # [0,1]の連続値
+
     hs = np.zeros(c.Nh) # {0,1}の２値
     hs_prev = np.zeros(c.Nh)
     hc = np.zeros(c.Nh) # ref.clockに対する位相差を求めるためのカウント
@@ -121,8 +122,8 @@ def run_network(mode):
         ys = p2s(theta,yp)
 
         sum = np.zeros(c.Nh)
-        sum += c.alpha_s*rs # ラッチ動作を用いないref.clockと同期させるための結合
-        #sum += alpha_s*(hs-rs)*ht # ref.clockと同期させるための結合
+        #sum += c.alpha_s*rs # ラッチ動作を用いないref.clockと同期させるための結合
+        sum += c.alpha_s*(hs-rs)*ht # ref.clockと同期させるための結合
         sum += Wi@(2*us-1) # 外部入力
         sum += Wr@(2*hs-1) # リカレント結合
 
@@ -143,8 +144,8 @@ def run_network(mode):
         if rs_prev==0 and rs==1:
             hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
             hc = np.zeros(c.Nh) #カウンタをリセット
-            #ht = 2*hs-1 リファレンスクロック同期用ラッチ動作をコメントアウト
-            yp = fy(Wo@hp)
+            ht = 2*hs-1 #リファレンスクロック同期用ラッチ動作をコメントアウト
+            yp = Wo@hp
             # record
             Hp[m]=hp
             Yp[m]=yp
@@ -221,17 +222,17 @@ def plot1():
     ax = fig.add_subplot(Nr,1,5)
     ax.cla()
     ax.set_title("Yp")
-    ax.plot(Y)
+    ax.plot(Yp)
 
     ax = fig.add_subplot(Nr,1,6)
     ax.cla()
     ax.set_title("Y,Dp")
     ax.plot(Dp)
-    ax.plot(Y)
+    ax.plot(Yp)
     plt.show()
     plt.savefig(c.fig1)
     
-    plt.plot((Y-Dp)**2)
+    plt.plot((Yp-Dp)**2)
     plt.title("squared error")
     plt.show()
 
@@ -247,7 +248,7 @@ def execute():
 
     ### generate data
     if c.dataset==1:
-        MM1 = 1000
+        MM1 = 1200
         MM2 = 2200
         U1,D1  = generate_narma(N=MM1)
         U2,D2  = generate_narma(N=MM2)
@@ -255,9 +256,9 @@ def execute():
 
     ### training
     #print("training...")
-    c.MM=MM1
-    Dp = D1
-    Up = U1
+    c.MM=MM1-200
+    Dp = D1[200:]
+    Up = U1[200:]
     train_network()
 
     if not c.plot: 
@@ -267,9 +268,9 @@ def execute():
 
     ### test
     #print("test...")
-    c.MM=MM2
-    Dp = D2
-    Up = U2
+    c.MM=MM2-200
+    Dp = D2[200:]
+    Up = U2[200:]
     test_network()
 
     if not c.plot: 
@@ -277,10 +278,9 @@ def execute():
         gc.collect()
 
     ### evaluation
-    Y = fyi(Yp[200:-1])
-    Dp = Dp[200:-1]
 
-    error = (Y-Dp)**2
+
+    error = (Yp-Dp)**2
     ave = np.mean(error)
     NMSE = ave/np.var(Dp)
 
@@ -292,6 +292,7 @@ def execute():
     #print("time: %.6f [sec]" % (time.time()-t_start))
 
     if c.plot: plot1()
+
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
