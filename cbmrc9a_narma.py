@@ -37,7 +37,7 @@ class Config():
         self.seed:int=0 # 乱数生成のためのシード
         self.NN=256 # １サイクルあたりの時間ステップ
         self.MM=1000 # サイクル数
-        self.MM0 = 0 #
+        self.MM0 = 200 #
 
         self.Nu = 1   #size of input
         self.Nh = 300 #size of dynamical reservior
@@ -59,6 +59,7 @@ class Config():
         self.lambda0 = 0.0001
 
         # Results
+        self.MSE = None
         self.NMSE=None
         self.cnt_overflow=None
 
@@ -77,16 +78,15 @@ def fyi(h):
 
 def p2s(theta,p):
     return np.heaviside( np.sin(np.pi*(2*theta-p)),1)
+
 def run_network(mode):
     global Hx, Hs, Hp, Y, Yx, Ys, Yp, Y, Us, Ds,Rs
     Hp = np.zeros((c.MM, c.Nh))
     Hx = np.zeros((c.MM*c.NN, c.Nh))
     Hs = np.zeros((c.MM*c.NN, c.Nh))
     hsign = np.zeros(c.Nh)
-
-    if not mode:hx = np.zeros(c.Nh)
-    else:hx = np.random.uniform(0,1,c.Nh) # [0,1]の連続値
-
+    #hx = np.zeros(Nh)
+    hx = np.random.uniform(0,1,c.Nh) # [0,1]の連続値
     hs = np.zeros(c.Nh) # {0,1}の２値
     hs_prev = np.zeros(c.Nh)
     hc = np.zeros(c.Nh) # ref.clockに対する位相差を求めるためのカウント
@@ -145,7 +145,7 @@ def run_network(mode):
             hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
             hc = np.zeros(c.Nh) #カウンタをリセット
             ht = 2*hs-1 #リファレンスクロック同期用ラッチ動作をコメントアウト
-            yp = Wo@hp
+            yp = fy(Wo@hp)
             # record
             Hp[m]=hp
             Yp[m]=yp
@@ -222,17 +222,17 @@ def plot1():
     ax = fig.add_subplot(Nr,1,5)
     ax.cla()
     ax.set_title("Yp")
-    ax.plot(Yp)
+    ax.plot(Y)
 
     ax = fig.add_subplot(Nr,1,6)
     ax.cla()
     ax.set_title("Y,Dp")
     ax.plot(Dp)
-    ax.plot(Yp)
+    ax.plot(Y)
     plt.show()
     plt.savefig(c.fig1)
     
-    plt.plot((Yp-Dp)**2)
+    plt.plot((Y-Dp)**2)
     plt.title("squared error")
     plt.show()
 
@@ -248,7 +248,7 @@ def execute():
 
     ### generate data
     if c.dataset==1:
-        MM1 = 1200
+        MM1 = 1000
         MM2 = 2200
         U1,D1  = generate_narma(N=MM1)
         U2,D2  = generate_narma(N=MM2)
@@ -256,9 +256,9 @@ def execute():
 
     ### training
     #print("training...")
-    c.MM=MM1-200
-    Dp = D1[200:]
-    Up = U1[200:]
+    c.MM=MM1
+    Dp = D1
+    Up = U1
     train_network()
 
     if not c.plot: 
@@ -268,9 +268,9 @@ def execute():
 
     ### test
     #print("test...")
-    c.MM=MM2-200
-    Dp = D2[200:]
-    Up = U2[200:]
+    c.MM=MM2
+    Dp = D2
+    Up = U2
     test_network()
 
     if not c.plot: 
@@ -278,21 +278,22 @@ def execute():
         gc.collect()
 
     ### evaluation
+    Y = Yp[c.MM0:]
+    Dp = Dp[c.MM0:]
 
-
-    error = (Yp-Dp)**2
-    ave = np.mean(error)
-    NMSE = ave/np.var(Dp)
+    error = (Y-Dp)**2
+    MSE = np.mean(error)
+    NMSE = MSE/np.var(Dp)
 
     #print(1/np.var(Dp))
     print("NMSE:",NMSE)
 
+    c.MSE = MSE
     c.NMSE = NMSE
     c.cnt_overflow=cnt_overflow
     #print("time: %.6f [sec]" % (time.time()-t_start))
 
     if c.plot: plot1()
-
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
