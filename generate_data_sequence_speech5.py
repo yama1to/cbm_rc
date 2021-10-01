@@ -197,10 +197,12 @@ def generate_coch(load=0,seed = 0,save_arr=1,save=0,shuffle=True):
     valid_coch = valid_coch.T
 
     valid_coch2 = valid_coch.reshape(SHAPE)
-
+    valid_target2 = valid_target.reshape((250,50,10))
+    #print(valid_coch2.shape,valid_target2.shape)
     #valid シャッフル
-    valid_coch2,valid_target = shuffle_samples(valid_coch2,valid_target)
+    valid_coch2,valid_target2 = shuffle_samples(valid_coch2,valid_target2)
     valid_coch = valid_coch2.reshape((data_num*t_num,input_num))
+    valid_target = valid_target2.reshape((data_num*t_num,10))
 
     if save_arr:
         save_data(train_coch,valid_coch ,train_target, valid_target)
@@ -245,11 +247,12 @@ if __name__ == "__main__":
     
     t,v,tD,vD ,s= generate_coch(save_arr=1,save=0)
     
-
-
+    print(t.shape,v.shape,tD.shape,vD.shape)
     #作成済み
     t2,v2,tD2,vD2 ,s2= load_datasets()
     t3 = t2.reshape((250,50,77))
     t4 = t3.reshape((250*50,77))
-    print(t4==t2)
+    #print(t4==t2)
+    for i in range(250):
+         print(vD2[i][0])
     #if t and t2:print(t==t2)
