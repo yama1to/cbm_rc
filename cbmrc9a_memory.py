@@ -15,6 +15,7 @@ import os
 import gc
 from generate_data_sequence import *
 from generate_matrix import *
+from explorer import common
 
 class Config():
     def __init__(self):
