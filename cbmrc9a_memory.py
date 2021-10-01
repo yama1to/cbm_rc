@@ -11,6 +11,8 @@ import scipy.linalg
 import matplotlib.pyplot as plt
 import copy
 import time
+import os
+import gc
 from generate_data_sequence import *
 from generate_matrix import *
 
@@ -29,18 +31,18 @@ class Config():
         self.dataset=6
         self.seed:int=2 # 乱数生成のためのシード
         self.NN=256 # １サイクルあたりの時間ステップ
-        self.MM=750 # サイクル数
+        self.MM=700 # サイクル数
         self.MM0 = 200 #
 
         self.Nu = 1         #size of input
-        self.Nh:int = 300   #815 #size of dynamical reservior
+        self.Nh:int = 200   #815 #size of dynamical reservior
         self.Ny = 20        #size of output
 
         self.Temp=1
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 6
+        self.alpha_i = 1
         self.alpha_r = 0.95
         self.alpha_b = 0.
         self.alpha_s = 8.3
@@ -53,7 +55,7 @@ class Config():
         self.beta_b = 0.1
 
         self.lambda0 = 0.
-        self.delay = 500
+        self.delay = 100
         
         # ResultsX
         self.RMSE1=None
@@ -263,10 +265,14 @@ def plot_MC():
     plt.plot(DC)
     plt.ylabel("determinant coefficient")
     plt.xlabel("Delay k")
-    plt.ylim([0,1])
+    plt.ylim([0,1.1])
     plt.xlim([0,c.delay])
     plt.title('MC ~ %3.2lf' % MC, x=0.8, y=0.7)
-    plt.show()
+
+
+    fname = "./MC_fig_dir/MC:alphai={0},r={1},s={2},betai={3},r={4}.png".format(c.alpha_i,c.alpha_r,c.alpha_s,c.beta_i,c.beta_r)
+    plt.savefig(fname)
+    #plt.show()
 
 def execute(c):
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM,Yp
@@ -296,6 +302,10 @@ def execute(c):
     Up = U                # INPUT    #(MM,1)
 
     train_network()
+    if not c.plot: 
+        del D,U,Us,Rs
+        gc.collect()
+        
 
     
     
@@ -323,7 +333,7 @@ def execute(c):
 
     MC = np.sum(DC)
     
-   
+    plot_MC()
 ######################################################################################
      # Results
     c.RMSE1=None
@@ -331,31 +341,38 @@ def execute(c):
     c.cnt_overflow=cnt_overflow
 
     c.MC = MC
+    #c.DC =DC
 
-    if c.delay >=5:
-        MC1 = np.sum(DC[:5])
-        c.MC1 = MC1
+    # if c.delay >=5:
+    #     MC1 = np.sum(DC[:5])
+    #     c.MC1 = MC1
 
-    if c.delay >=10:
-        MC2 = np.sum(DC[:10])
-        c.MC2 = MC2
+    # if c.delay >=10:
+    #     MC2 = np.sum(DC[:10])
+    #     c.MC2 = MC2
 
-    if c.delay >=20:
-        MC3 = np.sum(DC[:20])
-        c.MC3 = MC3
+    # if c.delay >=20:
+    #     MC3 = np.sum(DC[:20])
+    #     c.MC3 = MC3
 
-    if c.delay >=50:
-        MC4 = np.sum(DC[:50])
-        c.MC4 = MC4
+    # if c.delay >=50:
+    #     MC4 = np.sum(DC[:50])
+    #     c.MC4 = MC4
     print("MC =",c.MC)
 
 #####################################################################################
     if c.plot:
-        plot_delay()
+        #plot_delay()
         plot_MC()
-        plot1()
+        #plot1()
 
 
 if __name__ == "__main__":
+    ap = argparse.ArgumentParser()
+    ap.add_argument("-config", type=str)
+    a = ap.parse_args()
+
     c=Config()
+    if a.config: c=common.load_config(a)
     execute(c)
+    if a.config: common.save_config(c)
