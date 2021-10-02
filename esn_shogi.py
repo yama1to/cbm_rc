@@ -29,39 +29,31 @@ class Config():
         # config
         self.dataset=6
         self.seed:int=2 # 乱数生成のためのシード
-        self.MM=300 # サイクル数
+        self.MM=500 # サイクル数
         self.MM0 = 0 #
 
-        self.Nu = 1   #size of input
-        self.Nh:int = 200#815 #size of dynamical reservior
-        self.Ny = 20   #size of output
+        self.Nu = 2   #size of input
+        self.Nh:int = 300#815 #size of dynamical reservior
+        self.Ny = 2   #size of output
 
 
         #sigma_np = -5
-        self.alpha_i = 1
-        self.alpha_r = 0.8
+        self.alpha_i = 0.9
+        self.alpha_r = 0.9
         self.alpha_b = 0.
 
         self.alpha0 = 1#0.1
         self.alpha1 = 0#-5.8
 
-        self.beta_i = 0.9
-        self.beta_r = 0.05
+        self.beta_i = 0.01
+        self.beta_r = 0.01
         self.beta_b = 0.1
 
-        self.lambda0 = 0.0
-
-        self.delay = 20
-
+        self.lambda0 = 0.1
 
         # Results
         self.RMSE1=None
         self.RMSE2=None
-        self.MC = None
-        self.MC1 = None 
-        self.MC2 = None
-        self.MC3 = None
-        self.MC4 = None
 
 
 
@@ -81,15 +73,15 @@ def run_network(mode):
     Hp = np.zeros((c.MM, c.Nh))
     #x = np.random.uniform(-1, 1, Nh)/ 10**4
     x = np.zeros(c.Nh)
-    #x = np.random.uniform(-1, 1, c.Nh)
+    
 
-    for n in range(c.MM):
+    for n in range(c.MM - 1):
         
         u = Up[n, :]
 
         #Hp[n+1,:] = x + 1.0/tau * (-alpha0 * x + fx(Wi@u + Wr@x))
         next_x = (1 - c.alpha0) * x + c.alpha0*fy(Wi@u + Wr@x)
-        Hp[n,:] = next_x
+        Hp[n+1,:] = next_x
         x= next_x
 
         
@@ -128,112 +120,79 @@ def test_network():
 
 
 
+def plot1():
+    fig=plt.figure(figsize=(20, 12))
+    Nr=3
+    ax = fig.add_subplot(Nr,1,1)
+    ax.cla()
+    ax.set_title("U")
+    ax.plot(Up)
 
-def plot_delay():
-    fig=plt.figure(figsize=(16,16 ))
-    Nr=20
-    if c.delay< 20: Nr = c.delay 
-    
-    for i in range(Nr):
-            ax = fig.add_subplot(Nr,1,i+1)
-            ax.cla()
-            ax.set_title("Yp,Dp, delay = %s" % str(i))
-            ax.plot(Yp.T[i,i:])
-            ax.plot(Dp.T[i,i:])
+    ax = fig.add_subplot(Nr,1,2)
+    ax.cla()
+    ax.set_title("X")
+    ax.plot(Hp)
 
-    plt.show()
-
-
-def plot_MC():
-    plt.plot(DC)
-    plt.ylabel("determinant coefficient")
-    plt.xlabel("Delay k")
-    plt.ylim([0,1])
-    plt.xlim([0,c.delay])
-    plt.title('MC ~ %3.2lf' % MC, x=0.8, y=0.7)
+    ax = fig.add_subplot(Nr,1,3)
+    ax.cla()
+    ax.set_title("Y, Ytarget")
+    ax.plot(Dp,label = "d",color = "b")
+    ax.plot(Yp,label = "y",color = "r")
+    plt.legend()
     plt.show()
 
 def execute(c):
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM,Yp
     global RMSE1,RMSE2
-    global train_Y_binary,MC,DC
 
-
-    c.delay = int(c.delay)
-    c.Ny = c.delay
     c.Nh = int(c.Nh)
 
     np.random.seed(seed = int(c.seed))    
     generate_weight_matrix()
 
     ### generate data
-   
-    Up,Dp = generate_white_noise(delay_s=c.delay,T=c.MM)
+    
+    if c.dataset==6:
+        U,D = generate_complex_sinusoidal(c.MM)
+        MM1 = c.MM -100
+        MM2 = 100
+
     ### training
     #print("training...")
+    
+    #Scale to (-1,1)
+    c.MM = MM1
+    Dp = D[:MM1]                # TARGET   #(MM,len(delay))   
+    Up = U[:MM1]                # INPUT    #(MM,1)
 
     train_network()
     #print("...end") 
     
     ### test
     #print("test...")
+    c.MM = MM2
+    Dp = D[MM1:]                # TARGET   #(MM,len(delay))   
+    Up = U[MM1:]                # INPUT    #(MM,1)
     test_network()                  #OUTPUT = Yp
 
-    #print("...end")
-    Yp = Yp[c.MM0:]
-    Dp = Dp[c.MM0:]
-    DC = np.zeros((c.delay, 1))  # 決定係数
-    MC = 0.0                        # 記憶容量
 
+    
+    ### evaluation
+    sum=0
+    for j in range(c.MM0,c.MM):
+        sum += (Yp[j] - Dp[j])**2
+    SUM=np.sum(sum)
+    RMSE1 = np.sqrt(SUM/c.Ny/(c.MM-c.MM0))
+    RMSE2 = 0
 
-    #print(np.max(Dp),np.max(Yp))
-    """
-    予測と目標から決定係数を求める。
-    決定係数の積分が記憶容量
-    """ 
-
-
-    for k in range(c.delay):
-        corr = np.corrcoef(np.vstack((Dp.T[k, k:], Yp.T[k, k:])))   #相関係数
-        DC[k] = corr[0, 1] ** 2                                     #決定係数 = 相関係数 **2
-
-
-    MC = np.sum(DC)
-    #print(MC)
-   
-    #print(MC,MC1,MC2,MC3,MC4)
 ######################################################################################
      # Results
-    c.RMSE1=None
-    c.RMSE2=None
-    c.MC = MC
-
-    if c.delay >=5:
-        MC1 = np.sum(DC[:5])
-        c.MC1 = MC1
-
-    if c.delay >=10:
-        MC2 = np.sum(DC[:10])
-        c.MC2 = MC2
-
-    if c.delay >=20:
-        MC3 = np.sum(DC[:20])
-        c.MC3 = MC3
-
-    if c.delay >=50:
-        MC4 = np.sum(DC[:50])
-        c.MC4 = MC4
-    
-    
-    
-    
-    #print("MC =",c.MC)
-
+    c.RMSE1=RMSE1
+    c.RMSE2=RMSE2
 #####################################################################################
+    print(RMSE1)
     if c.plot:
-        #plot_delay()
-        plot_MC()
-        #plot1()
+        plot1()
 
 
 if __name__ == "__main__":
