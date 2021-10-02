@@ -33,19 +33,19 @@ class Config():
         self.MM0 = 0 #
 
         self.Nu = 1   #size of input
-        self.Nh:int = 300#815 #size of dynamical reservior
+        self.Nh:int = 100#815 #size of dynamical reservior
         self.Ny = 20   #size of output
 
 
         #sigma_np = -5
-        self.alpha_i = 0.1
-        self.alpha_r = 1
+        self.alpha_i = 1
+        self.alpha_r = 0.8
         self.alpha_b = 0.
 
         self.alpha0 = 1#0.1
         self.alpha1 = 0#-5.8
 
-        self.beta_i = 1
+        self.beta_i = 0.9
         self.beta_r = 0.05
         self.beta_b = 0.1
 
@@ -81,15 +81,15 @@ def run_network(mode):
     Hp = np.zeros((c.MM, c.Nh))
     #x = np.random.uniform(-1, 1, Nh)/ 10**4
     x = np.zeros(c.Nh)
-    x = np.random.uniform(-1, 1, c.Nh)
+    #x = np.random.uniform(-1, 1, c.Nh)
 
-    for n in range(c.MM - 1):
+    for n in range(c.MM):
         
         u = Up[n, :]
 
         #Hp[n+1,:] = x + 1.0/tau * (-alpha0 * x + fx(Wi@u + Wr@x))
         next_x = (1 - c.alpha0) * x + c.alpha0*fy(Wi@u + Wr@x)
-        Hp[n+1,:] = next_x
+        Hp[n,:] = next_x
         x= next_x
 
         
@@ -168,10 +168,24 @@ def execute(c):
 
     ### generate data
     
-    if c.dataset==6:
-        T = c.MM
-        U,D = generate_white_noise(c.delay,T=T,)
+    # if c.dataset==6:
+    #     T = c.MM
+    #     U,D = generate_white_noise(c.delay,T=T,)
+    # 時系列入力データ生成
+    T = 500  # 長さ
+    u = np.random.rand(T,1)-0.5  # 区間[-0.5, 0.5]の乱数系列
 
+    # 時系列出力データ生成
+    delay = np.arange(20)  # 遅延長
+    d = np.empty((T, len(delay)))
+    for k in range(len(delay)):
+        for t in range(T):
+            d[t, k] = u[t-delay[k]]  # 遅延系列
+
+    # 学習用情報
+    T_trans = 200  # 過渡期
+    U = u[T_trans:T].reshape(-1, 1)
+    D = d[T_trans:T, :].reshape(-1, len(delay))
     ### training
     #print("training...")
     

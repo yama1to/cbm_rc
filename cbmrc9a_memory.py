@@ -32,32 +32,32 @@ class Config():
         self.dataset=6
         self.seed:int=2 # 乱数生成のためのシード
         self.NN=256 # １サイクルあたりの時間ステップ
-        self.MM=700 # サイクル数
-        self.MM0 = 200 #
+        self.MM=300 # サイクル数
+        self.MM0 = 0 #
 
         self.Nu = 1         #size of input
-        self.Nh:int = 200   #815 #size of dynamical reservior
+        self.Nh:int = 100   #815 #size of dynamical reservior
         self.Ny = 20        #size of output
 
         self.Temp=1
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 1
-        self.alpha_r = 0.95
+        self.alpha_i = 5
+        self.alpha_r = 0.9
         self.alpha_b = 0.
-        self.alpha_s = 8.3
+        self.alpha_s = 3
 
         self.alpha0 = 0#0.1
         self.alpha1 = 0#-5.8
 
-        self.beta_i = 1
-        self.beta_r = 0.16
+        self.beta_i = 0.9
+        self.beta_r = 0.05
         self.beta_b = 0.1
 
         self.lambda0 = 0.
-        self.delay = 100
-        
+        self.delay = 20
+
         # ResultsX
         self.RMSE1=None
         self.RMSE2=None
@@ -94,8 +94,8 @@ def run_network(mode):
     Hx = np.zeros((c.MM*c.NN, c.Nh))
     Hs = np.zeros((c.MM*c.NN, c.Nh))
     hsign = np.zeros(c.Nh)
-    #hx = np.zeros(c.Nh)
-    hx = np.random.uniform(0,1,c.Nh) # [0,1]の連続値
+    hx = np.zeros(c.Nh)
+    #hx = np.random.uniform(0,1,c.Nh) # [0,1]の連続値
     hs = np.zeros(c.Nh) # {0,1}の２値
     hs_prev = np.zeros(c.Nh)
     hc = np.zeros(c.Nh) # ref.clockに対する位相差を求めるためのカウント
@@ -206,7 +206,7 @@ def test_network():
     run_network(0)
 
 def plot1():
-    fig=plt.figure(figsize=(20, 12))
+    fig=plt.figure(figsize=(16, 8))
     Nr=6
     ax = fig.add_subplot(Nr,1,1)
     ax.cla()
@@ -270,10 +270,10 @@ def plot_MC():
     plt.xlim([0,c.delay])
     plt.title('MC ~ %3.2lf' % MC, x=0.8, y=0.7)
 
-
-    fname = "./MC_fig_dir/MC:alphai={0},r={1},s={2},betai={3},r={4}.png".format(c.alpha_i,c.alpha_r,c.alpha_s,c.beta_i,c.beta_r)
-    plt.savefig(fname)
-    #plt.show()
+    if 0:
+        fname = "./MC_fig_dir/MC:alphai={0},r={1},s={2},betai={3},r={4}.png".format(c.alpha_i,c.alpha_r,c.alpha_s,c.beta_i,c.beta_r)
+        plt.savefig(fname)
+    plt.show()
 
 def execute(c):
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM,Yp
@@ -291,9 +291,7 @@ def execute(c):
 
     ### generate data
     
-    if c.dataset==6:
-        T = c.MM
-        U,D = generate_white_noise(c.delay,T=T,)
+    U,D = generate_white_noise(delay_s=c.delay,T=c.MM)
 
     ### training
     #print("training...")
@@ -334,7 +332,7 @@ def execute(c):
 
     MC = np.sum(DC)
     
-    plot_MC()
+    #plot_MC()
 ######################################################################################
      # Results
     c.RMSE1=None
@@ -360,12 +358,12 @@ def execute(c):
     #     MC4 = np.sum(DC[:50])
     #     c.MC4 = MC4
     print("MC =",c.MC)
-
+    print("overflow =",c.cnt_overflow)
 #####################################################################################
     if c.plot:
         #plot_delay()
         plot_MC()
-        #plot1()
+        plot1()
 
 
 if __name__ == "__main__":

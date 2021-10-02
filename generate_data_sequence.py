@@ -6,20 +6,21 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 def generate_white_noise(delay_s,T=500,):
-    # 時系列入力データ生成
-    
-    L = T + delay_s
-    u = np.random.rand(L,1)-0.5  # 区間[-0.5, 0.5]の乱数系列
-    u = u.reshape((L))
+    T=T+200
+    u = np.random.rand(T,1)-0.5  # 区間[-0.5, 0.5]の乱数系列
 
-    d = np.zeros((T,delay_s))
+    # 時系列出力データ生成
+    delay = np.arange(delay_s)  # 遅延長
+    d = np.empty((T, len(delay)))
+    for k in range(len(delay)):
+        for t in range(T):
+            d[t, k] = u[t-delay[k]]  # 遅延系列
 
-    for i in range(delay_s):
-        d[:,i] = u[i:T+i]
-    
-    u = u[:T].reshape((T,1))
-    #print(u.shape,d.shape)
-    return u,d
+    # 学習用情報
+    T_trans = 200  # 過渡期
+    train_U = u[T_trans:T].reshape(-1, 1)
+    train_D = d[T_trans:T, :].reshape(-1, len(delay))
+    return train_U,train_D
 
     
 def generate_parity(T,delay,k,Nu=1,Ny=1):
