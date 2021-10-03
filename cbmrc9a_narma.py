@@ -27,7 +27,7 @@ class Config():
         self.columns = None # 結果をCSVに保存する際のコラム
         self.csv = None # 結果を保存するファイル
         self.id  = None
-        self.plot = 1 # 図の出力のオンオフ
+        self.plot = 0 # 図の出力のオンオフ
         self.show = True # 図の表示（plt.show()）のオンオフ、explorerは実行時にこれをオフにする。
         self.savefig = True
         self.fig1 = "fig1.png" ### 画像ファイル名
@@ -37,20 +37,20 @@ class Config():
         self.seed:int=0 # 乱数生成のためのシード
         self.NN=256 # １サイクルあたりの時間ステップ
         self.MM=1000 # サイクル数
-        self.MM0 = 200 #
+        self.MM0 = 0 #
 
         self.Nu = 1   #size of input
-        self.Nh = 300 #size of dynamical reservior
+        self.Nh = 700 #size of dynamical reservior
         self.Ny = 1   #size of output
 
         self.Temp=1.0
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 0.65
+        self.alpha_i = 1
         self.alpha_r = 0.9
         self.alpha_b = 0.
-        self.alpha_s = 2
+        self.alpha_s = 10
 
         self.beta_i = 0.9
         self.beta_r = 0.1
@@ -85,8 +85,8 @@ def run_network(mode):
     Hx = np.zeros((c.MM*c.NN, c.Nh))
     Hs = np.zeros((c.MM*c.NN, c.Nh))
     hsign = np.zeros(c.Nh)
-    #hx = np.zeros(Nh)
-    hx = np.random.uniform(0,1,c.Nh) # [0,1]の連続値
+    hx = np.zeros(c.Nh)
+    #hx = np.random.uniform(0,1,c.Nh) # [0,1]の連続値
     hs = np.zeros(c.Nh) # {0,1}の２値
     hs_prev = np.zeros(c.Nh)
     hc = np.zeros(c.Nh) # ref.clockに対する位相差を求めるためのカウント
@@ -248,7 +248,7 @@ def execute():
 
     ### generate data
     if c.dataset==1:
-        MM1 = 1000
+        MM1 = 1200
         MM2 = 2200
         U1,D1  = generate_narma(N=MM1)
         U2,D2  = generate_narma(N=MM2)
@@ -256,9 +256,9 @@ def execute():
 
     ### training
     #print("training...")
-    c.MM=MM1
-    Dp = D1
-    Up = U1
+    Dp = D1[200:]
+    Up = U1[200:]
+    c.MM = MM1-200
     train_network()
 
     if not c.plot: 
@@ -268,9 +268,9 @@ def execute():
 
     ### test
     #print("test...")
-    c.MM=MM2
-    Dp = D2
-    Up = U2
+    c.MM = MM2-200
+    Dp = D2[200:]
+    Up = U2[200:]
     test_network()
 
     if not c.plot: 
