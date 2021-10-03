@@ -14,13 +14,11 @@ from generate_data_sequence_approximation import generate_data
 import matplotlib.pyplot as plt 
 import numpy as np
 
-def generate_data(data,delay):
-        train_num = 900
-        test_num = 100
+def generate_data(data,delay,train_num = 900,test_num = 500,):
+        global normalize
+        right = train_num
 
-        right = 900
-
-        right2 = 100
+        right2 = test_num
 
         normalize = np.max(data[:right+right2+delay]) - np.min(data[:right+right2+delay])
 
@@ -38,7 +36,7 @@ def generate_data(data,delay):
         return train_input,train_target,test_input,test_target
 
 
-def generate_santafe(delay = [1,2,3,4,5]):
+def generate_santafe(delay = [1,2,3,4,5],train_num = 900,test_num = 500,):
     #"""
     with open('santafeA.txt', 'r', encoding='UTF-8') as f:
         data = np.array(list(f)).astype(int)
@@ -50,34 +48,41 @@ def generate_santafe(delay = [1,2,3,4,5]):
         data = np.hstack((data,tmp))
     
     if int == type(delay):
-        train_input,train_target,test_input,test_target = generate_data(data,delay)
+        train_input,train_target,test_input,test_target = generate_data(data,delay,train_num = train_num,test_num = test_num,)
     
     if list == type(delay):
         Ny = len(delay)
-        train_target = np.zeros((900,Ny))
-        test_target = np.zeros((100,Ny))
+        train_target = np.zeros((train_num,Ny))
+        test_target = np.zeros((test_num,Ny))
 
         for i in range(Ny):
             if i == 0:
-                train_input,train_t,test_input,test_t = generate_data(data,delay[0])
+                train_input,train_t,test_input,test_t = generate_data(data,delay[0],train_num = train_num,test_num = test_num,)
                 train_target[:,0] = train_t[:,0]
                 test_target[:,0] = test_t[:,0]
             else:
-                _,train_t,_,test_t = generate_data(data,delay[i])
+                _,train_t,_,test_t = generate_data(data,delay[i],train_num = train_num,test_num = test_num,)
                 train_target[:,i] = train_t[:,0]
                 test_target[:,i] = test_t[:,0]
 
 
-    return train_input,train_target,test_input,test_target
+    return train_input,train_target,test_input,test_target,normalize
 
 if __name__ == "__main__":
     #train_input,train_target,test_input,test_target = generate_santafe(delay = 1)
     #print(test_input.shape,test_target.shape)
-    train_input,train_target,test_input,test_target = generate_santafe(delay = [1,2])
+    train_num = 600
+    test_num = 500
+    train_input,train_target,test_input,test_target,n = generate_santafe(delay = [10],train_num = train_num,test_num = test_num,)
     print(test_input.shape,test_target.shape)
-
-    plt.plot(test_target)
-    #plt.plot(train_target[:,1])
+    r1 = list(range(train_num))
+    r2 = list(range(train_num,train_num+test_num))
+    
+    plt.plot(r1,train_input*n)
+    #plt.plot(r1,train_target[:]*n)
+    #plt.plot(r2,test_target[:]*n)
+    plt.plot(r2,test_input*n)
+    
     plt.show()
     fig=plt.figure(figsize=(20, 12))
     Nr=4

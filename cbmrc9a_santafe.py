@@ -7,6 +7,7 @@ Configクラスによるパラメータ設定
 
 import argparse
 import numpy as np
+from numpy.linalg.linalg import norm
 import scipy.linalg
 import matplotlib.pyplot as plt
 import copy
@@ -36,26 +37,26 @@ class Config():
         self.MM0 = 0 #
 
         self.Nu = 1   #size of input
-        self.Nh = 400 #size of dynamical reservior
+        self.Nh = 300 #size of dynamical reservior
         self.Ny = 5   #size of output
 
         self.Temp=1.0
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 1
-        self.alpha_r = 0.9
+        self.alpha_i = 3.46
+        self.alpha_r = 0.86
         self.alpha_b = 0.
-        self.alpha_s = 2
+        self.alpha_s = 2.74
 
-        self.beta_i = 0.9
-        self.beta_r = 0.05
+        self.beta_i = 0.83
+        self.beta_r = 0.1
         self.beta_b = 0.1
 
         self.lambda0 = 0.1
 
         # Results
-        self.RRMSE1=None
+        self.RMSE=None
         self.NRMSE=None
         self.NRMSE2 =None
         self.cnt_overflow=None
@@ -141,7 +142,7 @@ def run_network(mode):
             hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
             hc = np.zeros(c.Nh) #カウンタをリセット
             #ht = 2*hs-1 リファレンスクロック同期用ラッチ動作をコメントアウト
-            yp = fy(Wo@hp)
+            yp = Wo@hp
             # record
             Hp[m]=hp
             Yp[m]=yp
@@ -230,24 +231,45 @@ def plot1():
 
     plt.show()
     plt.savefig(c.fig1)
+def plot2():
+    fig=plt.figure(figsize=(20, 12))
+    Nr=2
+    ax = fig.add_subplot(Nr,1,1)
+    ax.cla()
+    ax.set_title("Yp,Dp, delay = %s" % delay[0])
+    ax.plot(list(range(train_num,train_num+test_num)),Yp,label = "prediction ")
+    ax.plot(list(range(train_num,train_num+test_num)),Dp, label = "Target")
+    ax.legend()
+
+    ax = fig.add_subplot(Nr,1,2)
+    ax.cla()
+    ax.set_title("error")
+    ax.plot(list(range(train_num,train_num+test_num)),abs(Yp-Dp))
+
+
+    plt.show()
 
 def execute():
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM
-    global RRMSE1,RRMSE2
+    global RMSE1,RMSE2,Yp,normalize,train_num,test_num,delay
     t_start=time.time()
     #if c.seed>=0:
     np.random.seed(int(c.seed))
     #np.random.seed(c.seed)
 
-    generate_weight_matrix()
-
-    ### generate data
-    if c.dataset==1:
-        #delay = 1,2,3,4,5
-        delay =  [1,2,3,4,5]
-        U1,D1,U2,D2 = generate_santafe(delay = delay)
     
 
+    ### generate data
+    train_num = 600
+    test_num = 500
+    if c.dataset==1:
+        #delay = 1,2,3,4,5
+        delay =  [0]
+        U1,D1,U2,D2,normalize = generate_santafe(delay = delay,train_num = train_num,test_num =test_num,)
+
+    #print(normalize)
+    c.Ny = int(len(delay))
+    generate_weight_matrix()
     ### training
     #print("training...")
     c.MM= U1.size
@@ -277,23 +299,32 @@ def execute():
 
     ### evaluation
     sum=0
+    Yp = Yp*normalize
+    Dp = Dp*normalize
 
-    for j in range(c.MM0,c.MM):
-        sum += (fyi(Yp[j]) - Dp[j])**2
-
-    RMSE = np.sqrt(sum/c.MM)
-    NRMSE = RMSE/np.var(Dp)
+    for j in range(c.MM):
+        sum += (Yp[j] - Dp[j])**2
+    MSE = sum/c.MM
+    RMSE = np.sqrt(MSE)
+    NRMSE = RMSE/np.var(Dp)#np.std(Dp)#np.var(Dp)
+    print(NRMSE)
+    c.RMSE = RMSE
     c.NRMSE2 = NRMSE
-    print("それぞれのdelayのNRMSE: "+str(NRMSE))
+    print(RMSE)
+   #print("それぞれのdelayのNRMSE: "+str(NRMSE))
 
     c.NRMSE = np.sum(NRMSE)/NRMSE.size
     c.cnt_overflow=cnt_overflow
 
     #print(RRMSE1)
-    print("それぞれのdelayでのNRMSEを全部加算した場合のNRMSE: "+str(c.NRMSE))
+    #print("それぞれのdelayでのNRMSEを全部加算した場合のNRMSE: "+str(c.NRMSE))
     #print("time: %.6f [sec]" % (time.time()-t_start))
 
-    if c.plot: plot1()
+    if c.plot: 
+        plot1()
+        plot2()
+        #print(RMSE)
+        print("それぞれのdelayでのNRMSEを全部加算した場合のNRMSE: "+str(c.NRMSE))
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
