@@ -27,7 +27,7 @@ class Config():
         self.columns = None # 結果をCSVに保存する際のコラム
         self.csv = None # 結果を保存するファイル
         self.id  = None
-        self.plot = 0 # 図の出力のオンオフ
+        self.plot = 1 # 図の出力のオンオフ
         self.show = True # 図の表示（plt.show()）のオンオフ、explorerは実行時にこれをオフにする。
         self.savefig = True
         self.fig1 = "fig1.png" ### 画像ファイル名
@@ -36,18 +36,18 @@ class Config():
         self.dataset=1
         self.seed:int=0 # 乱数生成のためのシード
         self.NN=256 # １サイクルあたりの時間ステップ
-        self.MM=1000 # サイクル数
+        self.MM=500 # サイクル数
         self.MM0 = 0 #
 
         self.Nu = 1   #size of input
-        self.Nh = 700 #size of dynamical reservior
+        self.Nh = 300 #size of dynamical reservior
         self.Ny = 1   #size of output
 
         self.Temp=1.0
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 1
+        self.alpha_i = 20
         self.alpha_r = 0.9
         self.alpha_b = 0.
         self.alpha_s = 10
@@ -56,11 +56,11 @@ class Config():
         self.beta_r = 0.1
         self.beta_b = 0.1
 
-        self.lambda0 = 0.0001
+        self.lambda0 = 0.1
 
         # Results
-        self.MSE = None
-        self.NMSE=None
+        self.RMSE = None
+        self.NRMSE=None
         self.cnt_overflow=None
 
 def generate_weight_matrix():
@@ -231,9 +231,23 @@ def plot1():
     ax.plot(Y)
     plt.show()
     plt.savefig(c.fig1)
-    
-    plt.plot((Y-Dp)**2)
-    plt.title("squared error")
+
+def plot2():
+    fig=plt.figure(figsize=(20, 12))
+    Nr=2
+    ax = fig.add_subplot(Nr,1,1)
+    ax.cla()
+    ax.set_title("Yp,Dp")
+    ax.plot(Y,label = "prediction ")
+    ax.plot(Dp, label = "Target")
+    ax.legend()
+
+    ax = fig.add_subplot(Nr,1,2)
+    ax.cla()
+    ax.set_title("squared error")
+    ax.plot((Y-Dp)**2)
+
+
     plt.show()
 
 def execute():
@@ -248,17 +262,18 @@ def execute():
 
     ### generate data
     if c.dataset==1:
-        MM1 = 1200
-        MM2 = 2200
-        U1,D1  = generate_narma(N=MM1)
-        U2,D2  = generate_narma(N=MM2)
+        rm = 200
+        MM1 = c.MM +rm
+        MM2 = c.MM +rm
+        U1,D1  = generate_narma(N=MM1,seed=1)
+        U2,D2  = generate_narma(N=MM2,seed=2)
         #print(U1.shape)
 
     ### training
     #print("training...")
-    Dp = D1[200:]
-    Up = U1[200:]
-    c.MM = MM1-200
+    Dp = D1[rm:]
+    Up = U1[rm:]
+    c.MM = MM1-rm
     train_network()
 
     if not c.plot: 
@@ -268,9 +283,9 @@ def execute():
 
     ### test
     #print("test...")
-    c.MM = MM2-200
-    Dp = D2[200:]
-    Up = U2[200:]
+    c.MM = MM2 - rm 
+    Dp = D2[rm:]
+    Up = U2[rm:]
     test_network()
 
     if not c.plot: 
@@ -278,22 +293,26 @@ def execute():
         gc.collect()
 
     ### evaluation
-    Y = Yp[c.MM0:]
-    Dp = Dp[c.MM0:]
+    delay = 10
+    Y = Yp[delay:]
+    Dp = Dp[delay:]
 
     error = (Y-Dp)**2
-    MSE = np.mean(error)
-    NMSE = MSE/np.var(Dp)
+    RMSE = np.sqrt(np.mean(error))
+    NRMSE = RMSE/np.var(Dp)
 
     #print(1/np.var(Dp))
-    print("NMSE:",NMSE)
+    print("RMSE:".RMSE)
+    print("NRMSE:",NRMSE)
 
-    c.MSE = MSE
-    c.NMSE = NMSE
+    c.RMSE = RMSE
+    c.NRMSE = NRMSE
     c.cnt_overflow=cnt_overflow
     #print("time: %.6f [sec]" % (time.time()-t_start))
 
-    if c.plot: plot1()
+    if c.plot: 
+        #plot1()
+        plot2()
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()

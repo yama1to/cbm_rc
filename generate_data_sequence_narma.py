@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 
 
 def generate_narma(N,seed=0):
-
-    np.random.seed(seed=seed)
+    if type(seed)!=None : np.random.seed(seed=seed)
+    
     """Generate NARMA sequence."""
     
     u = np.random.uniform(0,0.5,(N))

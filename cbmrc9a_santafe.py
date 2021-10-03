@@ -55,8 +55,9 @@ class Config():
         self.lambda0 = 0.1
 
         # Results
-        self.RMSE1=None
-        self.NMSE=None
+        self.RRMSE1=None
+        self.NRMSE=None
+        self.NRMSE2 =None
         self.cnt_overflow=None
 
 def generate_weight_matrix():
@@ -232,7 +233,7 @@ def plot1():
 
 def execute():
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM
-    global RMSE1,RMSE2
+    global RRMSE1,RRMSE2
     t_start=time.time()
     #if c.seed>=0:
     np.random.seed(int(c.seed))
@@ -277,18 +278,19 @@ def execute():
     ### evaluation
     sum=0
 
-    for j in range(c.MM):
+    for j in range(c.MM0,c.MM):
         sum += (fyi(Yp[j]) - Dp[j])**2
 
+    RMSE = np.sqrt(sum/c.MM)
+    NRMSE = RMSE/np.var(Dp)
+    c.NRMSE2 = NRMSE
+    print("それぞれのdelayのNRMSE: "+str(NRMSE))
 
-    NMSE = sum/c.MM/np.var(Dp)
-    print("それぞれのdelayのNMSE: "+str(NMSE))
-
-    c.NMSE = np.sum(NMSE)
+    c.NRMSE = np.sum(NRMSE)/NRMSE.size
     c.cnt_overflow=cnt_overflow
 
-    #print(RMSE1)
-    print("それぞれのdelayでのNMSEを全部加算した場合のNMSE: "+str(c.NMSE))
+    #print(RRMSE1)
+    print("それぞれのdelayでのNRMSEを全部加算した場合のNRMSE: "+str(c.NRMSE))
     #print("time: %.6f [sec]" % (time.time()-t_start))
 
     if c.plot: plot1()
