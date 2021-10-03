@@ -56,7 +56,7 @@ class Config():
         self.beta_r = 0.1
         self.beta_b = 0.1
 
-        self.lambda0 = 0.1
+        self.lambda0 = 0.0001
 
         # Results
         self.RMSE = None
@@ -145,7 +145,7 @@ def run_network(mode):
             hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
             hc = np.zeros(c.Nh) #カウンタをリセット
             ht = 2*hs-1 #リファレンスクロック同期用ラッチ動作をコメントアウト
-            yp = fy(Wo@hp)
+            yp = Wo@hp
             # record
             Hp[m]=hp
             Yp[m]=yp
