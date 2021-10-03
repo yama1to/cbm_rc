@@ -302,7 +302,7 @@ def execute():
     NRMSE = RMSE/np.var(Dp)
 
     #print(1/np.var(Dp))
-    print("RMSE:".RMSE)
+    print("RMSE:",RMSE)
     print("NRMSE:",NRMSE)
 
     c.RMSE = RMSE
