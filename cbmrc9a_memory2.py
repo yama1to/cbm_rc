@@ -30,11 +30,11 @@ class Config():
         self.dataset=6
         self.seed:int=2 # 乱数生成のためのシード
         self.NN=256 # １サイクルあたりの時間ステップ
-        self.MM=300 # サイクル数
-        self.MM0 = 0 #
+        self.MM=500 # サイクル数
+        self.MM0 = 200 #
 
         self.Nu = 1         #size of input
-        self.Nh:int = 300   #815 #size of dynamical reservior
+        self.Nh:int = 20   #815 #size of dynamical reservior
         self.Ny = 20        #size of output
 
         self.Temp=1
@@ -42,15 +42,15 @@ class Config():
 
         #sigma_np = -5
         self.alpha_i = 5
-        self.alpha_r = 0.95
+        self.alpha_r = 1
         self.alpha_b = 0.
-        self.alpha_s = 5.19
+        self.alpha_s = 7
 
         self.alpha0 = 0#0.1
         self.alpha1 = 0#-5.8
 
-        self.beta_i = 0.98
-        self.beta_r = 0.3
+        self.beta_i = 0.9
+        self.beta_r = 0.1
         self.beta_b = 0.1
 
         self.lambda0 = 0.
@@ -259,16 +259,26 @@ def plot_delay():
         ax.plot(Dp.T[i,i:])
 
     plt.show()
-
-
 def plot_MC():
     plt.plot(DC)
     plt.ylabel("determinant coefficient")
     plt.xlabel("Delay k")
-    plt.ylim([0,1])
+    plt.ylim([0,1.1])
     plt.xlim([0,c.delay])
-    plt.title('MC ~ %3.2lf' % MC, x=0.8, y=0.7)
-    plt.show()
+    plt.title('MC ~ %3.2lf,Nh = %d' % (MC,c.Nh), x=0.8, y=0.7)
+
+    if 1:
+        fname = "./MC_fig_dir/MC:alphai={0},r={1},s={2},betai={3},r={4}.png".format(c.alpha_i,c.alpha_r,c.alpha_s,c.beta_i,c.beta_r)
+        plt.savefig(fname)
+
+# def plot_MC():
+#     plt.plot(DC)
+#     plt.ylabel("determinant coefficient")
+#     plt.xlabel("Delay k")
+#     plt.ylim([0,1])
+#     plt.xlim([0,c.delay])
+#     plt.title('MC ~ %3.2lf' % MC, x=0.8, y=0.7)
+#     plt.show()
 
 def execute(c):
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM,Yp
@@ -288,8 +298,9 @@ def execute(c):
     
     if c.dataset==6:
         T = c.MM
-        U,D = generate_white_noise(c.delay,T=T,)
-
+        U,D = generate_white_noise(c.delay,T=T+200,)
+        U=U[200:]
+        D=D[200:]
     ### training
     #print("training...")
     
@@ -311,8 +322,8 @@ def execute(c):
 
     #inv scale
     
-    Dp = Dp                    # TARGET    #(MM,len(delay))
-    Yp = Yp                    # PRED      #(MM,len(delay))
+    Dp = Dp[c.MM0:]                    # TARGET    #(MM,len(delay))
+    Yp = Yp[c.MM0:]                    # PRED      #(MM,len(delay))
     #print(np.max(Dp),np.max(Yp))
     """
     予測と目標から決定係数を求める。
@@ -352,9 +363,9 @@ def execute(c):
 
 #####################################################################################
     if c.plot:
-        plot_delay()
+        #plot_delay()
         plot_MC()
-        plot1()
+        #plot1()
 
 
 if __name__ == "__main__":
