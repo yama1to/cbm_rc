@@ -44,13 +44,13 @@ class Config():
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 3.46
-        self.alpha_r = 0.86
+        self.alpha_i = 5
+        self.alpha_r = 0.9
         self.alpha_b = 0.
-        self.alpha_s = 2.74
+        self.alpha_s = 10
 
-        self.beta_i = 0.83
-        self.beta_r = 0.1
+        self.beta_i = 0.9
+        self.beta_r = 0.15
         self.beta_b = 0.1
 
         self.lambda0 = 0.1
@@ -119,8 +119,8 @@ def run_network(mode):
         ys = p2s(theta,yp)
 
         sum = np.zeros(c.Nh)
-        sum += c.alpha_s*rs # ラッチ動作を用いないref.clockと同期させるための結合
-        #sum += alpha_s*(hs-rs)*ht # ref.clockと同期させるための結合
+        #sum += c.alpha_s*rs # ラッチ動作を用いないref.clockと同期させるための結合
+        sum += c.alpha_s*(hs-rs)*ht # ref.clockと同期させるための結合
         sum += Wi@(2*us-1) # 外部入力
         sum += Wr@(2*hs-1) # リカレント結合
 
@@ -141,7 +141,7 @@ def run_network(mode):
         if rs_prev==0 and rs==1:
             hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
             hc = np.zeros(c.Nh) #カウンタをリセット
-            #ht = 2*hs-1 リファレンスクロック同期用ラッチ動作をコメントアウト
+            ht = 2*hs-1 #リファレンスクロック同期用ラッチ動作をコメントアウト
             yp = Wo@hp
             # record
             Hp[m]=hp
@@ -231,6 +231,7 @@ def plot1():
 
     plt.show()
     plt.savefig(c.fig1)
+
 def plot2():
     fig=plt.figure(figsize=(20, 12))
     Nr=2
@@ -258,13 +259,13 @@ def execute():
     #np.random.seed(c.seed)
 
     
-
+    c.Nh = int(c.Nh)
     ### generate data
     train_num = 600
     test_num = 500
     if c.dataset==1:
         #delay = 1,2,3,4,5
-        delay =  [0]
+        delay =  [10]
         U1,D1,U2,D2,normalize = generate_santafe(delay = delay,train_num = train_num,test_num =test_num,)
 
     #print(normalize)
@@ -301,16 +302,17 @@ def execute():
     sum=0
     Yp = Yp*normalize
     Dp = Dp*normalize
-
+ 
     for j in range(c.MM):
         sum += (Yp[j] - Dp[j])**2
     MSE = sum/c.MM
     RMSE = np.sqrt(MSE)
     NRMSE = RMSE/np.var(Dp)#np.std(Dp)#np.var(Dp)
-    print(NRMSE)
+
     c.RMSE = RMSE
     c.NRMSE2 = NRMSE
     print(RMSE)
+    print(NRMSE)
    #print("それぞれのdelayのNRMSE: "+str(NRMSE))
 
     c.NRMSE = np.sum(NRMSE)/NRMSE.size
@@ -321,7 +323,7 @@ def execute():
     #print("time: %.6f [sec]" % (time.time()-t_start))
 
     if c.plot: 
-        plot1()
+        #plot1()
         plot2()
         #print(RMSE)
         print("それぞれのdelayでのNRMSEを全部加算した場合のNRMSE: "+str(c.NRMSE))

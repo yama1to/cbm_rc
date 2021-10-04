@@ -47,16 +47,16 @@ class Config():
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 6.87
-        self.alpha_r = 0.88
+        self.alpha_i = 0.1
+        self.alpha_r = 0.9
         self.alpha_b = 0.
-        self.alpha_s = 1.04
+        self.alpha_s = 1
 
-        self.beta_i = 0.92
-        self.beta_r = 0.96
+        self.beta_i = 0.8
+        self.beta_r = 0.15
         self.beta_b = 0.1
 
-        self.lambda0 = 0.0001
+        self.lambda0 = 0.000
 
         # Results
         self.RMSE = None
@@ -185,10 +185,14 @@ def train_network():
     #print("M\n",M)
 
     ### Ridge regression
-    E = np.identity(c.Nh)
-    TMP1 = np.linalg.inv(M.T@M + c.lambda0 * E)
-    WoT = TMP1@M.T@G
-    Wo = WoT.T
+    if c.lambda0 == 0:
+        Wo = np.dot(G.T,np.linalg.pinv(M).T)
+        #print("a")
+    else:
+        E = np.identity(c.Nh)
+        TMP1 = np.linalg.inv(M.T@M + c.lambda0 * E)
+        WoT = TMP1@M.T@G
+        Wo = WoT.T
     #print("WoT\n", WoT)
 
 def test_network():
@@ -222,13 +226,13 @@ def plot1():
     ax = fig.add_subplot(Nr,1,5)
     ax.cla()
     ax.set_title("Yp")
-    ax.plot(Y)
+    ax.plot(Yp)
 
     ax = fig.add_subplot(Nr,1,6)
     ax.cla()
     ax.set_title("Y,Dp")
     ax.plot(Dp)
-    ax.plot(Y)
+    ax.plot(Yp)
     plt.show()
     plt.savefig(c.fig1)
 
@@ -238,20 +242,26 @@ def plot2():
     ax = fig.add_subplot(Nr,1,1)
     ax.cla()
     ax.set_title("Yp,Dp")
-    ax.plot(Y,label = "prediction ")
+    ax.plot(Yp,label = "prediction ")
     ax.plot(Dp, label = "Target")
     ax.legend()
 
     ax = fig.add_subplot(Nr,1,2)
     ax.cla()
-    ax.set_title("squared error")
-    ax.plot((Y-Dp)**2)
+    ax.set_title("error")
+    ax.plot(abs(Yp-Dp))
 
 
     plt.show()
 
+def calc(Yp,Dp):
+    error = (Yp-Dp)**2
+    RMSE = np.sqrt(np.mean(error))
+    NRMSE = RMSE/np.var(Dp)
+    return RMSE,NRMSE
+
 def execute():
-    global D,Ds,Dp,U,Us,Up,Rs,R2s,MM,Y
+    global D,Ds,Dp,U,Us,Up,Rs,R2s,MM,Yp
 
     t_start=time.time()
     c.seed = int(c.seed)
@@ -263,18 +273,27 @@ def execute():
     ### generate data
     if c.dataset==1:
         rm = 200
-        MM1 = c.MM +rm
-        MM2 = c.MM +rm
-        U1,D1  = generate_narma(N=MM1,seed=1)
-        U2,D2  = generate_narma(N=MM2,seed=2)
-        #print(U1.shape)
+        MM1 = 900
+        MM2 = 100
+        U,D  = generate_narma(N=MM1+MM2+rm,seed=0)
+        U = U[rm:]
+        D = D[rm:]
+        U1 = U[:MM1]
+        U2 = U[MM1:]
+        D1 = D[:MM1]
+        D2 = D[MM1:]
+        #U2,D2  = generate_narma(N=MM2,seed=2)
+
 
     ### training
     #print("training...")
-    Dp = D1[rm:]
-    Up = U1[rm:]
-    c.MM = MM1-rm
+    Dp = D1
+    Up = U1
+    c.MM = MM1
     train_network()
+
+    RMSE1,NRMSE1 = calc(Yp,Dp)
+    print(RMSE1,NRMSE1)
 
     if not c.plot: 
         del D1,U1,Us,Rs
@@ -283,9 +302,9 @@ def execute():
 
     ### test
     #print("test...")
-    c.MM = MM2 - rm 
-    Dp = D2[rm:]
-    Up = U2[rm:]
+    c.MM = MM1+MM2
+    Dp = D
+    Up = U
     test_network()
 
     if not c.plot: 
@@ -293,14 +312,13 @@ def execute():
         gc.collect()
 
     ### evaluation
-    delay = 10
-    Y = Yp[delay:]
+    delay = MM1
+    Yp = Yp[delay:]
     Dp = Dp[delay:]
 
-    error = (Y-Dp)**2
-    RMSE = np.sqrt(np.mean(error))
-    NRMSE = RMSE/np.var(Dp)
+    
 
+    RMSE,NRMSE = calc(Yp,Dp)
     #print(1/np.var(Dp))
     print("RMSE:",RMSE)
     print("NRMSE:",NRMSE)
