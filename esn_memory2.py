@@ -83,13 +83,13 @@ def run_network(mode):
     #x = np.zeros(c.Nh)
     x = np.random.uniform(-1, 1, c.Nh)
     
-    for n in range(c.MM - 1):
+    for n in range(c.MM):
         
         u = Up[n, :]
 
         #Hp[n+1,:] = x + 1.0/tau * (-alpha0 * x + fx(Wi@u + Wr@x))
         next_x = (1 - c.alpha0) * x + c.alpha0*fy(Wi@u + Wr@x)
-        Hp[n+1,:] = next_x
+        Hp[n,:] = next_x
         x= next_x
 
         
@@ -145,13 +145,14 @@ def plot_delay():
 
 
 def plot_MC():
+
     plt.plot(DC)
     plt.ylabel("determinant coefficient")
     plt.xlabel("Delay k")
-    plt.ylim([0,1])
+    plt.ylim([0,1.1])
     plt.xlim([0,c.delay])
-    plt.title('MC ~ %3.2lf' % MC, x=0.8, y=0.7)
-    plt.show()
+    plt.title('MC ~ %3.2lf,Nh = %d' % (MC,c.Nh), x=0.8, y=0.7)
+    plt.savefig(common.string_now())
 
 def execute(c):
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM,Yp
@@ -184,12 +185,13 @@ def execute(c):
     
     ### test
     #print("test...")
-    c.MM = c.MM - c.MM0
-    Dp = D[c.MM0:]
-    Up = U[c.MM0:]
+    
+    
+    #Up = U[c.MM0:]
 
     test_network()                  #OUTPUT = Yp
-
+    Dp = D[c.MM0:]
+    Yp = Yp[c.MM0:]
     #print("...end")
 
     DC = np.zeros((c.delay, 1))  # 決定係数

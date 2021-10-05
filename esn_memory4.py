@@ -35,17 +35,17 @@ def run_network(mode):
     global Hp
     
     Hp = np.zeros((c.MM, c.Nh))
-    #x = np.random.uniform(-1, 1, Nh)/ 10**4
-    x = np.zeros(c.Nh)
+    x = np.random.uniform(-1, 1, c.Nh)
+    #x = np.zeros(c.Nh)
     
 
-    for n in range(c.MM - 1):
+    for n in range(c.MM):
         
         u = Up[n, :]
 
         #Hp[n+1,:] = x + 1.0/tau * (-alpha0 * x + fx(Wi@u + Wr@x))
         next_x = (1 - c.alpha0) * x + c.alpha0*fy(Wi@u + Wr@x)
-        Hp[n+1,:] = next_x
+        Hp[n,:] = next_x
         x= next_x
 
         
@@ -143,7 +143,8 @@ def execute(c):
     test_network()                  #OUTPUT = Yp
 
     #print("...end")
-
+    Yp = Yp[c.MM0:]
+    Dp = Dp[c.MM0:]
     DC = np.zeros((c.delay, 1))  # 決定係数
     MC = 0.0                        # 記憶容量
 

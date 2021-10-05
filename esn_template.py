@@ -75,13 +75,13 @@ def run_network(mode):
     x = np.zeros(c.Nh)
     
 
-    for n in range(c.MM - 1):
+    for n in range(c.MM):
         
         u = Up[n, :]
 
         #Hp[n+1,:] = x + 1.0/tau * (-alpha0 * x + fx(Wi@u + Wr@x))
         next_x = (1 - c.alpha0) * x + c.alpha0*fy(Wi@u + Wr@x)
-        Hp[n+1,:] = next_x
+        Hp[n,:] = next_x
         x= next_x
 
         
