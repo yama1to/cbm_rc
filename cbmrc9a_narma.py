@@ -47,20 +47,21 @@ class Config():
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 0.1
-        self.alpha_r = 0.9
+        self.alpha_i = 7.67
+        self.alpha_r = 0.78
         self.alpha_b = 0.
-        self.alpha_s = 1
+        self.alpha_s = 6.21
 
-        self.beta_i = 0.8
-        self.beta_r = 0.15
+        self.beta_i = 0.88
+        self.beta_r = 0.52
         self.beta_b = 0.1
 
-        self.lambda0 = 0.000
+        self.lambda0 = 0.0001
 
         # Results
         self.RMSE = None
         self.NRMSE=None
+        self.NMSE=None
         self.cnt_overflow=None
 
 def generate_weight_matrix():
@@ -256,9 +257,10 @@ def plot2():
 
 def calc(Yp,Dp):
     error = (Yp-Dp)**2
+    NMSE = np.mean(error)/np.var(Dp)
     RMSE = np.sqrt(np.mean(error))
     NRMSE = RMSE/np.var(Dp)
-    return RMSE,NRMSE
+    return RMSE,NRMSE,NMSE
 
 def execute():
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM,Yp
@@ -273,8 +275,8 @@ def execute():
     ### generate data
     if c.dataset==1:
         rm = 200
-        MM1 = 900
-        MM2 = 100
+        MM1 = 600
+        MM2 = 500
         U,D  = generate_narma(N=MM1+MM2+rm,seed=0)
         U = U[rm:]
         D = D[rm:]
@@ -292,8 +294,8 @@ def execute():
     c.MM = MM1
     train_network()
 
-    RMSE1,NRMSE1 = calc(Yp,Dp)
-    print(RMSE1,NRMSE1)
+    # RMSE1,NRMSE1 = calc(Yp,Dp)
+    # print(RMSE1,NRMSE1)
 
     if not c.plot: 
         del D1,U1,Us,Rs
@@ -302,34 +304,35 @@ def execute():
 
     ### test
     #print("test...")
-    c.MM = MM1+MM2
-    Dp = D
-    Up = U
+    c.MM = MM2
+    Dp = D2
+    Up = U2
     test_network()
 
     if not c.plot: 
-        del U2,D2,Up
+        del Up
         gc.collect()
 
     ### evaluation
-    delay = MM1
+    delay = 10
     Yp = Yp[delay:]
     Dp = Dp[delay:]
 
     
 
-    RMSE,NRMSE = calc(Yp,Dp)
+    RMSE,NRMSE,NMSE = calc(Yp,Dp)
     #print(1/np.var(Dp))
     print("RMSE:",RMSE)
     print("NRMSE:",NRMSE)
-
+    print("NMSE:",NMSE)
     c.RMSE = RMSE
     c.NRMSE = NRMSE
+    c.NMSE = NMSE
     c.cnt_overflow=cnt_overflow
     #print("time: %.6f [sec]" % (time.time()-t_start))
 
     if c.plot: 
-        #plot1()
+       # plot1()
         plot2()
 
 if __name__ == "__main__":
