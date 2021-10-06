@@ -53,7 +53,7 @@ class Config():
         self.alpha_s = 6.21
 
         self.beta_i = 0.88
-        self.beta_r = 0.52
+        self.beta_r = 0.05
         self.beta_b = 0.1
 
         self.lambda0 = 0.0001
@@ -281,14 +281,15 @@ def execute():
         U = U[rm:]
         D = D[rm:]
         U1 = U[:MM1]
-        U2 = U[MM1:]
+        # U2 = U[MM1:]
         D1 = D[:MM1]
-        D2 = D[MM1:]
+        # D2 = D[MM1:]
         #U2,D2  = generate_narma(N=MM2,seed=2)
 
 
     ### training
     #print("training...")
+
     Dp = D1
     Up = U1
     c.MM = MM1
@@ -298,25 +299,25 @@ def execute():
     # print(RMSE1,NRMSE1)
 
     if not c.plot: 
-        del D1,U1,Us,Rs
+        del D1,U1
         gc.collect()
         
 
     ### test
     #print("test...")
-    c.MM = MM2
-    Dp = D2
-    Up = U2
+    c.MM = MM1+MM2
+    Dp = D
+    Up = U
     test_network()
 
     if not c.plot: 
-        del Up
+        del Up,
         gc.collect()
 
     ### evaluation
-    delay = 10
-    Yp = Yp[delay:]
-    Dp = Dp[delay:]
+
+    Yp = Yp[MM1:]
+    Dp = Dp[MM1:]
 
     
 

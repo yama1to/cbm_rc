@@ -14,7 +14,7 @@ import time
 from explorer import common
 from generate_data_sequence_narma import *
 from generate_matrix import *
-
+import gc
 class Config():
     def __init__(self):
         # columns, csv, id: データの管理のために必須の変数
@@ -45,11 +45,11 @@ class Config():
         self.alpha0 = 1#0.1
         self.alpha1 = 0#-5.8
 
-        self.beta_i = 0.01
-        self.beta_r = 0.01
+        self.beta_i = 0.9
+        self.beta_r = 0.05
         self.beta_b = 0.1
 
-        self.lambda0 = 0.1
+        self.lambda0 = 0.0001
 
         # Results
         self.RMSE = None
@@ -148,7 +148,7 @@ def calc(Yp,Dp):
     RMSE = np.sqrt(np.mean(error))
     NRMSE = RMSE/np.var(Dp)
     return RMSE,NRMSE,NMSE
-    
+
 def execute(c):
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM,Yp
     global RMSE1,RMSE2
@@ -168,32 +168,38 @@ def execute(c):
         U = U[rm:]
         D = D[rm:]
         U1 = U[:MM1]
-        U2 = U[MM1:]
+        # U2 = U[MM1:]
         D1 = D[:MM1]
-        D2 = D[MM1:]
+        # D2 = D[MM1:]
 
-    ### training
-    #print("training...")
-    
-    #Scale to (-1,1)
+    Dp = D1
+    Up = U1
     c.MM = MM1
-    Dp = D1               # TARGET   #(MM,len(delay))   
-    Up = U1                # INPUT    #(MM,1)
-
     train_network()
-    #print("...end") 
-    
+
+    # RMSE1,NRMSE1 = calc(Yp,Dp)
+    # print(RMSE1,NRMSE1)
+
+    if not c.plot: 
+        del D1,U1
+        gc.collect()
+        
+
     ### test
     #print("test...")
-    c.MM = MM2
-    Up = U2                # TARGET   #(MM,len(delay))   
-    Dp = D2                # TARGET   #(MM,len(delay))   
+    c.MM = MM1+MM2
+    Dp = D
+    Up = U
+    test_network()
 
-    test_network()                  #OUTPUT = Yp
+    if not c.plot: 
+        del Up,
+        gc.collect()
 
-    # Dp = D[MM1:]                # TARGET   #(MM,len(delay))   
-    # Yp = Yp[MM1: ]               # INPUT    #(MM,1)
-    
+    ### evaluation
+
+    Yp = Yp[MM1:]
+    Dp = Dp[MM1:]
     ### evaluation
 
     RMSE,NRMSE,NMSE = calc(Yp,Dp)

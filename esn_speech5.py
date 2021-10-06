@@ -37,20 +37,20 @@ class Config():
         self.MM0 = 0 #
 
         self.Nu = 77   #size of input
-        self.Nh:int = 200#815 #size of dynamical reservior
+        self.Nh:int = 300#815 #size of dynamical reservior
         self.Ny = 10   #size of output
 
 
         #sigma_np = -5
-        self.alpha_i = 907
-        self.alpha_r = 0.7
+        self.alpha_i = 3942.92
+        self.alpha_r = 0.9
         self.alpha_b = 0.
 
-        self.alpha0 = 0.15#0.1
+        self.alpha0 = 1#0.1
         self.alpha1 = 0#-5.8
 
-        self.beta_i = 0.03
-        self.beta_r = 0.1
+        self.beta_i = 0.9
+        self.beta_r = 0.05
         self.beta_b = 0.1
 
         self.lambda0 = 0.
@@ -154,6 +154,8 @@ def execute(c):
     U1,U2,D1,D2,SHAPE = load_datasets()
     (dataset_num,length,Nu) = SHAPE
 
+    U1 = U1
+    U2 = U2
 
     ### training
     #print("training...")
