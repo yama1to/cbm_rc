@@ -138,8 +138,8 @@ if __name__ == "__main__":
             iteration = 10
             population = 10
             samples = 3
-            delay = np.array([5,10,20,50,100])
-            Nh = np.arange(20,401,10,dtype = np.int)
+            delay = np.array([20])
+            Nh = np.arange(20,401,100,dtype = np.int)
             
         else:#動作確認
             iteration = 5
@@ -148,7 +148,7 @@ if __name__ == "__main__":
             delay = np.array([10,20])
             Nh = np.array([300])
 
-    settingOptimize(0)
+    settingOptimize(1)
 
     y = delay.shape[0]
     x = Nh.shape[0]

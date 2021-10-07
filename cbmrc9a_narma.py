@@ -272,52 +272,34 @@ def execute():
     np.random.seed(c.seed)
     generate_weight_matrix()
 
-    ### generate data
-    if c.dataset==1:
-        rm = 200
-        MM1 = 600
-        MM2 = 500
-        U,D  = generate_narma(N=MM1+MM2+rm,seed=0)
-        U = U[rm:]
-        D = D[rm:]
-        U1 = U[:MM1]
-        # U2 = U[MM1:]
-        D1 = D[:MM1]
-        # D2 = D[MM1:]
-        #U2,D2  = generate_narma(N=MM2,seed=2)
-
-
-    ### training
-    #print("training...")
+    MM1 = 1000
+    MM2 = 2000
+    U1,D1  = generate_narma(N=MM1,seed=0)
+    U2,D2  = generate_narma(N=MM2,seed=1)
 
     Dp = D1
-    Up = U1
+    Up = U1 
     c.MM = MM1
+    if not c.plot: 
+        del D1,U1
+        gc.collect()
     train_network()
 
     # RMSE1,NRMSE1 = calc(Yp,Dp)
     # print(RMSE1,NRMSE1)
 
-    if not c.plot: 
-        del D1,U1
-        gc.collect()
+    
         
 
     ### test
     #print("test...")
-    c.MM = MM1+MM2
-    Dp = D
-    Up = U
-    test_network()
-
+    c.MM = MM2
+    Dp = D2
+    Up = U2
     if not c.plot: 
-        del Up,
+        del U2,D2
         gc.collect()
-
-    ### evaluation
-
-    Yp = Yp[MM1:]
-    Dp = Dp[MM1:]
+    test_network()
 
     
 

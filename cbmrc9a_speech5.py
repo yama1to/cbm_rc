@@ -39,17 +39,17 @@ class Config():
         self.Nh = 300 #size of dynamical reservior
         self.Ny = 10   #size of output
 
-        self.Temp=100.0
+        self.Temp=19.769
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 1
-        self.alpha_r = 0.9
+        self.alpha_i = 57.35
+        self.alpha_r = 1
         self.alpha_b = 0.
-        self.alpha_s = 9.38
+        self.alpha_s = 1.03
 
         self.beta_i = 0.01
-        self.beta_r = 0.42
+        self.beta_r = 0.01
         self.beta_b = 0.0
 
         self.lambda0 = 0.
@@ -80,8 +80,8 @@ def run_network(mode):
     Hx = np.zeros((c.MM*c.NN, c.Nh))
     Hs = np.zeros((c.MM*c.NN, c.Nh))
     hsign = np.zeros(c.Nh)
-    #hx = np.zeros(c.Nh)
-    hx = np.random.uniform(0,1,c.Nh) # [0,1]の連続値
+    hx = np.zeros(c.Nh)
+    #hx = np.random.uniform(0,1,c.Nh) # [0,1]の連続値
     hs = np.zeros(c.Nh) # {0,1}の２値
     hs_prev = np.zeros(c.Nh)
     hc = np.zeros(c.Nh) # ref.clockに対する位相差を求めるためのカウント
@@ -138,7 +138,7 @@ def run_network(mode):
             hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
             hc = np.zeros(c.Nh) #カウンタをリセット
             ht = 2*hs-1 #リファレンスクロック同期用ラッチ動作をコメントアウト
-            yp = fy(Wo@hp)
+            yp = Wo@hp
             # record
             Hp[m]=hp
             Yp[m]=yp

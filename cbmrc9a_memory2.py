@@ -34,17 +34,17 @@ class Config():
         self.MM0 = 200 #
 
         self.Nu = 1         #size of input
-        self.Nh:int = 20   #815 #size of dynamical reservior
+        self.Nh:int = 200   #815 #size of dynamical reservior
         self.Ny = 20        #size of output
 
         self.Temp=1
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 5
-        self.alpha_r = 1
+        self.alpha_i = 6
+        self.alpha_r = 0.5
         self.alpha_b = 0.
-        self.alpha_s = 7
+        self.alpha_s = 6
 
         self.alpha0 = 0#0.1
         self.alpha1 = 0#-5.8
@@ -55,7 +55,7 @@ class Config():
 
         self.lambda0 = 0.
 
-        self.delay = 20
+        self.delay = 50
 
         # ResultsX
         self.RMSE1=None
@@ -270,7 +270,7 @@ def plot_MC():
     if 1:
         fname = "./MC_fig_dir/MC:alphai={0},r={1},s={2},betai={3},r={4}.png".format(c.alpha_i,c.alpha_r,c.alpha_s,c.beta_i,c.beta_r)
         plt.savefig(fname)
-
+    plt.show()
 # def plot_MC():
 #     plt.plot(DC)
 #     plt.ylabel("determinant coefficient")
@@ -313,7 +313,11 @@ def execute(c):
     
     
     ### test
+    
     #print("test...")
+    # c.MM = c.MM - c.MM0
+    # Dp = Dp[c.MM0:]                    # TARGET    #(MM,len(delay))
+    # Up = Up[c.MM0:]                    # PRED      #(MM,len(delay))
     
     test_network()                  #OUTPUT = Yp
     

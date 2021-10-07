@@ -16,12 +16,12 @@ from explorer import randomsearch as rs
 from explorer import optimization as opt
 
 ### 共通設定
-from cbmrc9a_narma import Config
+from esn_narma import Config
 config = Config()
 common.config  = config
-common.prefix  = "data%s_cbmrc9a_narma" % common.string_now() # 実験名（ファイルの接頭辞）
-common.dir_path= "data/data%s_cbmrc9a_narma" % common.string_now() # 実験データを出力するディレクトリのパス
-common.exe     = "python cbmrc9a_narma.py " # 実行されるプログラム
+common.prefix  = "data%s_esn_narma" % common.string_now() # 実験名（ファイルの接頭辞）
+common.dir_path= "data/data%s_esn_narma" % common.string_now() # 実験データを出力するディレクトリのパス
+common.exe     = "python esn_narma.py " # 実行されるプログラム
 common.columns =['dataset','seed','id','Nh','alpha_i','alpha_r','alpha_b','beta_i','beta_r','beta_b','lambda0',"RMSE",'NRMSE',"NMSE"]
 common.parallel= 32
 common.setup()

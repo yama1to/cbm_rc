@@ -23,7 +23,7 @@ common.prefix  = "data%s_cbmrc9a_speech5" % common.string_now() # 実験名（�
 common.dir_path= "data/data%s_cbmrc9a_speech5" % common.string_now() # 実験データを出力するディレクトリのパス
 common.exe     = "python cbmrc9a_speech5.py " # 実行されるプログラム
 common.columns =['dataset','seed','id','NN','Nh','alpha_i','alpha_r','alpha_b','alpha_s','beta_i','beta_r','beta_b','Temp','lambda0','cnt_overflow','WER']
-common.parallel= 100
+common.parallel= 32
 common.setup()
 common.report_common()
 common.report_config(config)
@@ -60,7 +60,7 @@ def optimize():
     opt.minimize(target="WER",iteration=50,population=50,samples=3)
     #opt.minimize(TARGET=func,iteration=5,population=10,samples=4)
     common.config = opt.best_config # 最適化で得られた設定を基本設定とする
-optimize()
+#optimize()
 
 def plot1(x,y,ystd,ymin,ymax,color=None,width=1,label=None):
     # エラーバーをつけてグラフを描画、平均、標準偏差、最大値、最小値をプロットする。
@@ -99,11 +99,11 @@ def gridsearch(X1,min=0,max=1,num=41,samples=10):
 def gs2():
     ns=3
     
-    gridsearch("alpha_r",min=0.01,max=1,num=4,samples=ns)
-    gridsearch("alpha_i",min=100,max=10000,num=10,samples=ns)
-    gridsearch("alpha_s",min=0.01,max=10,num=4,samples=ns)
-    gridsearch("beta_i",min=0.01,max=1,num=4,samples=ns)
-    gridsearch("beta_r",min=0.01,max=1,num=4,samples=ns)
-    gridsearch("beta_r",min=0.01,max=1,num=4,samples=ns)
-    gridsearch("Nh",min=100,max=1000,num=4,samples=ns)
+    gridsearch("alpha_r",min=0.01,max=1,num=41,samples=ns)
+    gridsearch("alpha_i",min=1,max=100,num=41,samples=ns)
+    gridsearch("alpha_s",min=0.01,max=100,num=41,samples=ns)
+    gridsearch("beta_i",min=0.01,max=1,num=41,samples=ns)
+    gridsearch("beta_r",min=0.01,max=1,num=41,samples=ns)
+    gridsearch("Temp",min=1,max=100,num=41,samples=ns)
+    #gridsearch("Nh",min=100,max=1000,num=4,samples=ns)
 gs2()

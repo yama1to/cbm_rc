@@ -36,7 +36,7 @@ class Config():
         self.MM0 = 0 #
 
         self.Nu = 1         #size of input
-        self.Nh:int = 100   #815 #size of dynamical reservior
+        self.Nh:int = 200   #815 #size of dynamical reservior
         self.Ny = 20        #size of output
 
         self.Temp=1
@@ -44,15 +44,15 @@ class Config():
 
         #sigma_np = -5
         self.alpha_i = 5
-        self.alpha_r = 0.9
+        self.alpha_r = 1
         self.alpha_b = 0.
-        self.alpha_s = 3
+        self.alpha_s = 7
 
         self.alpha0 = 0#0.1
         self.alpha1 = 0#-5.8
 
         self.beta_i = 0.9
-        self.beta_r = 0.05
+        self.beta_r = 0.1
         self.beta_b = 0.1
 
         self.lambda0 = 0.
@@ -268,12 +268,12 @@ def plot_MC():
     plt.xlabel("Delay k")
     plt.ylim([0,1.1])
     plt.xlim([0,c.delay])
-    plt.title('MC ~ %3.2lf' % MC, x=0.8, y=0.7)
+    plt.title('MC ~ %3.2lf,Nh = %d' % (MC,c.Nh), x=0.8, y=0.7)
 
-    if 0:
+    if 1:
         fname = "./MC_fig_dir/MC:alphai={0},r={1},s={2},betai={3},r={4}.png".format(c.alpha_i,c.alpha_r,c.alpha_s,c.beta_i,c.beta_r)
         plt.savefig(fname)
-    plt.show()
+    #plt.show()
 
 def execute(c):
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM,Yp
@@ -291,8 +291,9 @@ def execute(c):
 
     ### generate data
     
-    U,D = generate_white_noise(delay_s=c.delay,T=c.MM)
-
+    U,D = generate_white_noise(delay_s=c.delay,T=c.MM+200)
+    U=U[200:]
+    D=D[200:]
     ### training
     #print("training...")
     
@@ -363,7 +364,7 @@ def execute(c):
     if c.plot:
         #plot_delay()
         plot_MC()
-        plot1()
+        #plot1()
 
 
 if __name__ == "__main__":
