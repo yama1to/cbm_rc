@@ -39,17 +39,17 @@ class Config():
         self.Nh = 300 #size of dynamical reservior
         self.Ny = 10   #size of output
 
-        self.Temp=19.769
+        self.Temp=1
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 57.35
-        self.alpha_r = 1
+        self.alpha_i = 320
+        self.alpha_r = 0.15
         self.alpha_b = 0.
-        self.alpha_s = 1.03
+        self.alpha_s = 0.75
 
-        self.beta_i = 0.01
-        self.beta_r = 0.01
+        self.beta_i = 0.06
+        self.beta_r = 0.04
         self.beta_b = 0.0
 
         self.lambda0 = 0.
@@ -157,7 +157,7 @@ def run_network(mode):
 
     # オーバーフローを検出する。
     global cnt_overflow
-    cnt_overflow = 0
+    if mode: cnt_overflow = 0
     for m in range(2,c.MM-1):
         tmp = np.sum( np.heaviside( np.fabs(Hp[m+1]-Hp[m]) - 0.6 ,0))
         cnt_overflow += tmp
@@ -210,8 +210,8 @@ def execute():
     (dataset_num,length,c.Nu) = SHAPE
     #print(max(np.max(U1),np.max(U2)))
 
-    U1 = U1[:dataset_num*length] * 200
-    U2 = U2[:dataset_num*length] * 200
+    U1 = U1[:dataset_num*length]
+    U2 = U2[:dataset_num*length]
     D1 = D1[:dataset_num*length]
     D2 = D2[:dataset_num*length]
 
