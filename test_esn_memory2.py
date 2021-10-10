@@ -81,21 +81,13 @@ def gridsearch(X1,min=0,max=1,num=41,samples=10):
     cmap = plt.get_cmap("tab10")
     plt.figure(figsize=(6,8))
 
-    plt.subplot(2,1,1)
+    plt.subplot(1,1,1)
     x,ymean,ystd,ymin,ymax = vs.analyze(df,X1,"MC")
     plot1(x,ymean,ystd,ymin,ymax,color=cmap(1),label="MC")
     plt.ylabel("MC")
     plt.grid(linestyle="dotted")
 
-    plt.subplot(2,1,2)
-    x,ymean,ystd,ymin,ymax = vs.analyze(df,X1,"cnt_overflow")
-    plot1(x,ymean,ystd,ymin,ymax,color=cmap(2),label="cnt_overflow")
-    plt.ylabel("overflow")
-    #plt.yscale('log')
-    plt.grid(linestyle="dotted")
-    #plt.ylim([0,1]) # y軸の範囲
-
-    plt.xlabel(X1)
+    
     vs.plt_output()
 def gs2():
     ns=3
