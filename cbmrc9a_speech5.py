@@ -43,7 +43,7 @@ class Config():
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 320
+        self.alpha_i = 1.6
         self.alpha_r = 0.15
         self.alpha_b = 0.
         self.alpha_s = 0.75
@@ -209,12 +209,13 @@ def execute():
 
     (dataset_num,length,c.Nu) = SHAPE
     #print(max(np.max(U1),np.max(U2)))
-
-    U1 = U1[:dataset_num*length]
-    U2 = U2[:dataset_num*length]
+    normal = max(np.max(U1),np.max(U2))
+    U1 = U1[:dataset_num*length]/normal# * 200
+    U2 = U2[:dataset_num*length]/normal #* 200
     D1 = D1[:dataset_num*length]
     D2 = D2[:dataset_num*length]
 
+    
   
     
 
