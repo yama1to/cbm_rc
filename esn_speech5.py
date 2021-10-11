@@ -42,7 +42,7 @@ class Config():
 
 
         #sigma_np = -5
-        self.alpha_i = 3942.92
+        self.alpha_i = 0.7#3942.92
         self.alpha_r = 0.9
         self.alpha_b = 0.
 
@@ -153,9 +153,9 @@ def execute(c):
     
     U1,U2,D1,D2,SHAPE = load_datasets()
     (dataset_num,length,Nu) = SHAPE
-
-    U1 = U1
-    U2 = U2
+    normal = max(np.max(U1),np.max(U2))
+    U1 = U1/normal
+    U2 = U2/normal
 
     ### training
     #print("training...")

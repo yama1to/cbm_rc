@@ -43,20 +43,20 @@ class Config():
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 1.6
-        self.alpha_r = 0.15
+        self.alpha_i = 0.5
+        self.alpha_r = 0.02
         self.alpha_b = 0.
-        self.alpha_s = 0.75
+        self.alpha_s = 0.3
 
-        self.beta_i = 0.06
-        self.beta_r = 0.04
+        self.beta_i = 0.05
+        self.beta_r = 0.02
         self.beta_b = 0.0
 
         self.lambda0 = 0.
 
         # Results
         self.WER = None
-        self.cnt_overflow=None
+        self.cnt_overflow=0
 
 def generate_weight_matrix():
     global Wr, Wb, Wo, Wi
@@ -76,6 +76,7 @@ def p2s(theta,p):
 
 def run_network(mode):
     global Hx, Hs, Hp, Y, Yx, Ys, Yp, Y, Us, Ds,Rs
+    global cnt_overflow
     Hp = np.zeros((c.MM, c.Nh))
     Hx = np.zeros((c.MM*c.NN, c.Nh))
     Hs = np.zeros((c.MM*c.NN, c.Nh))
@@ -156,17 +157,17 @@ def run_network(mode):
             Ds[n]=ds
 
     # オーバーフローを検出する。
-    global cnt_overflow
-    if mode: cnt_overflow = 0
-    for m in range(2,c.MM-1):
-        tmp = np.sum( np.heaviside( np.fabs(Hp[m+1]-Hp[m]) - 0.6 ,0))
-        cnt_overflow += tmp
+    if not mode:
+        for m in range(2,c.MM-1):
+            tmp = np.sum( np.heaviside( np.fabs(Hp[m+1]-Hp[m]) - 0.6 ,0))
+            c.cnt_overflow += tmp
 
 def train_network():
-    global Wo
+    global Wo#,cnt_overflow
+    #cnt_overflow = 0
 
     run_network(1) # run netwrok with teacher forcing
-
+    #cnt_overflow = 0
 def test_network():
     run_network(0)
 
@@ -327,11 +328,11 @@ def execute():
     dp = dp
     test_WER = np.sum(abs(pred_test-dp)/2)/dataset_num
     print("train vs test :",train_WER,test_WER)
-
+    print("cnt_overflow :",c.cnt_overflow)
 
     ################################################################################
     c.WER = test_WER
-    c.cnt_overflow = cnt_overflow
+    #c.cnt_overflow = cnt_overflow
     ################################################################################
 
     if c.plot: plot1()

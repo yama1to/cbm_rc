@@ -34,28 +34,28 @@ class Config():
         self.MM0 = 200 #
 
         self.Nu = 1         #size of input
-        self.Nh:int = 200   #815 #size of dynamical reservior
+        self.Nh:int = 50   #815 #size of dynamical reservior
         self.Ny = 20        #size of output
 
         self.Temp=1
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 6
-        self.alpha_r = 0.5
+        self.alpha_i = 0.7
+        self.alpha_r = 0.1
         self.alpha_b = 0.
-        self.alpha_s = 6
+        self.alpha_s = 0.8
 
         self.alpha0 = 0#0.1
         self.alpha1 = 0#-5.8
 
         self.beta_i = 0.9
-        self.beta_r = 0.1
+        self.beta_r = 0.05
         self.beta_b = 0.1
 
         self.lambda0 = 0.
 
-        self.delay = 50
+        self.delay = 20
 
         # ResultsX
         self.RMSE1=None
@@ -245,7 +245,7 @@ def plot1():
     ax.set_title('MC ~ %3.2lf' % MC, x=0.8, y=0.7)
 
     plt.show()
-    plt.savefig(c.fig1)
+    #plt.savefig(c.fig1)
 
 def plot_delay():
     fig=plt.figure(figsize=(16,16 ))
@@ -267,7 +267,7 @@ def plot_MC():
     plt.xlim([0,c.delay])
     plt.title('MC ~ %3.2lf,Nh = %d' % (MC,c.Nh), x=0.8, y=0.7)
 
-    if 1:
+    if 0:
         fname = "./MC_fig_dir/MC:alphai={0},r={1},s={2},betai={3},r={4}.png".format(c.alpha_i,c.alpha_r,c.alpha_s,c.beta_i,c.beta_r)
         plt.savefig(fname)
     plt.show()

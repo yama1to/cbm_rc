@@ -23,7 +23,7 @@ common.prefix  = "data%s_cbmrc9a_memory2" % common.string_now() # 実験名（�
 common.dir_path= "data/data%s_cbmrc9a_memory2" % common.string_now() # 実験データを出力するディレクトリのパス
 common.exe     = "python cbmrc9a_memory2.py " # 実行されるプログラム
 common.columns=['dataset','seed','id','NN','Nh','alpha_i','alpha_r','alpha_b','alpha_s','beta_i','beta_r','beta_b',
-'Temp','lambda0','RMSE1','RMSE2','cnt_overflow','MC']
+'Temp','lambda0',"delay",'RMSE1','RMSE2','cnt_overflow','MC']
 common.parallel= 32
 common.setup()
 common.report_common()
@@ -52,14 +52,14 @@ def optimize():
     opt.appendid()#id:必ず加える
     opt.appendseed()# 乱数のシード（０から始まる整数値）
     opt.append("beta_r",value=0.01,min=0.01,max=1,round=2)
-    opt.append("beta_i",value=0.01,min=0.01,max=1,round=2)
-    opt.append("alpha_i",value=1,min=0.1,max=10,round=2)
-    opt.append("alpha_r",value=1,min=0.1,max=1,round=2)
-    opt.append("alpha_s",value=10,min=1,max=10,round=2)
+    opt.append("beta_i",value=0.9,min=0.9,max=0.9,round=2)
+    opt.append("alpha_i",value=1,min=0.1,max=1,round=2)
+    opt.append("alpha_r",value=0.9,min=0.1,max=1,round=2)
+    opt.append("alpha_s",value=1,min=0,max=2,round=2)
     #opt.append("Temp",value=10,min=1,max=10,round=2)
-    opt.maximize(target="MC",iteration=20,population=20,samples=3)
+    opt.maximize(target="MC",iteration=10,population=10,samples=3)
     common.config = opt.best_config # 最適化で得られた設定を基本設定とする
-optimize()
+#optimize()
 
 def plot1(x,y,ystd,ymin,ymax,color=None,width=1,label=None):
     # エラーバーをつけてグラフを描画、平均、標準偏差、最大値、最小値をプロットする。
@@ -99,9 +99,10 @@ def gs2():
     ns=3
     gridsearch("Nh",min=50,max=700,num=41,samples=ns)
     gridsearch("alpha_r",min=0.01,max=1,num=41,samples=ns)
-    gridsearch("alpha_i",min=0.01,max=10,num=41,samples=ns)
-    gridsearch("alpha_s",min=0.01,max=10,num=41,samples=ns)
+    gridsearch("alpha_i",min=0.01,max=1,num=41,samples=ns)
+    gridsearch("alpha_s",min=0.0,max=2,num=41,samples=ns)
     gridsearch("beta_r",min=0.01,max=1,num=41,samples=ns)
     gridsearch("beta_i",min=0.01,max=1,num=41,samples=ns)
+    #gridsearch("delay",min=5,max=100,num=41,samples=ns)
     #gridsearch("lambda0",min=0.01,max=1.5,num=41,samples=ns)
 gs2()
