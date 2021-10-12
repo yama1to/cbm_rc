@@ -11,7 +11,6 @@ import scipy.linalg
 import matplotlib.pyplot as plt
 import copy
 import time
-from explorer import common
 from generate_data_sequence_speech5 import *
 from generate_matrix import *
 from tqdm import tqdm
@@ -43,20 +42,20 @@ class Config():
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 0.5
-        self.alpha_r = 0.02
+        self.alpha_i = 1
+        self.alpha_r = 0.9
         self.alpha_b = 0.
-        self.alpha_s = 0.3
+        self.alpha_s = 9.38
 
-        self.beta_i = 0.05
-        self.beta_r = 0.02
+        self.beta_i = 0.01
+        self.beta_r = 0.42
         self.beta_b = 0.0
 
         self.lambda0 = 0.
 
         # Results
         self.WER = None
-        self.cnt_overflow=0
+        self.cnt_overflow=None
 
 def generate_weight_matrix():
     global Wr, Wb, Wo, Wi
@@ -76,7 +75,6 @@ def p2s(theta,p):
 
 def run_network(mode):
     global Hx, Hs, Hp, Y, Yx, Ys, Yp, Y, Us, Ds,Rs
-    global cnt_overflow
     Hp = np.zeros((c.MM, c.Nh))
     Hx = np.zeros((c.MM*c.NN, c.Nh))
     Hs = np.zeros((c.MM*c.NN, c.Nh))
@@ -138,7 +136,7 @@ def run_network(mode):
         if rs_prev==0 and rs==1:
             hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
             hc = np.zeros(c.Nh) #カウンタをリセット
-            ht = 2*hs-1 #リファレンスクロック同期用ラッチ動作をコメントアウト
+            ht = 2*hs-1     #リファレンスクロック同期用ラッチ動作をコメントアウト
             yp = Wo@hp
             # record
             Hp[m]=hp
@@ -157,17 +155,17 @@ def run_network(mode):
             Ds[n]=ds
 
     # オーバーフローを検出する。
-    if not mode:
-        for m in range(2,c.MM-1):
-            tmp = np.sum( np.heaviside( np.fabs(Hp[m+1]-Hp[m]) - 0.6 ,0))
-            c.cnt_overflow += tmp
+    global cnt_overflow
+    cnt_overflow = 0
+    for m in range(2,c.MM-1):
+        tmp = np.sum( np.heaviside( np.fabs(Hp[m+1]-Hp[m]) - 0.6 ,0))
+        cnt_overflow += tmp
 
 def train_network():
-    global Wo#,cnt_overflow
-    #cnt_overflow = 0
+    global Wo
 
     run_network(1) # run netwrok with teacher forcing
-    #cnt_overflow = 0
+
 def test_network():
     run_network(0)
 
@@ -210,13 +208,13 @@ def execute():
 
     (dataset_num,length,c.Nu) = SHAPE
     #print(max(np.max(U1),np.max(U2)))
-    normal = max(np.max(U1),np.max(U2))
-    U1 = U1[:dataset_num*length]/normal# * 200
-    U2 = U2[:dataset_num*length]/normal #* 200
+
+    normalize = max(np.max(U1),np.max(U2))
+    U1 = U1[:dataset_num*length] /normalize
+    U2 = U2[:dataset_num*length] /normalize
     D1 = D1[:dataset_num*length]
     D2 = D2[:dataset_num*length]
 
-    
   
     
 
@@ -261,14 +259,15 @@ def execute():
     
     Wout = np.dot(G.T,np.linalg.pinv(M).T)
     Y_pred = Wout @ M.T
+    Y_pred = Y_pred.T
 
     pred_train = np.zeros((dataset_num,10))
     start = 0
 
     for i in range(dataset_num):
 
-        tmp = Y_pred[:,start:start+length]  # 1つのデータに対する出力
-        max_index = np.argmax(tmp, axis=0)  # 最大出力を与える出力ノード番号
+        tmp = Y_pred[start:start+length]  # 1つのデータに対する出力
+        max_index = np.argmax(tmp, axis=1)  # 最大出力を与える出力ノード番号
 
         histogram = np.bincount(max_index)  # 出力ノード番号のヒストグラム
         idx = np.argmax(histogram)
@@ -308,15 +307,15 @@ def execute():
 
         
     Y_pred = Wout @ collect_state_matrix[c.MM0:].T
-
+    Y_pred = Y_pred.T
     pred_test = np.zeros((dataset_num,10))
     start = 0
 
     #圧縮
     for i in range(dataset_num):
-        tmp = Y_pred[:,start:start+length]  # 1つのデータに対する出力
+        tmp = Y_pred[start:start+length]  # 1つのデータに対する出力
 
-        max_index = np.argmax(tmp, axis=0)  # 最大出力を与える出力ノード番号
+        max_index = np.argmax(tmp, axis=1)  # 最大出力を与える出力ノード番号
 
         histogram = np.bincount(max_index)  # 出力ノード番号のヒストグラム
         idx = np.argmax(histogram)
@@ -324,25 +323,18 @@ def execute():
 
         start = start + length
     
-    dp = [DP[i] for i in range(0,U1.shape[0],length)]
-    dp = dp
+    dp = [DP[i] for i in range(0,U2.shape[0],length)]
     test_WER = np.sum(abs(pred_test-dp)/2)/dataset_num
     print("train vs test :",train_WER,test_WER)
-    print("cnt_overflow :",c.cnt_overflow)
+
 
     ################################################################################
     c.WER = test_WER
-    #c.cnt_overflow = cnt_overflow
+    c.cnt_overflow = cnt_overflow/(c.MM-2)/data_num
     ################################################################################
 
     if c.plot: plot1()
 
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser()
-    ap.add_argument("-config", type=str)
-    a = ap.parse_args()
-
     c=Config()
-    if a.config: c=common.load_config(a)
     execute()
-    if a.config: common.save_config(c)
