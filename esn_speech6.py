@@ -5,18 +5,16 @@ cbmrc6e.pyを改変
 Configクラスによるパラメータ設定
 """
 
-import argparse
 import numpy as np
-import scipy.linalg
 import matplotlib.pyplot as plt
-import copy
-import time
-from explorer import common
+
 from generate_data_sequence_speech6 import *
 from generate_matrix import *
 from tqdm import tqdm
 from pprint import pprint
 import gc
+from explorer import common
+import argparse
 
 class Config():
     def __init__(self):
@@ -32,25 +30,25 @@ class Config():
 
         # config
         self.dataset=6
-        self.seed:int=1 # 乱数生成のためのシード
+        self.seed:int=2 # 乱数生成のためのシード
         self.MM=50 # サイクル数
         self.MM0 = 0 #
 
-        self.Nu = 77   #size of input
-        self.Nh:int = 200#815 #size of dynamical reservior
+        self.Nu = 78   #size of input
+        self.Nh:int = 300#815 #size of dynamical reservior
         self.Ny = 10   #size of output
 
 
         #sigma_np = -5
-        self.alpha_i = 907
-        self.alpha_r = 0.7
+        self.alpha_i = 0.9
+        self.alpha_r = 0.98
         self.alpha_b = 0.
 
-        self.alpha0 = 0.15#0.1
+        self.alpha0 = 1#0.1
         self.alpha1 = 0#-5.8
 
-        self.beta_i = 0.03
-        self.beta_r = 0.1
+        self.beta_i = 0.02
+        self.beta_r = 0.02
         self.beta_b = 0.1
 
         self.lambda0 = 0.
@@ -79,13 +77,13 @@ def run_network(mode):
     x = np.zeros(c.Nh)
     
 
-    for n in range(c.MM - 1):
+    for n in range(c.MM):
         
         u = Up[n, :]
 
         #Hp[n+1,:] = x + 1.0/tau * (-alpha0 * x + fx(Wi@u + Wr@x))
         next_x = (1 - c.alpha0) * x + c.alpha0*fy(Wi@u + Wr@x)
-        Hp[n+1,:] = next_x
+        Hp[n,:] = next_x
         x= next_x
 
         
@@ -130,7 +128,7 @@ def plot3(tmp):
         ax = fig.add_subplot(Nr,1,i)
         ax.cla()
         ax.set_title("y")
-        ax.plot(tmp[:,i-1])
+        ax.plot(tmp[i-1])
     plt.show()
 
 
@@ -154,6 +152,9 @@ def execute(c):
     U1,U2,D1,D2,SHAPE = load_datasets()
     (dataset_num,length,Nu) = SHAPE
 
+    normalize = max(np.max(U1),np.max(U2))
+    U1 = fy(U1/normalize*3)
+    U2 = fy(U2/normalize*3)
 
     ### training
     #print("training...")
@@ -187,12 +188,9 @@ def execute(c):
     M = collect_state_matrix[c.MM0:]
     G = target_matrix
 
-    #Wout = np.linalg.inv(M.T@M + c.lambda0 * np.identity(c.Nh)) @ M.T @ G
-    #print(G.shape,M.shape)
     Wout = np.dot(G.T,np.linalg.pinv(M).T)
-    #print(Wout.shape,M.shape)
     Y_pred = Wout @ M.T
-    #Y_pred = np.dot(Wout , M.T)
+    Y_pred = Y_pred.T
     #"""
 
     pred_train = np.zeros((dataset_num,10))
@@ -200,8 +198,8 @@ def execute(c):
 
     for i in range(dataset_num):
 
-        tmp = Y_pred[:,start:start+length]  # 1つのデータに対する出力
-        max_index = np.argmax(tmp, axis=0)  # 最大出力を与える出力ノード番号
+        tmp = Y_pred[start:start+length]  # 1つのデータに対する出力
+        max_index = np.argmax(tmp, axis=1)  # 最大出力を与える出力ノード番号
 
         histogram = np.bincount(max_index)  # 出力ノード番号のヒストグラム
         idx = np.argmax(histogram)
@@ -212,9 +210,6 @@ def execute(c):
 
     train_WER = np.sum(abs(pred_train-dp)/2)/dataset_num 
 
-    #print("train Word error rate:",train_WER)
-
-    
     ### test ######################################################################
     #print("test...")
     DP = D2                 #one-hot vector
@@ -234,15 +229,15 @@ def execute(c):
         start += length
 
     Y_pred = Wout @ collect_state_matrix[c.MM0:].T
-
+    Y_pred = Y_pred.T
     pred_test = np.zeros((dataset_num,10))
     start = 0
 
     #圧縮
     for i in range(dataset_num):
-        tmp = Y_pred[:,start:start+length]  # 1つのデータに対する出力
+        tmp = Y_pred[start:start+length,:]  # 1つのデータに対する出力
 
-        max_index = np.argmax(tmp, axis=0)  # 最大出力を与える出力ノード番号
+        max_index = np.argmax(tmp, axis=1)  # 最大出力を与える出力ノード番号
 
         histogram = np.bincount(max_index)  # 出力ノード番号のヒストグラム
         idx = np.argmax(histogram)
@@ -253,15 +248,9 @@ def execute(c):
     dp = [DP[i] for i in range(0,UP.shape[0],length)]
     
     test_WER = np.sum(pred_test!=dp)/2/dataset_num
-    #print("test Word error rate:",test_WER)
+
     print("train vs test :",train_WER,test_WER)
-    # for i in range(250):
-    #     print(pred_test[i],dp[i])
-    display=0
-    if display :
-        plot2()
-   
-    #print(MC,MC1,MC2,MC3,MC4)
+
 ######################################################################################
      # Results
     c.RMSE1=None

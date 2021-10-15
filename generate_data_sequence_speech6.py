@@ -18,13 +18,18 @@ from tqdm import tqdm
 
 from lyon.calc import LyonCalc
 
+global cwd
+cwd = os.getcwd() # ~/cbmrc/
+matrix_dir = "./speech6_matrix_dir/"
+
+
 def num_split_data(num,person,times):
     all_data = list(itertools.product(num,person,times))
     all_data_join = [''.join(v) for v in all_data]
     return all_data_join
 
 def save_wave_fig(wave,file_name):
-    save_file = "./fig_dir/"+ str(file_name)+".png"
+    save_file = cwd + "/fig_dir/"+ str(file_name)+".png"
     plt.plot(wave)
     plt.savefig(save_file)
     plt.clf()
@@ -59,7 +64,7 @@ def cut(wave):
     return output
 
 def loadwave(file_name):
-    file = "./ti-yamato/"+ str(file_name)+".wav"
+    file = cwd+"/ti-yamato/"+ str(file_name)+".wav"
     #
     with wave.open(file,mode='r') as W:
         W.rewind()
@@ -70,11 +75,10 @@ def loadwave(file_name):
     return wa
 
 
-
 def getwaves(train,valid,save=0,load=0):
     if load:
-        train_data = np.load("train_data_wave.npy")
-        valid_data = np.load("valid_data_wave.npy")
+        train_data = np.load(matrix_dir+"train_data_wave.npy")
+        valid_data = np.load(matrix_dir+"valid_data_wave.npy")
     if not load:
         x = 0
         x1 = 0
@@ -113,25 +117,25 @@ def convert2cochlea(train_data,valid_data,save):
         #plt.plot(waveform[i])
         #plt.show()
                                                                         #64                                 #3
-        c = calc.lyon_passive_ear(waveform[i], sample_rate, decimation_factor=200, ear_q=1,step_factor=0.0255, tau_factor=3)#
-        plt.plot(c*10**4)
-        plt.show()
+        c = calc.lyon_passive_ear(waveform[i], sample_rate, decimation_factor=200, ear_q=8,step_factor=0.25, tau_factor=3)#
+        # plt.plot(c)
+        # plt.show()
         train_coch[:,i*t_num:(i+1)*t_num] = c.T
         
         if save:
-            file = "./coch_dir/train-fig"+str(i)+".png"
+            file = cwd+"/coch_dir/train-fig"+str(i)+".png"
             save_coch(c,file)
 
     waveform = valid_data
     valid_coch = np.empty((input_num,data_num*t_num))
 
     for i in range(data_num):
-        c = calc.lyon_passive_ear(waveform[i], sample_rate, decimation_factor=200, ear_q=1, step_factor=0.0255, tau_factor=3)
-
+        c = calc.lyon_passive_ear(waveform[i], sample_rate, decimation_factor=200, ear_q=8, step_factor=0.25, tau_factor=3)
+        
         valid_coch[:,i*t_num:(i+1)*t_num] = c.T
         #
         if save:
-            file = "./coch_dir/valid-fig"+str(i)+".png"
+            file = cwd + "/coch_dir/valid-fig"+str(i)+".png"
             save_coch(c,file)
 
     return train_coch,valid_coch
@@ -153,7 +157,7 @@ def generate_target():
 def generate_coch(load=0,seed = 0,save_arr=1,save=0,shuffle=True):  
     global data_num,t_num,input_num,SHAPE
 
-    input_num = 77
+    input_num = 78
     t_num = 50
     data_num = 250
     SHAPE = (data_num,t_num,input_num)
@@ -179,8 +183,8 @@ def generate_coch(load=0,seed = 0,save_arr=1,save=0,shuffle=True):
     train_data,valid_data = getwaves(train,valid,save = save,load = load)
 
     if save_arr:
-        np.save("train_data_wave",arr=train_data)
-        np.save("valid_data_wave",arr=valid_data)
+        np.save(matrix_dir+"train_data_wave",arr=train_data)
+        np.save(matrix_dir+"valid_data_wave",arr=valid_data)
 
     #generate cochlear
     print("~ generate cochlear ~")
@@ -192,34 +196,64 @@ def generate_coch(load=0,seed = 0,save_arr=1,save=0,shuffle=True):
 
     train_coch = train_coch.T
     valid_coch = valid_coch.T
+
+    valid_coch2 = valid_coch.reshape(SHAPE)
+    valid_target2 = valid_target.reshape((250,50,10))
+    #print(valid_coch2.shape,valid_target2.shape)
+    #valid シャッフル
+    valid_coch2,valid_target2 = shuffle_samples(valid_coch2,valid_target2)
+    valid_coch = valid_coch2.reshape((data_num*t_num,input_num))
+    valid_target = valid_target2.reshape((data_num*t_num,10))
+
     if save_arr:
         save_data(train_coch,valid_coch ,train_target, valid_target)
 
     return train_coch,valid_coch ,train_target, valid_target, (SHAPE)
 
 def save_data(t,v,tD,vD):
-    file = "generate_cochlear_speech6"
+    file = matrix_dir+"generate_cochlear_speech6"
     np.save(file+"train_coch",arr=t,)
     np.save(file+"valid_coch",arr=v,)
     np.save(file+"train_target",arr=tD,)
     np.save(file+"valid_target",arr=vD,)
 
 def load_datasets():
-    SHAPE = (250,50,77)
-    train_coch   = np.load("generate_cochlear_speech6train_coch.npy")
-    valid_coch   = np.load("generate_cochlear_speech6valid_coch.npy")
-    train_target = np.load("generate_cochlear_speech6train_target.npy")
-    valid_target = np.load("generate_cochlear_speech6valid_target.npy")
+    SHAPE = (250,50,78)
+    fname = matrix_dir+"generate_cochlear_speech6"
+    train_coch   = np.load(fname+"train_coch.npy")
+    valid_coch   = np.load(fname+"valid_coch.npy")
+    train_target = np.load(fname+"train_target.npy")
+    valid_target = np.load(fname+"valid_target.npy")
+
 
     return train_coch,valid_coch ,train_target, valid_target, SHAPE
-    
+
+# 配列X, yを与え、対応を崩さずにシャッフルする
+def shuffle_samples(X, y):
+    order = np.arange(X.shape[0])
+    np.random.shuffle(order)
+    X_result = np.zeros(X.shape)
+    y_result = np.zeros(y.shape)
+    for i in range(X.shape[0]):
+        X_result[i, ...] = X[order[i], ...]
+        y_result[i, ...] = y[order[i], ...]
+    return X_result, y_result
 
 
 
 if __name__ == "__main__":
+    t = 0
+
+    #新規
     
-    #tD,vD = generate_target()
-    #print(tD.shape,vD.shape)
     t,v,tD,vD ,s= generate_coch(save_arr=1,save=0)
-    print(t)
-    #print(np.max(t),np.min(t),np.max(v),np.min(v))
+    
+    print(t.shape,v.shape,tD.shape,vD.shape)
+    #作成済み
+    t2,v2,tD2,vD2 ,s2= load_datasets()
+    t3 = t2.reshape((250,50,78))
+    t4 = t3.reshape((250*50,78))
+    #print(t4==t2)
+    for i in range(250):
+         print(vD2[i][0])
+    #if t and t2:print(t==t2)
