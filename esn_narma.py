@@ -38,15 +38,15 @@ class Config():
 
 
         #sigma_np = -5
-        self.alpha_i = 0.9
-        self.alpha_r = 0.9
+        self.alpha_i = 0.56
+        self.alpha_r = 0.95
         self.alpha_b = 0.
 
         self.alpha0 = 1#0.1
         self.alpha1 = 0#-5.8
 
-        self.beta_i = 0.9
-        self.beta_r = 0.05
+        self.beta_i = 0.2
+        self.beta_r = 0.58
         self.beta_b = 0.
 
         self.lambda0 = 0.0001

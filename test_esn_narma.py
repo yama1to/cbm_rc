@@ -23,7 +23,7 @@ common.prefix  = "data%s_esn_narma" % common.string_now() # 実験名（ファ�
 common.dir_path= "data/data%s_esn_narma" % common.string_now() # 実験データを出力するディレクトリのパス
 common.exe     = "python esn_narma.py " # 実行されるプログラム
 common.columns =['dataset','seed','id','Nh','alpha_i','alpha_r','alpha_b','beta_i','beta_r','beta_b','lambda0',"RMSE",'NRMSE',"NMSE"]
-common.parallel= 100
+common.parallel= 32
 common.setup()
 common.report_common()
 common.report_config(config)
@@ -60,7 +60,7 @@ def optimize():
     opt.minimize(target="NMSE",iteration=20,population=30,samples=4)
     #opt.minimize(TARGET=func,iteration=5,population=10,samples=4)
     common.config = opt.best_config # 最適化で得られた設定を基本設定とする
-optimize()
+#optimize()
 
 def plot1(x,y,ystd,ymin,ymax,color=None,width=1,label=None):
     # エラーバーをつけてグラフを描画、平均、標準偏差、最大値、最小値をプロットする。
@@ -77,11 +77,12 @@ def gridsearch(X1,min=0,max=1,num=41,samples=10):
     df = common.load_dataframe()
     #print(df)
     cmap = plt.get_cmap("tab10")
-    plt.figure(figsize=(6,8))
+    plt.figure(figsize=(6,4))
 
     plt.subplot(1,1,1)
     x,ymean,ystd,ymin,ymax = vs.analyze(df,X1,"NMSE")
     plot1(x,ymean,ystd,ymin,ymax,color=cmap(1),label="NMSE")
+    plt.ylim([0,1])
     plt.ylabel("NMSE")
     plt.grid(linestyle="dotted")
 
@@ -89,10 +90,10 @@ def gridsearch(X1,min=0,max=1,num=41,samples=10):
     vs.plt_output()
 
 def gs2():
-    ns=3
+    ns=10
     #gridsearch("Nh",min=100,max=1000,num=41,samples=ns)
     gridsearch("alpha_r",min=0.1,max=1,num=41,samples=ns)
-    gridsearch("alpha_i",min=0.1,max=1,num=41,samples=ns)
+    gridsearch("alpha_i",min=0.1,max=2,num=81,samples=ns)
     gridsearch("beta_i",min=0.01,max=1,num=41,samples=ns)
     gridsearch("beta_r",min=0.01,max=1,num=41,samples=ns)
     # gridsearch("Temp",min=0.01,max=10,num=41,samples=ns)

@@ -23,7 +23,7 @@ common.prefix  = "data%s_cbmrc9a_narma" % common.string_now() # 実験名（フ�
 common.dir_path= "data/data%s_cbmrc9a_narma" % common.string_now() # 実験データを出力するディレクトリのパス
 common.exe     = "python cbmrc9a_narma.py " # 実行されるプログラム
 common.columns =['dataset','seed','id','NN','Nh','alpha_i','alpha_r','alpha_b','alpha_s','beta_i','beta_r','beta_b','Temp','lambda0','cnt_overflow',"RMSE",'NRMSE',"NMSE"]
-common.parallel= 100
+common.parallel= 32
 common.setup()
 common.report_common()
 common.report_config(config)
@@ -54,10 +54,11 @@ def optimize():
 
     opt.append("beta_r",value=0.01,min=0.01,max=1,round=2)
     opt.append("beta_i",value=0.01,min=0.01,max=1,round=2)
-    opt.append("alpha_i",value=1,min=0.1,max=1,round=2)
+    opt.append("alpha_i",value=0.9,min=0.1,max=1,round=2)
     opt.append("alpha_r",value=1,min=0.1,max=1,round=2)
     opt.append("alpha_s",value=1,min=0,max=2,round=2)
-    opt.minimize(target="NMSE",iteration=30,population=30,samples=4)
+    #opt.append("Temp",value=1,min=1,max=10,round=2)
+    opt.minimize(target="NMSE",iteration=30,population=30,samples=3)
     #opt.minimize(TARGET=func,iteration=5,population=10,samples=4)
     common.config = opt.best_config # 最適化で得られた設定を基本設定とする
 optimize()
@@ -97,13 +98,14 @@ def gridsearch(X1,min=0,max=1,num=41,samples=10):
     vs.plt_output()
 
 def gs2():
-    ns=3
+    ns=10
     #gridsearch("Nh",min=100,max=1000,num=41,samples=ns)
-    gridsearch("alpha_r",min=0.1,max=1,num=41,samples=ns)
     gridsearch("alpha_i",min=0.1,max=1,num=41,samples=ns)
-    gridsearch("alpha_s",min=0.0,max=1,num=41,samples=ns)
-    gridsearch("beta_i",min=0.01,max=1,num=41,samples=ns)
-    gridsearch("beta_r",min=0.01,max=1,num=41,samples=ns)
+    gridsearch("alpha_r",min=0.1,max=1,num=41,samples=ns)
+    
+    gridsearch("alpha_s",min=0.0,max=2,num=41,samples=ns)
+    # gridsearch("beta_i",min=0.01,max=1,num=41,samples=ns)
+    # gridsearch("beta_r",min=0.01,max=1,num=41,samples=ns)
     # gridsearch("Temp",min=0.01,max=10,num=41,samples=ns)
     # gridsearch("lambda0",min=0.01,max=10,num=41,samples=ns)
 gs2()

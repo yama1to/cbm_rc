@@ -277,6 +277,9 @@ def execute():
     U1,D1  = generate_narma(N=MM1,seed=0)
     U2,D2  = generate_narma(N=MM2,seed=1)
 
+    #print((MM2-2))
+    #print(np.var(D1))
+
     Dp = D1
     Up = U1 
     c.MM = MM1
@@ -305,13 +308,13 @@ def execute():
 
     RMSE,NRMSE,NMSE = calc(Yp,Dp)
     #print(1/np.var(Dp))
-    print("RMSE:",RMSE)
+    print("RMSE:",RMSE) 
     print("NRMSE:",NRMSE)
     print("NMSE:",NMSE)
     c.RMSE = RMSE
     c.NRMSE = NRMSE
     c.NMSE = NMSE
-    c.cnt_overflow=cnt_overflow
+    c.cnt_overflow=cnt_overflow/(c.MM-2)
     #print("time: %.6f [sec]" % (time.time()-t_start))
 
     if c.plot: 
