@@ -27,49 +27,47 @@ def gridsearch(csv,path,label):
     df = common.load_dataframe(csv = csv,path = path)
     #print(df)
     cmap = plt.get_cmap("tab10")
-    plt.figure(figsize=(6,8))
+    plt.figure(figsize=(6,4))
 
-    plt.subplot(2,1,1)
-    x,ymean,ystd,ymin,ymax = vs.analyze(df,X1,"NMSE")
-    plot1(x,ymean,ystd,ymin,ymax,color=cmap(1),label="NMSE")
-    plt.ylabel("NMSE")
+    plt.subplot(1,1,1)
+    x,ymean,ystd,ymin,ymax = vs.analyze(df,X1,"WER")
+    plot1(x,ymean,ystd,ymin,ymax,color=cmap(1),label="WER")
+    plt.ylabel("WER")
     plt.grid(linestyle="dotted")
 
-    plt.ylim([-0.1,120]) # y軸の範囲
+    plt.ylim([-0,0.3]) # y軸の範囲
 
-    plt.subplot(2,1,2)
-    x,ymean,ystd,ymin,ymax = vs.analyze(df,X1,"cnt_overflow")
-    plot1(x,ymean/2000,ystd/2000,ymin/2000,ymax/2000,color=cmap(2),label="cnt_overflow")
-    plt.ylabel("Frequency of overflow")
-    #plt.yscale('log')
-    plt.grid(linestyle="dotted")
-    #plt.xlim([0,1]) # x軸の範囲
-    plt.ylim([-0.1,1]) # y軸の範囲
-
+    
     plt.xlabel(X1)
     vs.plt_output()
 
 if __name__ == "__main__":
     #global csv 
-    from cbmrc9a_narma import Config
+    ### 共通設定
+    from esn_speech5 import Config
+
     config = Config()
     common.config  = config
-    common.prefix  = "data%s_cbmrc9a_narma" % common.string_now() # 実験名（ファイルの接頭辞）
-    common.dir_path= "data/data%s_cbmrc9a_narma" % common.string_now() # 実験データを出力するディレクトリのパス
-    #common.exe     = "python cbmrc9a_narma.py " # 実行されるプログラム
-    common.columns =['dataset','seed','id','NN','Nh','alpha_i','alpha_r','alpha_b','alpha_s','beta_i','beta_r','beta_b','Temp','lambda0','cnt_overflow',"RMSE",'NRMSE',"NMSE"]
-    common.parallel= 100
+    common.prefix  = "data%s_esn_speech5" % common.string_now() # 実験名（ファイルの接頭辞）
+    common.dir_path= "data/data%s_esn_speech5" % common.string_now() # 実験データを出力するディレクトリのパス
+    common.exe     = "python esn_speech5.py " # 実行されるプログラム
+    common.columns =['dataset','seed','id','Nh','alpha_i','alpha_r','alpha0','beta_i','beta_r',
+    'lambda0',"train_WER","WER"]
+    common.parallel= 32
     common.setup()
     common.report_common()
     common.report_config(config)
 
-    dir = "/home/yamato/Desktop/optimizeList/out3/data20211015_182525_cbmrc9a_narma/"
-    csv_name = ["data20211015_182525_cbmrc9a_narma_scan1d_alpha_i.csv",
-                "data20211015_182525_cbmrc9a_narma_scan1d_alpha_r.csv",
-                "data20211015_182525_cbmrc9a_narma_scan1d_alpha_s.csv",
+    d = "data20211015_180433_esn_speech5"
+    dir = "/home/yamato/Desktop/optimizeList/out3/data20211015_180433_esn_speech5/"
 
+    csv_name = ["data20211015_180433_esn_speech5"+"_scan1d_alpha_i.csv",
+                "data20211015_180433_esn_speech5"+"_scan1d_alpha_r.csv",
+                "data20211015_180433_esn_speech5"+"_scan1d_beta_i.csv",
+                "data20211015_180433_esn_speech5"+"_scan1d_beta_r.csv",
                 ]
-    labels = ["alpha_i","alpha_r","alpha_s"]
+
+    labels = ["alpha_i","alpha_r","beta_i","beta_r",]
     
     for name,label in zip(csv_name,labels):
         gridsearch(name,dir,label)

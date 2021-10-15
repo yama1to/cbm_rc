@@ -35,7 +35,7 @@ def gridsearch(csv,path,label):
     plt.ylabel("NMSE")
     plt.grid(linestyle="dotted")
     plt.xlim([0,1])
-    plt.ylim([-0.1,120]) # y軸の範囲
+    plt.ylim([-0.1,2]) # y軸の範囲
 
     
     plt.xlabel(X1)
@@ -55,14 +55,13 @@ if __name__ == "__main__":
     common.report_common()
     common.report_config(config)
 
-    dir = "/home/yamato/Downloads/cbm_esn_task/share_kyukodai_task/result/_data20211006_150552_esn_narma/"
-    csv_name = ["data20211006_150552_esn_narma_scan1d_alpha_i.csv",
-                "data20211006_150552_esn_narma_scan1d_alpha_r.csv",
-                "data20211006_150552_esn_narma_scan1d_beta_i.csv",
-                "data20211006_150552_esn_narma_scan1d_beta_r.csv",
-                "data20211006_150552_esn_narma_scan1d_lambda0.csv",
+    dir = "/home/yamato/Desktop/optimizeList/out3/data20211015_182129_esn_narma/"
+    csv_name = ["data20211015_182129_esn_narma_scan1d_alpha_i.csv",
+                "data20211015_182129_esn_narma_scan1d_alpha_r.csv",
+                "data20211015_182129_esn_narma_scan1d_beta_i.csv",
+                "data20211015_182129_esn_narma_scan1d_beta_r.csv"
                 ]
-    labels = ["alpha_i","alpha_r","beta_i","beta_r","lambda0"]
+    labels = ["alpha_i","alpha_r","beta_i","beta_r"]
     
     for name,label in zip(csv_name,labels):
         gridsearch(name,dir,label)
