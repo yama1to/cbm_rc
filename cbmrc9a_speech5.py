@@ -193,7 +193,7 @@ def plot1():
     plt.show()
     plt.savefig(c.fig1)
 
-def execute():
+def execute(c):
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM
     global collect_state_matrix,target_matrix
     global UP,DP,pred_test,dp,test_WER
@@ -343,5 +343,5 @@ if __name__ == "__main__":
 
     c=Config()
     if a.config: c=common.load_config(a)
-    execute()
+    execute(c)
     if a.config: common.save_config(c)
