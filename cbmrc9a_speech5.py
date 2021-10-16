@@ -11,6 +11,7 @@ import scipy.linalg
 import matplotlib.pyplot as plt
 import copy
 import time
+from explorer import common 
 from generate_data_sequence_speech5 import *
 from generate_matrix import *
 from tqdm import tqdm
@@ -42,13 +43,13 @@ class Config():
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 1
-        self.alpha_r = 0.9
+        self.alpha_i = 0.5
+        self.alpha_r = 0.02
         self.alpha_b = 0.
-        self.alpha_s = 9.38
+        self.alpha_s = 0.3
 
-        self.beta_i = 0.01
-        self.beta_r = 0.42
+        self.beta_i = 0.05
+        self.beta_r = 0.02
         self.beta_b = 0.0
 
         self.lambda0 = 0.
@@ -330,11 +331,17 @@ def execute():
 
     ################################################################################
     c.WER = test_WER
-    c.cnt_overflow = cnt_overflow/(c.MM-2)/data_num
+    c.cnt_overflow = cnt_overflow/(c.MM-2)/dataset_num
     ################################################################################
 
     if c.plot: plot1()
 
 if __name__ == "__main__":
+    ap = argparse.ArgumentParser()
+    ap.add_argument("-config", type=str)
+    a = ap.parse_args()
+
     c=Config()
-    execute()
+    if a.config: c=common.load_config(a)
+    execute(c)
+    if a.config: common.save_config(c)
