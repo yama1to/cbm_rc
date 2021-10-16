@@ -343,5 +343,5 @@ if __name__ == "__main__":
 
     c=Config()
     if a.config: c=common.load_config(a)
-    execute(c)
+    execute()
     if a.config: common.save_config(c)
