@@ -56,7 +56,7 @@ class Config():
 
         # Results
         self.WER = None
-        self.cnt_overflow=None
+        self.cnt_overflow=0
 
 def generate_weight_matrix():
     global Wr, Wb, Wo, Wi
@@ -156,11 +156,12 @@ def run_network(mode):
             Ds[n]=ds
 
     # オーバーフローを検出する。
-    global cnt_overflow
-    cnt_overflow = 0
-    for m in range(2,c.MM-1):
-        tmp = np.sum( np.heaviside( np.fabs(Hp[m+1]-Hp[m]) - 0.6 ,0))
-        cnt_overflow += tmp
+    
+    #cnt_overflow = c.cnt_overflow
+    if mode:
+        for m in range(2,c.MM-1):
+            tmp = np.sum( np.heaviside( np.fabs(Hp[m+1]-Hp[m]) - 0.6 ,0))
+            c.cnt_overflow += tmp
 
 def train_network():
     global Wo
@@ -168,6 +169,7 @@ def train_network():
     run_network(1) # run netwrok with teacher forcing
 
 def test_network():
+
     run_network(0)
 
 def plot1():
@@ -331,7 +333,7 @@ def execute(c):
 
     ################################################################################
     c.WER = test_WER
-    c.cnt_overflow = cnt_overflow/(c.MM-2)/dataset_num
+    c.cnt_overflow = c.cnt_overflow/c.MM/dataset_num
     ################################################################################
 
     if c.plot: plot1()
