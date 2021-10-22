@@ -158,7 +158,7 @@ def run_network(mode):
     # オーバーフローを検出する。
     
     #cnt_overflow = c.cnt_overflow
-    if mode:
+    if not mode:
         for m in range(2,c.MM-1):
             tmp = np.sum( np.heaviside( np.fabs(Hp[m+1]-Hp[m]) - 0.6 ,0))
             c.cnt_overflow += tmp
