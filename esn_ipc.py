@@ -55,8 +55,7 @@ class Config():
         #np.array([[1,1],[1,2]])
 
         # Results
-        self.RMSE1=None
-        self.RMSE2=None
+
         self.Capacity = None 
 
 
