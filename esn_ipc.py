@@ -29,8 +29,8 @@ class Config():
         # config
         self.dataset=6
         self.seed:int=2 # 乱数生成のためのシード
-        self.MM=1000 # サイクル数
-        self.MM0 = 0 #
+        self.MM=500 # サイクル数
+        self.MM0 = 200 #
 
         self.Nu = 1   #size of input
         self.Nh:int = 300#815 #size of dynamical reservior
@@ -38,7 +38,7 @@ class Config():
 
 
         #sigma_np = -5
-        self.alpha_i = 0.8
+        self.alpha_i = 0.7
         self.alpha_r = 0.95
         self.alpha_b = 0.
 
@@ -153,8 +153,8 @@ def execute(c):
     
 
     ### generate data
-    U,D = datasets(n_k=c.n_k,T = c.MM,name="Legendre",dist="normal",seed=c.seed)
-
+    #U,D = datasets(n_k=c.n_k,T = c.MM,name="Legendre",dist="uniform",seed=c.seed)
+    U,D = datasets(n_k=c.n_k,T = c.MM,name="Hermite",dist="normal",seed=c.seed)
 
     generate_weight_matrix()
     ### training
@@ -175,8 +175,8 @@ def execute(c):
     ### evaluation
 
     max = np.max(c.n_k[:,1])
-    Yp = Yp[max:]
-    Dp = Dp[max:]
+    Yp = fy(Yp[max+c.MM0:])
+    Dp = fy(Dp[max+c.MM0:])
 
     
     r = np.corrcoef(Dp[max:,0],Yp[max:,0])[0,1]

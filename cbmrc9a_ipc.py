@@ -30,19 +30,19 @@ class Config():
         self.dataset=1
         self.seed:int=0 # 乱数生成のためのシード
         self.NN=256 # １サイクルあたりの時間ステップ
-        self.MM=1000 # サイクル数
-        self.MM0 = 0 #
+        self.MM=500 # サイクル数
+        self.MM0 = 200 #
 
         self.Nu = 1   #size of input
-        self.Nh = 100 #size of dynamical reservior
+        self.Nh = 300 #size of dynamical reservior
         self.Ny = 1   #size of output
 
         self.Temp=1.0
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 0.2
-        self.alpha_r = 0.25
+        self.alpha_i = 0.8
+        self.alpha_r = 0.1
         self.alpha_b = 0.
         self.alpha_s = 0.6
 
@@ -50,7 +50,7 @@ class Config():
         self.beta_r = 0.1
         self.beta_b = 0.1
 
-        self.lambda0 = 0.1
+        self.lambda0 = 0.
 
         self.n_k    =   np.array([[2,1]])
         # Results
@@ -176,10 +176,15 @@ def train_network():
     #print("M\n",M)
 
     ### Ridge regression
-    E = np.identity(c.Nh)
-    TMP1 = np.linalg.inv(M.T@M + c.lambda0 * E)
-    WoT = TMP1@M.T@G
-    Wo = WoT.T
+
+    if c.lambda0 == 0:
+        Wo = np.dot(G.T,np.linalg.pinv(M).T)
+        #print("a")
+    else:
+        E = np.identity(c.Nh)
+        TMP1 = np.linalg.inv(M.T@M + c.lambda0 * E)
+        WoT = TMP1@M.T@G
+        Wo = WoT.T
     #print("WoT\n", WoT)
 
 def test_network():
@@ -234,7 +239,8 @@ def execute():
     
 
     ### generate data
-    U,D = datasets(n_k=c.n_k,T = c.MM,name="Hermite",dist="normal",seed=c.seed)
+    U,D = datasets(n_k=c.n_k,T = c.MM,name="Legendre",dist="uniform",seed=c.seed)
+    #U,D = datasets(n_k=c.n_k,T = c.MM,name="Hermite",dist="normal",seed=c.seed)
 
 
     generate_weight_matrix()
@@ -256,8 +262,8 @@ def execute():
     ### evaluation
 
     max = np.max(c.n_k[:,1])
-    Yp = Yp[max:]
-    Dp = Dp[max:]
+    Yp = fy(Yp[c.MM0+max:])
+    Dp = fy(Dp[c.MM0+max:])
 
     
     r = np.corrcoef(Dp[max:,0],Yp[max:,0])[0,1]
