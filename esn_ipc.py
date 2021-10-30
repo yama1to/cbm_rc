@@ -54,11 +54,10 @@ class Config():
         self.n_k    =   np.array([[2,1]])
         #np.array([[1,1],[1,2]])
 
-
         # Results
         self.RMSE1=None
         self.RMSE2=None
-        self.C = None 
+        self.Capacity = None 
 
 
 
@@ -155,7 +154,7 @@ def execute(c):
     
 
     ### generate data
-    U,D = datasets(n_k=c.n_k,T = c.MM,name="Legendre",seed=c.seed)
+    U,D = datasets(n_k=c.n_k,T = c.MM,name="Legendre",dist="normal",seed=c.seed)
 
 
     generate_weight_matrix()

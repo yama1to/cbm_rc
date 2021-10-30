@@ -42,12 +42,15 @@ def polynomial(n=2,name="Legendre"):
 
 def datasets(n_k=np.array([[1,1],
                          [1,2]])
-                  ,T=1000,name="Legendre",seed=0):
+                  ,T=1000,name="Legendre",dist="normal",seed=0):
     max = np.max(n_k[:,1])
     T += max
     V,_ = n_k.shape
     np.random.seed(seed)
-    u = np.random.uniform(-1,1,(T,1))
+    if dist=="normal":
+        u=np.random.normal(-1,1,(T,1))
+    if dist=="uniform":
+        u = np.random.uniform(-1,1,(T,1))
     d = np.zeros((T,1))
 
     
