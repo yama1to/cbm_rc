@@ -77,7 +77,7 @@ def datasets(n_k=np.array([[1,1],
         d[l,0] = y
 
     u = u[:T-max]
-    d = d[:-max]
+    d = d[:T-max]
     d = d.reshape(-1,1)
     #print(u.shape,d.shape)
 

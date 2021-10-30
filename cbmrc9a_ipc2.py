@@ -52,7 +52,7 @@ class Config():
 
         self.lambda0 = 0.
 
-        self.n_k    =   np.array([[2,1]])
+        self.n_k    =   np.array([[2,10]])
         # Results
         self.Capacity = None
         self.cnt_overflow=None
@@ -237,10 +237,24 @@ def execute():
     c.seed = int(c.seed)
     np.random.seed(c.seed)    
     
+    _n_k=np.array([[2,20]])
+    c.Ny = _n_k[0,1]
 
-    ### generate data
-    #U,D = datasets(n_k=c.n_k,T = c.MM,name="Legendre",dist="uniform",seed=c.seed)
-    U,D = datasets(n_k=c.n_k,T = c.MM,name="Hermite",dist="normal",seed=c.seed)
+    
+    for i in range(_n_k[0,1]):
+        n_k=np.array([[2,i]])
+        if i==0:
+            #U,D = datasets(n_k=n_k,T = c.MM,name="Legendre",dist="uniform",seed=c.seed)
+            U,D = datasets(n_k=c.n_k,T = c.MM,name="Hermite",dist="normal",seed=c.seed)
+            #print(D.shape)
+        else:
+            #_,d = datasets(n_k=n_k,T = c.MM,name="Legendre",dist="uniform",seed=c.seed)
+            _,d = datasets(n_k=c.n_k,T = c.MM,name="Hermite",dist="normal",seed=c.seed)
+            #print(d.shape)
+            D = np.hstack((D,d))
+    print(D.shape)
+
+    #U,D = datasets(n_k=c.n_k,T = c.MM,name="Hermite",dist="normal",seed=c.seed)
 
 
     generate_weight_matrix()
@@ -261,21 +275,27 @@ def execute():
 
     ### evaluation
 
-    max = np.max(c.n_k[:,1])
+    
     Yp = fy(Yp[c.MM0:])
     Dp = fy(Dp[c.MM0:])
 
-    
-    r = np.corrcoef(Dp[max:,0],Yp[max:,0])[0,1]
-    CAPACITY = r**2
 
-    
+    CAPACITY = np.zeros(_n_k[0,1])
+    for i in range(_n_k[0,1]):
+        r = np.corrcoef(Dp[i:,i],Yp[i:,i])[0,1]
+        CAPACITY[i] = r**2
+    sumOfCapacity = np.sum(CAPACITY)
+
     SUM = np.sum((Yp-Dp)**2)
-    RMSE1 = np.sqrt(SUM/c.Ny/(c.MM-c.MM0-max))
-
-    #RMSE2 = 0
+    RMSE1 = np.sqrt(SUM/c.Ny/Dp.shape[0])
     print("RMSE=",RMSE1)
     print("IPC=",CAPACITY)
+    print("sum of IPC=",sumOfCapacity)
+
+
+
+    #RMSE2 = 0
+    
 
 ######################################################################################
      # Results
