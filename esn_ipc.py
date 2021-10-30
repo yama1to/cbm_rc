@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import copy
 import time
 from explorer import common
-from generate_data_sequence import *
+from generate_data_sequence_ipc import *
 from generate_matrix import *
 
 class Config():
@@ -29,7 +29,7 @@ class Config():
         # config
         self.dataset=6
         self.seed:int=2 # 乱数生成のためのシード
-        self.MM=500 # サイクル数
+        self.MM=1000 # サイクル数
         self.MM0 = 0 #
 
         self.Nu = 1   #size of input
@@ -38,18 +38,22 @@ class Config():
 
 
         #sigma_np = -5
-        self.alpha_i = 0.9
-        self.alpha_r = 0.9
+        self.alpha_i = 0.8
+        self.alpha_r = 0.95
         self.alpha_b = 0.
 
         self.alpha0 = 1#0.1
         self.alpha1 = 0#-5.8
 
-        self.beta_i = 0.01
-        self.beta_r = 0.01
+        self.beta_i = 0.8
+        self.beta_r = 0.05
         self.beta_b = 0.1
 
-        self.lambda0 = 0.1
+        self.lambda0 = 0
+
+        self.n_k    =   np.array([[2,1]])
+        #np.array([[1,1],[1,2]])
+
 
         # Results
         self.RMSE1=None
@@ -86,8 +90,6 @@ def run_network(mode):
         x= next_x
 
         
-
-
 def train_network():
     global Wo
 
@@ -122,7 +124,7 @@ def test_network():
 
 
 def plot1():
-    fig=plt.figure(figsize=(20, 12))
+    fig=plt.figure(figsize=(10, 6))
     Nr=3
     ax = fig.add_subplot(Nr,1,1)
     ax.cla()
@@ -142,59 +144,60 @@ def plot1():
     plt.legend()
     plt.show()
 
+
 def execute(c):
-    global D,Ds,Dp,U,Us,Up,Rs,R2s,MM,Yp
-    global RMSE1,RMSE2
+    global D,Ds,Dp,U,Us,Up,Rs,R2s,MM
+    global Yp,Dp
 
     c.Nh = int(c.Nh)
-
-    np.random.seed(seed = int(c.seed))    
-    generate_weight_matrix()
+    c.seed = int(c.seed)
+    np.random.seed(c.seed)    
+    
 
     ### generate data
-    U= np.random.uniform(0,1,(c.MM,1))
-    D = U[::-1,:]
-    MM1 = c.MM -100
-    MM2 = 100
+    U,D = datasets(n_k=c.n_k,T = c.MM,name="Legendre",seed=c.seed)
 
+
+    generate_weight_matrix()
     ### training
     #print("training...")
     
-    #Scale to (-1,1)
-    c.MM = MM1
-    Dp = D[:MM1]                # TARGET   #(MM,len(delay))   
-    Up = U[:MM1]                # INPUT    #(MM,1)
+    Dp = D[:]                # TARGET   #(MM,len(delay))   
+    Up = U[:]                # INPUT    #(MM,1)
 
     train_network()
     #print("...end") 
     
     ### test
     #print("test...")
-    c.MM = MM2
-    Dp = D[MM1:]                # TARGET   #(MM,len(delay))   
-    Up = U[MM1:]                # INPUT    #(MM,1)
+    Dp = D[:]                    # TARGET   #(MM,len(delay))   
+    Up = U[:]                    # INPUT    #(MM,1)
     test_network()                  #OUTPUT = Yp
 
+    ### evaluation
+
+    max = np.max(c.n_k[:,1])
+    Yp = Yp[max:]
+    Dp = Dp[max:]
 
     
-    ### evaluation
-    z2t = np.sum(Dp**2)/MM2 
-    sum=0
-    for j in range(c.MM):
-        sum += (Yp[j] - Dp[j])**2
-    SUM=np.sum(sum)/c.MM
-    C = 1- SUM/z2t
+    r = np.corrcoef(Dp[max:,0],Yp[max:,0])[0,1]
+    CAPACITY = r**2
+
+    
+    SUM = np.sum((Yp-Dp)**2)
     RMSE1 = np.sqrt(SUM/c.Ny/(c.MM-c.MM0))
-    RMSE2 = 0
+
+    #RMSE2 = 0
+    print("RMSE=",RMSE1)
+    print("IPC=",CAPACITY)
 
 ######################################################################################
      # Results
-    c.RMSE1=RMSE1
-    c.RMSE2=RMSE2
-    c.C = C
+
+    c.CAPACITY = CAPACITY
 #####################################################################################
-    print(RMSE1)
-    print(C)
+
     if c.plot:
         plot1()
 
