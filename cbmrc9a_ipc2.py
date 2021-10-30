@@ -245,14 +245,14 @@ def execute():
         n_k=np.array([[2,i]])
         if i==0:
             #U,D = datasets(n_k=n_k,T = c.MM,name="Legendre",dist="uniform",seed=c.seed)
-            U,D = datasets(n_k=c.n_k,T = c.MM,name="Hermite",dist="normal",seed=c.seed)
+            U,D = datasets(n_k=n_k,T = c.MM,name="Hermite",dist="normal",seed=c.seed)
             #print(D.shape)
         else:
             #_,d = datasets(n_k=n_k,T = c.MM,name="Legendre",dist="uniform",seed=c.seed)
-            _,d = datasets(n_k=c.n_k,T = c.MM,name="Hermite",dist="normal",seed=c.seed)
+            _,d = datasets(n_k=n_k,T = c.MM,name="Hermite",dist="normal",seed=c.seed)
             #print(d.shape)
             D = np.hstack((D,d))
-    print(D.shape)
+    #print(D.shape)
 
     #U,D = datasets(n_k=c.n_k,T = c.MM,name="Hermite",dist="normal",seed=c.seed)
 
