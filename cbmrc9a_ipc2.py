@@ -149,13 +149,14 @@ def run_network(mode):
         any_hs_change = np.any(hs!=hs_prev)
 
         # record
-        Rs[n]=rs
-        Hx[n]=hx
-        Hs[n]=hs
-        Yx[n]=yx
-        Ys[n]=ys
-        Us[n]=us
-        Ds[n]=ds
+        if c.plot:
+            Rs[n]=rs
+            Hx[n]=hx
+            Hs[n]=hs
+            Yx[n]=yx
+            Ys[n]=ys
+            Us[n]=us
+            Ds[n]=ds
 
     # オーバーフローを検出する。
     global cnt_overflow
@@ -325,6 +326,6 @@ if __name__ == "__main__":
     a = ap.parse_args()
 
     c=Config()
-    if a.config: c=common.load_config(c)
+    if a.config: c=common.load_config(a)
     execute()
     if a.config: common.save_config(c)
