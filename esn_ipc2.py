@@ -52,6 +52,7 @@ class Config():
         self.lambda0 = 0
 
         self.n_k    =   np.array([[2,1]])
+        self.set = 3    #0,1,2,3
         #np.array([[1,1],[1,2]])
 
         # Results
@@ -165,12 +166,12 @@ def execute(c):
     delay = 20
 
     global name ,dist 
-    idx = 1
+
     name_list = ["Legendre","Hermite","Chebyshev","Laguerre"]
     dist_list = ["uniform","normal","arcsine","exponential"]
 
-    dist = dist_list[idx]
-    name = name_list[idx]
+    dist = dist_list[c.set]
+    name = name_list[c.set]
 
     for i in range(delay):
         n_k=np.array([[2,i]])
@@ -230,7 +231,7 @@ def execute(c):
 #####################################################################################
 
     if c.plot: 
-        plot1()
+        #plot1()
         plot2()
 
 if __name__ == "__main__":

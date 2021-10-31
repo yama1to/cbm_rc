@@ -53,6 +53,7 @@ class Config():
         self.lambda0 = 0.
 
         self.n_k    =   np.array([[2,10]])
+        self.set = 0    #0,1,2,3
         # Results
         self.Capacity = None
         self.cnt_overflow=None
@@ -240,12 +241,11 @@ def execute():
     
 
     ### generate data
-    idx = 0
     name_list = ["Legendre","Hermite","Chebyshev","Laguerre"]
     dist_list = ["uniform","normal","arcsine","exponential"]
-    dist = dist_list[idx]
-    name = name_list[idx]
-    #U,D = datasets(n_k=c.n_k,T = c.MM,name="Legendre",dist="uniform",seed=c.seed)
+    dist = dist_list[c.set]
+    name = name_list[c.set]
+    
     U,D = datasets(n_k=c.n_k,T = c.MM,name=name,dist=dist,seed=c.seed)
 
 

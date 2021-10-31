@@ -30,7 +30,7 @@ class Config():
         self.dataset=1
         self.seed:int=0 # 乱数生成のためのシード
         self.NN=256 # １サイクルあたりの時間ステップ
-        self.MM=500 # サイクル数
+        self.MM=2000 # サイクル数
         self.MM0 = 200 #
 
         self.Nu = 1   #size of input
@@ -53,6 +53,8 @@ class Config():
         self.lambda0 = 0.
 
         self.n_k    =   np.array([[2,10]])
+        self.set = 3    #0,1,2,3
+
         # Results
         self.Capacity = None
         self.cnt_overflow=None
@@ -248,11 +250,11 @@ def execute():
     delay = 20
     c.Ny = delay
 
-    idx = 1
+    
     name_list = ["Legendre","Hermite","Chebyshev","Laguerre"]
     dist_list = ["uniform","normal","arcsine","exponential"]
-    dist = dist_list[idx]
-    name = name_list[idx]
+    dist = dist_list[c.set]
+    name = name_list[c.set]
 
     for i in range(delay):
         n_k=np.array([[2,i]])
