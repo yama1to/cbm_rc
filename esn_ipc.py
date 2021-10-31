@@ -151,10 +151,11 @@ def execute(c):
     c.seed = int(c.seed)
     np.random.seed(c.seed)    
     
+    idx = 0
     name_list = ["Legendre","Hermite","Chebyshev","Laguerre"]
     dist_list = ["normal","uniform","arcsine","exponential"]
-    dist = dist_list[0]
-    name = name_list[0]
+    dist = dist_list[idx]
+    name = name_list[idx]
     ### generate data
     #U,D = datasets(n_k=c.n_k,T = c.MM,name="Legendre",dist="uniform",seed=c.seed)
     U,D = datasets(n_k=c.n_k,T = c.MM,name=name,dist=dist,seed=c.seed)

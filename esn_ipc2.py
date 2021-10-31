@@ -163,10 +163,11 @@ def execute(c):
 
     delay=20
     #dist = "uniform"
+    idx = 0
     name_list = ["Legendre","Hermite","Chebyshev","Laguerre"]
     dist_list = ["normal","uniform","arcsine","exponential"]
-    dist = dist_list[0]
-    name = name_list[0]
+    dist = dist_list[idx]
+    name = name_list[idx]
     #name = "Legendre"
 
 

@@ -244,14 +244,15 @@ def execute():
     c.seed = int(c.seed)
     np.random.seed(c.seed)    
     
-    delay=20
+    delay = 20
     c.Ny = delay
 
-
+    idx = 0
     name_list = ["Legendre","Hermite","Chebyshev","Laguerre"]
     dist_list = ["normal","uniform","arcsine","exponential"]
-    dist = dist_list[0]
-    name = name_list[0]
+    dist = dist_list[idx]
+    name = name_list[idx]
+
     for i in range(delay):
         n_k=np.array([[2,i]])
         if i==0:
