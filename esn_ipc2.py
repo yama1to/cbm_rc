@@ -33,7 +33,7 @@ class Config():
         self.MM0 = 200 #
 
         self.Nu = 1   #size of input
-        self.Nh:int = 300#815 #size of dynamical reservior
+        self.Nh:int = 100#815 #size of dynamical reservior
         self.Ny = 1   #size of output
 
 
@@ -142,33 +142,46 @@ def plot1():
     plt.legend()
     plt.show()
 
+def plot2():
+    plt.plot(c.CAPACITY)
+    plt.xlabel("delay k")
+    plt.ylabel("capacity")
+    plt.title("units=%d,data = %d,trainsient=%d, sum of capacity=%.2lf" % (c.Nh,c.MM,c.MM0,sumOfCapacity))
+    plt.ylim([-0.1,1.1])
+    plt.show()
 
 def execute(c):
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM
-    global Yp,Dp
+    global Yp,Dp,sumOfCapacity
     t_start=time.time()
     #if c.seed>=0:
     c.Nh = int(c.Nh)
     c.seed = int(c.seed)
     np.random.seed(c.seed)    
-    
-    _n_k=np.array([[2,20]])
-    c.Ny = _n_k[0,1]
 
-    
-    for i in range(_n_k[0,1]):
+    c.Ny = 20
+
+    delay=20
+    #dist = "uniform"
+    dist = "normal"
+    name = "Hermite"
+    #name = "Legendre"
+
+
+    for i in range(delay):
         n_k=np.array([[2,i]])
         if i==0:
-            U,D = datasets(n_k=n_k,T = c.MM,name="Legendre",dist="uniform",seed=c.seed)
+            U,D = datasets(n_k=n_k,T = c.MM,name=name,dist=dist,seed=c.seed)
             #print(D.shape)
         else:
-            _,d = datasets(n_k=n_k,T = c.MM,name="Legendre",dist="uniform",seed=c.seed)
+            _,d = datasets(n_k=n_k,T = c.MM,name=name,dist=dist,seed=c.seed)
             #print(d.shape)
             D = np.hstack((D,d))
-    print(D.shape)
-
-    #U,D = datasets(n_k=c.n_k,T = c.MM,name="Hermite",dist="normal",seed=c.seed)
-
+    #plt.plot(U)
+    # for i in range(D.shape[1]):
+    #     plt.plot(D[i],label = str(i))
+    # plt.legend()
+    # plt.show()
 
     generate_weight_matrix()
     ### training
@@ -192,9 +205,9 @@ def execute(c):
     Yp = fy(Yp[c.MM0:])
     Dp = fy(Dp[c.MM0:])
 
+    CAPACITY = np.zeros(delay)
 
-    CAPACITY = np.zeros(_n_k[0,1])
-    for i in range(_n_k[0,1]):
+    for i in range(delay):
         r = np.corrcoef(Dp[i:,i],Yp[i:,i])[0,1]
         CAPACITY[i] = r**2
     sumOfCapacity = np.sum(CAPACITY)
@@ -206,17 +219,15 @@ def execute(c):
     print("sum of IPC=",sumOfCapacity)
 
 
-
-    #RMSE2 = 0
-    
-
 ######################################################################################
      # Results
 
     c.CAPACITY = CAPACITY
 #####################################################################################
 
-    if c.plot: plot1()
+    if c.plot: 
+        plot1()
+        plot2()
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
