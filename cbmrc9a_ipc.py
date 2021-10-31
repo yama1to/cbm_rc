@@ -241,7 +241,7 @@ def execute():
     ### generate data
     idx = 0
     name_list = ["Legendre","Hermite","Chebyshev","Laguerre"]
-    dist_list = ["normal","uniform","arcsine","exponential"]
+    dist_list = ["uniform","normal","arcsine","exponential"]
     dist = dist_list[idx]
     name = name_list[idx]
     #U,D = datasets(n_k=c.n_k,T = c.MM,name="Legendre",dist="uniform",seed=c.seed)

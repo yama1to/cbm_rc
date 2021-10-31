@@ -249,7 +249,7 @@ def execute():
 
     idx = 0
     name_list = ["Legendre","Hermite","Chebyshev","Laguerre"]
-    dist_list = ["normal","uniform","arcsine","exponential"]
+    dist_list = ["uniform","normal","arcsine","exponential"]
     dist = dist_list[idx]
     name = name_list[idx]
 
