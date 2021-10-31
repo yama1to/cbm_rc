@@ -248,8 +248,10 @@ def execute():
     c.Ny = delay
 
 
-    dist = "uniform"
-    name = "Hermite"
+    name_list = ["Legendre","Hermite","Chebyshev","Laguerre"]
+    dist_list = ["normal","uniform","arcsine","exponential"]
+    dist = dist_list[0]
+    name = name_list[0]
     for i in range(delay):
         n_k=np.array([[2,i]])
         if i==0:
