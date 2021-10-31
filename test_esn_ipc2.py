@@ -24,7 +24,7 @@ common.prefix  = "data%s_esn_ipc2" % common.string_now() # 実験名（ファイ
 common.dir_path= "data/data%s_esn_ipc2" % common.string_now() # 実験データを出力するディレクトリのパス
 common.exe     = "python esn_ipc2.py " # 実行されるプログラム
 common.columns=['dataset','seed','id','Nh','alpha_i','alpha_r','alpha0','beta_i','beta_r',
-'lambda0',"delay","Capacity"]
+'lambda0',"set","Capacity"]
 common.parallel= 32
 common.setup()
 common.report_common()
