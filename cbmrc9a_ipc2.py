@@ -231,7 +231,7 @@ def plot2():
     plt.plot(c.CAPACITY)
     plt.xlabel("delay k")
     plt.ylabel("capacity")
-    plt.title("units=%d,data = %d,trainsient=%d, sum of capacity=%.2lf \n poly = %s,dist = %s " \
+    plt.title("CBM: units=%d,data = %d,trainsient=%d, sum of capacity=%.2lf \n poly = %s,dist = %s " \
         % (c.Nh,c.MM,c.MM0,sumOfCapacity,name,dist))
     plt.ylim([-0.1,1.1])
     plt.show()
