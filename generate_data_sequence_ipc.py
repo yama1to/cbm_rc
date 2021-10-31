@@ -59,7 +59,7 @@ def datasets(n_k=np.array([[1,1],
     np.random.seed(seed)
 
     if dist=="normal":
-        u=np.random.normal(size=(T,1))
+        u = np.random.normal(size=(T,1))
     if dist=="uniform":
         u = np.random.uniform(-1,1,(T,1))
     if dist=="arcsine":

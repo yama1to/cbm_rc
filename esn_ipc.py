@@ -51,7 +51,7 @@ class Config():
 
         self.lambda0 = 0
 
-        self.n_k    =   np.array([[2,1]])
+        self.n_k    =   np.array([[2,10]])
         #np.array([[1,1],[1,2]])
 
         # Results
@@ -145,7 +145,7 @@ def plot1():
 
 def execute(c):
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM
-    global Yp,Dp
+    global Yp,Dp,CAPACITY,name ,dist 
 
     c.Nh = int(c.Nh)
     c.seed = int(c.seed)
@@ -179,8 +179,8 @@ def execute(c):
     ### evaluation
 
     max = np.max(c.n_k[:,1])
-    Yp = fy(Yp[max+c.MM0:])
-    Dp = fy(Dp[max+c.MM0:])
+    Yp = fy(Yp[c.MM0:])
+    Dp = fy(Dp[c.MM0:])
 
     
     r = np.corrcoef(Dp[max:,0],Yp[max:,0])[0,1]

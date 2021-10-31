@@ -146,7 +146,8 @@ def plot2():
     plt.plot(c.CAPACITY)
     plt.xlabel("delay k")
     plt.ylabel("capacity")
-    plt.title("units=%d,data = %d,trainsient=%d, sum of capacity=%.2lf" % (c.Nh,c.MM,c.MM0,sumOfCapacity))
+    plt.title("units=%d,data = %d,trainsient=%d, sum of capacity=%.2lf \n poly = %s,dist = %s " \
+        % (c.Nh,c.MM,c.MM0,sumOfCapacity,name,dist))
     plt.ylim([-0.1,1.1])
     plt.show()
 
@@ -162,7 +163,9 @@ def execute(c):
     c.Ny = 20
 
     delay = 20
-    idx = 0
+
+    global name ,dist 
+    idx = 1
     name_list = ["Legendre","Hermite","Chebyshev","Laguerre"]
     dist_list = ["uniform","normal","arcsine","exponential"]
     dist = dist_list[idx]

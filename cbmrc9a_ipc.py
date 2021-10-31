@@ -30,11 +30,11 @@ class Config():
         self.dataset=1
         self.seed:int=0 # 乱数生成のためのシード
         self.NN=256 # １サイクルあたりの時間ステップ
-        self.MM=500 # サイクル数
+        self.MM=1200 # サイクル数
         self.MM0 = 200 #
 
         self.Nu = 1   #size of input
-        self.Nh = 300 #size of dynamical reservior
+        self.Nh = 100 #size of dynamical reservior
         self.Ny = 1   #size of output
 
         self.Temp=1.0
@@ -52,7 +52,7 @@ class Config():
 
         self.lambda0 = 0.
 
-        self.n_k    =   np.array([[2,1]])
+        self.n_k    =   np.array([[2,10]])
         # Results
         self.Capacity = None
         self.cnt_overflow=None
@@ -228,9 +228,10 @@ def plot1():
     plt.show()
     #plt.savefig(c.fig1)
 
+
 def execute():
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM
-    global Yp,Dp
+    global Yp,Dp,CAPACITY,sumOfCapacity, name ,dist 
     t_start=time.time()
     #if c.seed>=0:
     c.Nh = int(c.Nh)
