@@ -14,7 +14,7 @@ def polynomial(n=2,name="Legendre"):
 
     return function
     """
-    assert 0<=n<=2,"Just n gets 0,1 or 2."
+    assert 0<=n<=2,"n takes 0,1 or 2. n takes 0,1 or 2. n takes 0,1 or 2. n takes 0,1 or 2. n takes 0,1 or 2. n takes 0,1 or 2."
     if n==0:
         return lambda x:1
     if name=="Legendre":
@@ -47,7 +47,12 @@ def datasets(n_k=np.array([[1,1],
                   dist="normal",
                   #dist="exponential",
                   seed=0):
-
+    """
+    dist =     ["normal",
+                "uniform",
+                "arcsine",
+                "exponential"]
+    """
     max = np.max(n_k[:,1])
     T += max
     V,_ = n_k.shape
