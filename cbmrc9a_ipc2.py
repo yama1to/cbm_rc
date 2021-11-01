@@ -313,6 +313,7 @@ def execute():
      # Results
 
     c.CAPACITY = sumOfCAPACITY
+    c.cnt_overflow = cnt_overflow
 #####################################################################################
 
     if c.plot: 

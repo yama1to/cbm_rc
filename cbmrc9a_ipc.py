@@ -287,6 +287,7 @@ def execute():
      # Results
 
     c.CAPACITY = CAPACITY
+    c.cnt_overflow = cnt_overflow
 #####################################################################################
 
     if c.plot: plot1()
