@@ -91,10 +91,9 @@ def gridsearch(X1,min=0,max=1,num=41,samples=10):
 
 def gs2():
     ns=3
-    gridsearch("Nh",min=20,max=300,num=41,samples=ns)
+    gridsearch("Nh",min=50,max=300,num=41,samples=ns)
+    gridsearch("alpha_i",min=0.01,max=1,num=41,samples=ns)
+    gridsearch("alpha_r",min=0,max=1,num=41,samples=ns)
     gridsearch("beta_i",min=0.01,max=1,num=41,samples=ns)
     gridsearch("beta_r",min=0.01,max=1,num=41,samples=ns)
-    gridsearch("alpha_r",min=0.1,max=1,num=41,samples=ns)
-    gridsearch("alpha_i",min=0.1,max=1,num=41,samples=ns)
-    #gridsearch("delay",min=5,max=100,num=41,samples=ns)
 gs2()

@@ -54,9 +54,9 @@ def optimize():
     #opt.append("Nh",value=500,min=300,max=1000,round=1)
     opt.append("beta_r",value=0.01,min=0.01,max=1,round=2)
     opt.append("beta_i",value=0.01,min=0.01,max=1,round=2)
-    opt.append("alpha_i",value=1,min=0.01,max=10,round=2)
-    opt.append("alpha_r",value=1,min=0.01,max=1,round=2)
-    opt.append("alpha_s",value=10,min=1,max=10,round=2)
+    opt.append("alpha_i",value=1,min=0.01,max=1,round=2)
+    opt.append("alpha_r",value=1,min=0.,max=1,round=2)
+    opt.append("alpha_s",value=1,min=1,max=2,round=2)
     #opt.append("Temp",value=10,min=1,max=10,round=2)
     opt.maximize(target="CAPACITY",iteration=20,population=20,samples=3)
     #opt.minimize(TARGET=func,iteration=5,population=10,samples=4)
@@ -100,12 +100,12 @@ def gridsearch(X1,min=0,max=1,num=41,samples=10):
 
 def gs2():
     ns=3
-    gridsearch("Nh",min=50,max=700,num=41,samples=ns)
-    gridsearch("alpha_r",min=0.1,max=10,num=41,samples=ns)
-    gridsearch("alpha_i",min=0.01,max=100,num=41,samples=ns)
-    gridsearch("alpha_s",min=0.01,max=100,num=41,samples=ns)
+    gridsearch("Nh",min=50,max=300,num=41,samples=ns)
+
+    gridsearch("alpha_i",min=0.01,max=1,num=41,samples=ns)
+    gridsearch("alpha_r",min=0,max=1,num=41,samples=ns)
+    gridsearch("alpha_s",min=0.01,max=1,num=41,samples=ns)
     gridsearch("beta_i",min=0.01,max=1,num=41,samples=ns)
     gridsearch("beta_r",min=0.01,max=1,num=41,samples=ns)
-    gridsearch("Temp",min=0.01,max=100,num=41,samples=ns)
-    
+    gridsearch("Temp",min=1,max=10,num=41,samples=ns)
 gs2()
