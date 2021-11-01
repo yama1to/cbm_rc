@@ -56,7 +56,7 @@ class Config():
         self.set = 3    #0,1,2,3
 
         # Results
-        self.Capacity = None
+        self.CAPACITY = None
         self.cnt_overflow=None
 
 def generate_weight_matrix():
@@ -235,13 +235,13 @@ def plot2():
     plt.xlabel("delay k")
     plt.ylabel("capacity")
     plt.title("CBM: units=%d,data = %d,trainsient=%d, sum of capacity=%.2lf \n poly = %s,dist = %s " \
-        % (c.Nh,c.MM,c.MM0,sumOfCapacity,name,dist))
+        % (c.Nh,c.MM,c.MM0,sumOfCAPACITY,name,dist))
     plt.ylim([-0.1,1.1])
     plt.show()
 
 def execute():
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM
-    global Yp,Dp,CAPACITY,sumOfCapacity, name ,dist 
+    global Yp,Dp,CAPACITY,sumOfCAPACITY, name ,dist 
     t_start=time.time()
     #if c.seed>=0:
     c.Nh = int(c.Nh)
@@ -299,20 +299,20 @@ def execute():
     for i in range(delay):
         r = np.corrcoef(Dp[i:,i],Yp[i:,i])[0,1]
         CAPACITY[i] = r**2
-    sumOfCapacity = np.sum(CAPACITY)
+    sumOfCAPACITY = np.sum(CAPACITY)
 
     SUM = np.sum((Yp-Dp)**2)
     RMSE1 = np.sqrt(SUM/c.Ny/Dp.shape[0])
     print("RMSE=",RMSE1)
     print("IPC=",CAPACITY)
-    print("sum of IPC=",sumOfCapacity)
+    print("sum of IPC=",sumOfCAPACITY)
 
 
 
 ######################################################################################
      # Results
 
-    c.CAPACITY = CAPACITY
+    c.CAPACITY = sumOfCAPACITY
 #####################################################################################
 
     if c.plot: 
