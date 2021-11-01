@@ -230,7 +230,7 @@ def plot1():
     #plt.savefig(c.fig1)
 
 
-def execute():
+def execute(c):
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM
     global Yp,Dp,CAPACITY,sumOfCapacity, name ,dist 
     t_start=time.time()
@@ -280,6 +280,7 @@ def execute():
     RMSE1 = np.sqrt(SUM/c.Ny/(c.MM-c.MM0-max))
 
     #RMSE2 = 0
+    print("-------------"+name+","+dist+"-------------")
     print("RMSE=",RMSE1)
     print("IPC=",CAPACITY)
 
@@ -298,6 +299,12 @@ if __name__ == "__main__":
     a = ap.parse_args()
 
     c=Config()
-    if a.config: c=common.load_config(c)
-    execute()
+    if a.config: c=common.load_config(a)
+    for i in range(4):
+        c.set = i
+        c.plot = 0
+        execute(c)
     if a.config: common.save_config(c)
+    # if a.config: c=common.load_config(c)
+    # execute()
+    # if a.config: common.save_config(c)

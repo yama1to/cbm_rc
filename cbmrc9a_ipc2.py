@@ -30,11 +30,11 @@ class Config():
         self.dataset=1
         self.seed:int=0 # 乱数生成のためのシード
         self.NN=256 # １サイクルあたりの時間ステップ
-        self.MM=2000 # サイクル数
+        self.MM=250 # サイクル数
         self.MM0 = 200 #
 
         self.Nu = 1   #size of input
-        self.Nh = 100 #size of dynamical reservior
+        self.Nh = 50 #size of dynamical reservior
         self.Ny = 1   #size of output
 
         self.Temp=1.0
@@ -239,7 +239,7 @@ def plot2():
     plt.ylim([-0.1,1.1])
     plt.show()
 
-def execute():
+def execute(c):
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM
     global Yp,Dp,CAPACITY,sumOfCAPACITY, name ,dist 
     t_start=time.time()
@@ -327,6 +327,8 @@ if __name__ == "__main__":
     a = ap.parse_args()
 
     c=Config()
+    
+
     if a.config: c=common.load_config(a)
-    execute()
+    execute(c)
     if a.config: common.save_config(c)

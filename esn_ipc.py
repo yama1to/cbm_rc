@@ -29,11 +29,11 @@ class Config():
         # config
         self.dataset=6
         self.seed:int=2 # 乱数生成のためのシード
-        self.MM=500 # サイクル数
+        self.MM=250 # サイクル数
         self.MM0 = 200 #
 
         self.Nu = 1   #size of input
-        self.Nh:int = 300#815 #size of dynamical reservior
+        self.Nh:int = 50#815 #size of dynamical reservior
         self.Ny = 1   #size of output
 
 
@@ -51,8 +51,8 @@ class Config():
 
         self.lambda0 = 0
 
-        self.n_k    =   np.array([[2,10]])
-        self.set = 1    #0,1,2,3
+        self.n_k    =   np.array([[1,1],[1,2]])
+        self.set = 0    #0,1,2,3
         #np.array([[1,1],[1,2]])
 
         # Results
@@ -192,6 +192,7 @@ def execute(c):
     RMSE1 = np.sqrt(SUM/c.Ny/(c.MM-c.MM0))
 
     #RMSE2 = 0
+    print("-------------"+name+","+dist+"-------------")
     print("RMSE=",RMSE1)
     print("IPC=",CAPACITY)
 
@@ -212,5 +213,12 @@ if __name__ == "__main__":
 
     c=Config()
     if a.config: c=common.load_config(a)
-    execute(c)
+    for i in range(4):
+        c.set = i
+        c.plot = 0
+        execute(c)
     if a.config: common.save_config(c)
+
+    # if a.config: c=common.load_config(a)
+    # execute(c)
+    # if a.config: common.save_config(c)
