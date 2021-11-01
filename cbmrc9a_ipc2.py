@@ -57,6 +57,7 @@ class Config():
 
         # Results
         self.CAPACITY = None
+        self.sumOfCAPACITY = None
         self.cnt_overflow=None
 
 def generate_weight_matrix():
@@ -312,7 +313,8 @@ def execute(c):
 ######################################################################################
      # Results
 
-    c.CAPACITY = sumOfCAPACITY
+    c.CAPACITY = CAPACITY
+    c.sumOfCAPACITY = sumOfCAPACITY
     c.cnt_overflow = cnt_overflow
 #####################################################################################
 
