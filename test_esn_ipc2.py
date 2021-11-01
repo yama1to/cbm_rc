@@ -24,7 +24,7 @@ common.prefix  = "data%s_esn_ipc2" % common.string_now() # 実験名（ファイ
 common.dir_path= "data/data%s_esn_ipc2" % common.string_now() # 実験データを出力するディレクトリのパス
 common.exe     = "python esn_ipc2.py " # 実行されるプログラム
 common.columns=['dataset','seed','id','Nh','alpha_i','alpha_r','alpha0','beta_i','beta_r',
-'lambda0',"set","Capacity"]
+'lambda0',"set","CAPACITY"]
 common.parallel= 32
 common.setup()
 common.report_common()
@@ -37,7 +37,7 @@ def rs1():
     rs.append("alpha_i",min=0,max=5)
     rs.random(num=60,samples=2)
     df = common.load_dataframe() # 直前に保存されたcsvファイルをデータフレーム(df)に読み込む
-    df = df[['alpha_r','alpha_i','cnt_overflow','Capacity']] # 指定した列のみでデータフレームを構成する
+    df = df[['alpha_r','alpha_i','cnt_overflow','CAPACITY']] # 指定した列のみでデータフレームを構成する
     #df = df[(df['y1']<=10.0)] # 条件を満たすデータについてデータフレームを構成する。
     #print(df)
     scatter_matrix(df, alpha=0.8, figsize=(6, 6), diagonal='kde')
@@ -58,7 +58,7 @@ def optimize():
     opt.append("alpha_i",value=1,min=0.01,max=1,round=2)
     opt.append("alpha_r",value=0.75,min=0.,max=1.,round=2)
     #opt.append("alpha0",value=0.75,min=0,max=1,round=2)
-    opt.maximize(target="Capacity",iteration=20,population=20,samples=3)
+    opt.maximize(target="CAPACITY",iteration=20,population=20,samples=3)
     #opt.minimize(TARGET=func,iteration=5,population=10,samples=4)
     common.config = opt.best_config # 最適化で得られた設定を基本設定とする
 optimize()
@@ -81,9 +81,9 @@ def gridsearch(X1,min=0,max=1,num=41,samples=10):
     cmap = plt.get_cmap("tab10")
     plt.figure(figsize=(6,8))
 
-    x,ymean,ystd,ymin,ymax = vs.analyze(df,X1,"Capacity")
-    plot1(x,ymean,ystd,ymin,ymax,color=cmap(1),label="Capacity")
-    plt.ylabel("Capacity")
+    x,ymean,ystd,ymin,ymax = vs.analyze(df,X1,"CAPACITY")
+    plot1(x,ymean,ystd,ymin,ymax,color=cmap(1),label="CAPACITY")
+    plt.ylabel("CAPACITY")
     plt.grid(linestyle="dotted")
 
     plt.xlabel(X1)

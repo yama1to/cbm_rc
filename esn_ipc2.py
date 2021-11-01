@@ -57,7 +57,7 @@ class Config():
 
         # Results
 
-        self.Capacity = None 
+        self.CAPACITY = None 
 
 
 
@@ -148,13 +148,13 @@ def plot2():
     plt.xlabel("delay k")
     plt.ylabel("capacity")
     plt.title("esn: units=%d,data = %d,trainsient=%d, sum of capacity=%.2lf \n poly = %s,dist = %s " \
-        % (c.Nh,c.MM,c.MM0,sumOfCapacity,name,dist))
+        % (c.Nh,c.MM,c.MM0,sumOfCAPACITY,name,dist))
     plt.ylim([-0.1,1.1])
     plt.show()
 
 def execute(c):
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM
-    global Yp,Dp,sumOfCapacity
+    global Yp,Dp,sumOfCAPACITY
     t_start=time.time()
     #if c.seed>=0:
     c.Nh = int(c.Nh)
@@ -215,13 +215,13 @@ def execute(c):
     for i in range(delay):
         r = np.corrcoef(Dp[i:,i],Yp[i:,i])[0,1]
         CAPACITY[i] = r**2
-    sumOfCapacity = np.sum(CAPACITY)
+    sumOfCAPACITY = np.sum(CAPACITY)
 
     SUM = np.sum((Yp-Dp)**2)
     RMSE1 = np.sqrt(SUM/c.Ny/Dp.shape[0])
     print("RMSE=",RMSE1)
     print("IPC=",CAPACITY)
-    print("sum of IPC=",sumOfCapacity)
+    print("sum of IPC=",sumOfCAPACITY)
 
 
 ######################################################################################

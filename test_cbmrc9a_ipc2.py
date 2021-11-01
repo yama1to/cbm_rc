@@ -23,7 +23,7 @@ common.prefix  = "data%s_cbmrc9a_ipc2" % common.string_now() # 実験名（フ�
 common.dir_path= "data/data%s_cbmrc9a_ipc2" % common.string_now() # 実験データを出力するディレクトリのパス
 common.exe     = "python cbmrc9a_ipc2.py " # 実行されるプログラム
 common.columns=['dataset','seed','id','NN','Nh','alpha_i','alpha_r','alpha_b','alpha_s','beta_i','beta_r','beta_b',
-'Temp','lambda0',"n_k","set",'cnt_overflow','Capacity']
+'Temp','lambda0',"n_k","set",'cnt_overflow','CAPACITY']
 common.parallel= 32
 common.setup()
 common.report_common()
@@ -36,7 +36,7 @@ def rs1():
     rs.append("alpha_i",min=0,max=5)
     rs.random(num=60,samples=2)
     df = common.load_dataframe() # 直前に保存されたcsvファイルをデータフレーム(df)に読み込む
-    df = df[['alpha_r','alpha_i','cnt_overflow','Capacity']] # 指定した列のみでデータフレームを構成する
+    df = df[['alpha_r','alpha_i','cnt_overflow','CAPACITY']] # 指定した列のみでデータフレームを構成する
     #df = df[(df['y1']<=10.0)] # 条件を満たすデータについてデータフレームを構成する。
     #print(df)
     scatter_matrix(df, alpha=0.8, figsize=(6, 6), diagonal='kde')
@@ -58,7 +58,7 @@ def optimize():
     opt.append("alpha_r",value=1,min=0.01,max=1,round=2)
     opt.append("alpha_s",value=10,min=1,max=10,round=2)
     #opt.append("Temp",value=10,min=1,max=10,round=2)
-    opt.maximize(target="Capacity",iteration=20,population=20,samples=3)
+    opt.maximize(target="CAPACITY",iteration=20,population=20,samples=3)
     #opt.minimize(TARGET=func,iteration=5,population=10,samples=4)
     common.config = opt.best_config # 最適化で得られた設定を基本設定とする
 optimize()
@@ -82,9 +82,9 @@ def gridsearch(X1,min=0,max=1,num=41,samples=10):
     plt.figure(figsize=(6,8))
 
     plt.subplot(2,1,1)
-    x,ymean,ystd,ymin,ymax = vs.analyze(df,X1,"Capacity")
-    plot1(x,ymean,ystd,ymin,ymax,color=cmap(1),label="Capacity")
-    plt.ylabel("Capacity")
+    x,ymean,ystd,ymin,ymax = vs.analyze(df,X1,"CAPACITY")
+    plot1(x,ymean,ystd,ymin,ymax,color=cmap(1),label="CAPACITY")
+    plt.ylabel("CAPACITY")
     plt.grid(linestyle="dotted")
 
     plt.subplot(2,1,2)
