@@ -29,8 +29,8 @@ class Config():
         # config
         self.dataset=6
         self.seed:int=2 # 乱数生成のためのシード
-        self.MM=2000 # サイクル数
-        self.MM0 = 200 #
+        self.MM=5000 # サイクル数
+        self.MM0 = 4000 #
 
         self.Nu = 1   #size of input
         self.Nh:int = 100#815 #size of dynamical reservior
@@ -58,6 +58,7 @@ class Config():
         # Results
 
         self.CAPACITY = None 
+        self.sumOfCAPACITY = None 
 
 
 
@@ -226,8 +227,8 @@ def execute(c):
 
 ######################################################################################
      # Results
-
-    c.CAPACITY = sumOfCAPACITY
+    c.CAPACITY = CAPACITY
+    c.sumOfCAPACITY = sumOfCAPACITY
 #####################################################################################
 
     if c.plot: 
