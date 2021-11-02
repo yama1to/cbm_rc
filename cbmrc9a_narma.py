@@ -11,6 +11,7 @@ Configクラスによるパラメータ設定
 
 import argparse
 import numpy as np
+from numpy.core.fromnumeric import size
 import scipy.linalg
 import matplotlib.pyplot as plt
 import copy
@@ -36,24 +37,24 @@ class Config():
         self.dataset=1
         self.seed:int=0 # 乱数生成のためのシード
         self.NN=256 # １サイクルあたりの時間ステップ
-        self.MM=500 # サイクル数
+        self.MM=300 # サイクル数
         self.MM0 = 0 #
 
         self.Nu = 1   #size of input
-        self.Nh = 300 #size of dynamical reservior
+        self.Nh = 2200 #size of dynamical reservior
         self.Ny = 1   #size of output
 
-        self.Temp=1.0
+        self.Temp=1
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 7.67
+        self.alpha_i = 0.8
         self.alpha_r = 0.78
         self.alpha_b = 0.
-        self.alpha_s = 6.21
+        self.alpha_s = 0.7
 
         self.beta_i = 0.88
-        self.beta_r = 0.05
+        self.beta_r = 0.08
         self.beta_b = 0.1
 
         self.lambda0 = 0.0001
@@ -249,9 +250,9 @@ def plot2():
 
     ax = fig.add_subplot(Nr,1,2)
     ax.cla()
-    ax.set_title("error")
+    ax.set_title("error",size=10)
     ax.plot(abs(Yp-Dp))
-
+    plt.xlabel("time")
 
     plt.show()
 
@@ -304,7 +305,9 @@ def execute():
         gc.collect()
     test_network()
 
-    
+    global Yp 
+    Yp = fy(Yp)
+    Dp = fy(Dp)
 
     RMSE,NRMSE,NMSE = calc(Yp,Dp)
     #print(1/np.var(Dp))
