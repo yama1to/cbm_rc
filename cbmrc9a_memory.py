@@ -32,21 +32,21 @@ class Config():
         self.dataset=6
         self.seed:int=2 # 乱数生成のためのシード
         self.NN=256 # １サイクルあたりの時間ステップ
-        self.MM=300 # サイクル数
-        self.MM0 = 0 #
+        self.MM=2000 # サイクル数
+        self.MM0 = 100 #
 
         self.Nu = 1         #size of input
-        self.Nh:int = 200   #815 #size of dynamical reservior
+        self.Nh:int = 100   #815 #size of dynamical reservior
         self.Ny = 20        #size of output
 
-        self.Temp=1
+        self.Temp=5
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 5
-        self.alpha_r = 1
+        self.alpha_i = 1
+        self.alpha_r = 0.7
         self.alpha_b = 0.
-        self.alpha_s = 7
+        self.alpha_s = 2
 
         self.alpha0 = 0#0.1
         self.alpha1 = 0#-5.8
@@ -57,6 +57,11 @@ class Config():
 
         self.lambda0 = 0.
         self.delay = 20
+        
+        self.dist = "normal"
+        #self.dist = "uniform"
+        self.ave = 0
+        self.std = 0.1
 
         # ResultsX
         self.RMSE1=None
@@ -123,6 +128,7 @@ def run_network(mode):
         theta = np.mod(n/c.NN,1) # (0,1)
         rs_prev = rs
         hs_prev = hs.copy()
+        hx_prev = hx
 
         rs = p2s(theta,0)# 参照クロック
         us = p2s(theta,Up[m]) # エンコードされた入力
@@ -141,7 +147,7 @@ def run_network(mode):
         #    sum += Wb@ds
 
         hsign = 1 - 2*hs
-        hx = hx + hsign*(1.0+np.exp(hsign*sum/c.Temp))*c.dt
+        hx = hx + hsign*(1+np.exp(hsign*sum/c.Temp))*c.dt
         hs = np.heaviside(hx+hs-1,0)
         hx = np.fmin(np.fmax(hx,0),1)
 
@@ -273,7 +279,7 @@ def plot_MC():
     if 1:
         fname = "./MC_fig_dir/MC:alphai={0},r={1},s={2},betai={3},r={4}.png".format(c.alpha_i,c.alpha_r,c.alpha_s,c.beta_i,c.beta_r)
         plt.savefig(fname)
-    #plt.show()
+    plt.show()
 
 def execute(c):
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM,Yp
@@ -291,7 +297,7 @@ def execute(c):
 
     ### generate data
     
-    U,D = generate_white_noise(delay_s=c.delay,T=c.MM+200)
+    U,D = generate_white_noise(delay_s=c.delay,T=c.MM+200,dist = c.dist,ave = c.ave,std = c.std)
     U=U[200:]
     D=D[200:]
     ### training
