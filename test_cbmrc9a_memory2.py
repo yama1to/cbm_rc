@@ -52,14 +52,15 @@ def optimize():
     opt.appendid()#id:必ず加える
     opt.appendseed()# 乱数のシード（０から始まる整数値）
     opt.append("beta_r",value=0.01,min=0.01,max=1,round=2)
-    opt.append("beta_i",value=0.9,min=0.9,max=0.9,round=2)
-    opt.append("alpha_i",value=1,min=0.1,max=1,round=2)
-    opt.append("alpha_r",value=0.9,min=0.1,max=1,round=2)
+    opt.append("beta_i",value=0.01,min=0.01,max=1,round=2)
+    opt.append("alpha_i",value=1,min=0.01,max=1,round=2)
+    opt.append("alpha_r",value=1,min=0.,max=1,round=2)
     opt.append("alpha_s",value=1,min=0,max=2,round=2)
-    #opt.append("Temp",value=10,min=1,max=10,round=2)
-    opt.maximize(target="MC",iteration=10,population=10,samples=3)
+    #opt.append("alpha0",value=1,min=0,max=1,round=2)
+    opt.append("Temp",value=10,min=1,max=10,round=2)
+    opt.maximize(target="MC",iteration=20,population=20,samples=3)
     common.config = opt.best_config # 最適化で得られた設定を基本設定とする
-#optimize()
+optimize()
 
 def plot1(x,y,ystd,ymin,ymax,color=None,width=1,label=None):
     # エラーバーをつけてグラフを描画、平均、標準偏差、最大値、最小値をプロットする。

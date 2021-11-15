@@ -14,6 +14,7 @@ import time
 from explorer import common
 from generate_data_sequence import *
 from generate_matrix import *
+from tqdm import tqdm
 
 class Config():
     def __init__(self):
@@ -21,7 +22,7 @@ class Config():
         self.columns = None # 結果をCSVに保存する際のコラム
         self.csv = None # 結果を保存するファイル
         self.id  = None
-        self.plot = True # 図の出力のオンオフ
+        self.plot = 0 # 図の出力のオンオフ
         self.show = False # 図の表示（plt.show()）のオンオフ、explorerは実行時にこれをオフにする。
         self.savefig = False
         self.fig1 = "fig1.png" ### 画像ファイル名
@@ -29,28 +30,28 @@ class Config():
         # config
         self.dataset=6
         self.seed:int=2 # 乱数生成のためのシード
-        self.NN=256 # １サイクルあたりの時間ステップ
-        self.MM=500 # サイクル数
+        self.NN=2**16 # １サイクルあたりの時間ステップ
+        self.MM=200 # サイクル数
         self.MM0 = 200 #
 
         self.Nu = 1         #size of input
-        self.Nh:int = 50   #815 #size of dynamical reservior
+        self.Nh:int = 10   #815 #size of dynamical reservior
         self.Ny = 20        #size of output
 
-        self.Temp=1
+        self.Temp=5.92
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 0.7
-        self.alpha_r = 0.1
+        self.alpha_i = 0.94
+        self.alpha_r = 0.97
         self.alpha_b = 0.
-        self.alpha_s = 0.8
+        self.alpha_s = 1.2
 
         self.alpha0 = 0#0.1
         self.alpha1 = 0#-5.8
 
-        self.beta_i = 0.9
-        self.beta_r = 0.05
+        self.beta_i = 0.85
+        self.beta_r = 0.98
         self.beta_b = 0.1
 
         self.lambda0 = 0.
@@ -89,9 +90,18 @@ def p2s(theta,p):
 
 def run_network(mode):
     global Hx, Hs, Hp, Y, Yx, Ys, Yp, Y, Us, Ds,Rs
+    Yp = np.zeros((c.MM, c.Ny))
     Hp = np.zeros((c.MM, c.Nh))
-    Hx = np.zeros((c.MM*c.NN, c.Nh))
-    Hs = np.zeros((c.MM*c.NN, c.Nh))
+    if c.plot:
+        Hx = np.zeros((c.MM*c.NN, c.Nh))
+        Hs = np.zeros((c.MM*c.NN, c.Nh))
+       
+        Yx = np.zeros((c.MM*c.NN, c.Ny))
+        Ys = np.zeros((c.MM*c.NN, c.Ny))
+        
+        Us = np.zeros((c.MM*c.NN, c.Nu))
+        Ds = np.zeros((c.MM*c.NN, c.Ny))
+        Rs = np.zeros((c.MM*c.NN, 1))
     hsign = np.zeros(c.Nh)
     #hx = np.zeros(c.Nh)
     hx = np.random.uniform(0,1,c.Nh) # [0,1]の連続値
@@ -101,27 +111,24 @@ def run_network(mode):
     hp = np.zeros(c.Nh) # [-1,1]の連続値
     ht = np.zeros(c.Nh) # {0,1}
 
-    Yp = np.zeros((c.MM, c.Ny))
-    Yx = np.zeros((c.MM*c.NN, c.Ny))
-    Ys = np.zeros((c.MM*c.NN, c.Ny))
+        
     #ysign = np.zeros(Ny)
     yp = np.zeros(c.Ny)
     yx = np.zeros(c.Ny)
     ys = np.zeros(c.Ny)
     #yc = np.zeros(Ny)
 
-    Us = np.zeros((c.MM*c.NN, c.Nu))
-    Ds = np.zeros((c.MM*c.NN, c.Ny))
-    Rs = np.zeros((c.MM*c.NN, 1))
+    
 
     rs = 1
     rs_prev = 0
     any_hs_change = True
     m=0
-    for n in range(c.NN * c.MM):
+    for n in tqdm(range(c.NN * c.MM)):
         theta = np.mod(n/c.NN,1) # (0,1)
         rs_prev = rs
         hs_prev = hs.copy()
+        hx_prev = hx
 
         rs = p2s(theta,0)# 参照クロック
         us = p2s(theta,Up[m]) # エンコードされた入力

@@ -29,11 +29,11 @@ class Config():
         # config
         self.dataset=6
         self.seed:int=2 # 乱数生成のためのシード
-        self.MM=500 # サイクル数
+        self.MM=2200 # サイクル数
         self.MM0 = 200 #
 
         self.Nu = 1   #size of input
-        self.Nh:int = 300#815 #size of dynamical reservior
+        self.Nh:int = 100#815 #size of dynamical reservior
         self.Ny = 20   #size of output
 
 
@@ -45,7 +45,7 @@ class Config():
         self.alpha0 = 1#0.1
         self.alpha1 = 0#-5.8
 
-        self.beta_i = 0.01
+        self.beta_i = 0.9
         self.beta_r = 0.84
         self.beta_b = 0.1
 
@@ -89,6 +89,7 @@ def run_network(mode):
 
         #Hp[n+1,:] = x + 1.0/tau * (-alpha0 * x + fx(Wi@u + Wr@x))
         next_x = (1 - c.alpha0) * x + c.alpha0*fy(Wi@u + Wr@x)
+        next_x = np.round(next_x,8)
         Hp[n,:] = next_x
         x= next_x
 
@@ -152,7 +153,8 @@ def plot_MC():
     plt.ylim([0,1.1])
     plt.xlim([0,c.delay])
     plt.title('MC ~ %3.2lf,Nh = %d' % (MC,c.Nh), x=0.8, y=0.7)
-    plt.savefig(common.string_now())
+    #plt.savefig(common.string_now())
+    plt.show()
 
 def execute(c):
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM,Yp
@@ -190,8 +192,8 @@ def execute(c):
     #Up = U[c.MM0:]
 
     test_network()                  #OUTPUT = Yp
-    Dp = D[c.MM0:]
-    Yp = Yp[c.MM0:]
+    Dp = fy(Dp[c.MM0:])
+    Yp = fy(Yp[c.MM0:])
     #print("...end")
 
     DC = np.zeros((c.delay, 1))  # 決定係数
@@ -239,7 +241,7 @@ def execute(c):
     
     
     
-    #print("MC =",c.MC)
+    print("MC =",c.MC)
 
 #####################################################################################
     if c.plot:
