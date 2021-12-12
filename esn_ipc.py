@@ -29,7 +29,7 @@ class Config():
         # config
         self.dataset=6
         self.seed:int=2 # 乱数生成のためのシード
-        self.MM=250 # サイクル数
+        self.MM=1000 # サイクル数
         self.MM0 = 200 #
 
         self.Nu = 1   #size of input
@@ -52,7 +52,7 @@ class Config():
         self.lambda0 = 0
 
         self.n_k    =   np.array([[1,1],[1,2]])
-        self.set = 0    #0,1,2,3
+        self.set = 1    #0,1,2,3
         #np.array([[1,1],[1,2]])
 
         # Results

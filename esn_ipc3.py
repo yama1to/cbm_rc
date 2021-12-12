@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import copy
 import time
 from explorer import common
-from generate_data_sequence_ipc import *
+from generate_data_sequence_ipc2 import *
 from generate_matrix import *
 
 class Config():
@@ -22,7 +22,7 @@ class Config():
         self.csv = None # 結果を保存するファイル
         self.id  = None
         self.plot = True # 図の出力のオンオフ
-        self.show = False # 図の表示（plt.show()）のオンオフ、explorerは実行時にこれをオフにする。
+        self.show = 1 # 図の表示（plt.show()）のオンオフ、explorerは実行時にこれをオフにする。
         self.savefig = False
         self.fig1 = "fig1.png" ### 画像ファイル名
 
@@ -33,12 +33,12 @@ class Config():
         self.MM0 = 100 #
 
         self.Nu = 1   #size of input
-        self.Nh:int = 400#815 #size of dynamical reservior
+        self.Nh:int = 100#815 #size of dynamical reservior
         self.Ny = 1   #size of output
 
 
         #sigma_np = -5
-        self.alpha_i = 0.7
+        self.alpha_i = 1
         self.alpha_r = 0.95
         self.alpha_b = 0.
 
@@ -51,13 +51,12 @@ class Config():
 
         self.lambda0 = 0
 
-        self.n_k    =   np.array([[1,10]])
-        self.set = 1    #0,1,2,3
-        #np.array([[1,1],[1,2]])
-
+        self.delay = 10
+        self.degree = 10
+        self.set = 0    #0,1,2,3
         # Results
-
-        self.CAPACITY = None 
+        self.CAPACITY = None
+        self.per = None 
         self.sumOfCAPACITY = None 
 
 
@@ -76,7 +75,7 @@ def run_network(mode):
     global Hp
     
     Hp = np.zeros((c.MM, c.Nh))
-    #x = np.random.uniform(-1, 1, Nh)/ 10**4
+    #x = np.random.uniform(-1, 1, c.Nh)
     x = np.zeros(c.Nh)
     
 
@@ -164,9 +163,7 @@ def execute(c):
     c.seed = int(c.seed)
     np.random.seed(c.seed)    
 
-    c.Ny = 20
-
-    delay = 20
+    c.Ny = c.delay
 
     global name ,dist 
 
@@ -175,20 +172,12 @@ def execute(c):
 
     dist = dist_list[c.set]
     name = name_list[c.set]
-    n_k=c.n_k
-    for i in range(delay):
-        n_k[0,1] =i
-        if i==0:
-            U,D = datasets(n_k=n_k,T = c.MM,name=name,dist=dist,seed=c.seed)
-            #print(D.shape)
-        else:
-            _,d = datasets(n_k=n_k,T = c.MM,name=name,dist=dist,seed=c.seed)
-            #print(d.shape)
-            D = np.hstack((D,d))
-    #plt.plot(U)
-    # for i in range(D.shape[1]):
-    #     plt.plot(D[i],label = str(i))
-    # plt.legend()
+    U,D = datasets(k=c.delay,n=c.degree,T = c.MM,name=name,dist=dist,seed=c.seed)
+
+    # max = np.max(np.max(abs(D)))
+    # D /= max*1.01
+    # plt.plot(D)
+    # plt.plot(U)
     # plt.show()
 
     generate_weight_matrix()
@@ -196,7 +185,7 @@ def execute(c):
     #print("training...")
     
     Dp = D[:]                # TARGET   #(MM,len(delay))   
-    Up = U[:]                # INPUT    #(MM,1)
+    Up = U[:]              # INPUT    #(MM,1)
 
     train_network()
     #print("...end") 
@@ -208,35 +197,33 @@ def execute(c):
     test_network()                  #OUTPUT = Yp
 
     ### evaluation
-    
-    
+
     Yp = fy(Yp[c.MM0:])
     Dp = fy(Dp[c.MM0:])
+    CAPACITY = 0
 
-    CAPACITY = np.zeros(delay)
+    for i in range(c.delay):
+        r = np.corrcoef(Dp[c.delay:,i],Yp[c.delay:,i])[0,1]
+        #print(r**2)
+        CAPACITY += r**2
 
-    for i in range(delay):
-        r = np.corrcoef(Dp[i:,i],Yp[i:,i])[0,1]
-        CAPACITY[i] = r**2
-    sumOfCAPACITY = np.sum(CAPACITY)
-
+    ep = 1.7*10**(-4)
+    CAPACITY = np.heaviside(CAPACITY-ep,1) * CAPACITY
+    
     SUM = np.sum((Yp-Dp)**2)
-    RMSE1 = np.sqrt(SUM/c.Ny/Dp.shape[0])
-    print("-------------"+name+","+dist+"-------------")
-    #print("RMSE=",RMSE1)
-    print("IPC=",CAPACITY)
-    print("sum of IPC=",sumOfCAPACITY)
+    RMSE1 = np.sqrt(SUM/c.Ny/(c.MM-c.MM0-c.delay))
 
+    #RMSE2 = 0
+    print("-------------"+name+","+dist+",degree = "+str(c.degree)+"-------------")
+    print("RMSE=",RMSE1)
+    print("IPC=",CAPACITY)
 
 ######################################################################################
-     # Results
+     # Results8
     c.CAPACITY = CAPACITY
-    c.sumOfCAPACITY = sumOfCAPACITY
 #####################################################################################
-
-    if c.plot: 
-        #plot1()
-        plot2()
+    #plot1()
+    if c.plot: plot1()
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
@@ -245,12 +232,24 @@ if __name__ == "__main__":
 
     c=Config()
     if a.config: c=common.load_config(a)
-    for i in range(4):
-        c.set = i
-        c.plot = 1
-        execute(c)
-        plt.clf()
+    degree  = c.degree
+
+    c.per = []
+    for j in range(1,1+10):
+        c.alpha_i = j/10
+        prev = 0
+        
+        for i in range(1,degree+1):
+            c.plot = 0
+            c.degree = i
+            execute(c)
+            if j==1:
+                plt.bar([c.alpha_i],[c.CAPACITY],bottom=prev,width=0.1,label=str(i))
+            else:
+                plt.bar([c.alpha_i],[c.CAPACITY],bottom=prev,width=0.1)
+            prev+=c.CAPACITY
+            c.per.append([[c.alpha_i],[c.CAPACITY]])
+    plt.legend()
+    plt.show()
+     
     if a.config: common.save_config(c)
-    # if a.config: c=common.load_config(c)
-    # execute()
-    # if a.config: common.save_config(c)

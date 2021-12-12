@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import scipy.stats as st
 from scipy.special import factorial
 
+
 def Legendre(x,degree):
     P = 1
     for n in range(1,1+degree):
@@ -54,71 +55,67 @@ def polynomial(name,x,degree):
     elif name == "Laguerre":
         return Laguerre(x,degree)
 
-
-def datasets(n_k=np.array([[1,1],
-                         [1,2]]),
+def datasets(k=2,n = 2,
                   T=1000,
                   name="Legendre",
-                  dist="normal",
+                  dist="uniform",
                   #dist="exponential",
-                  seed=0):
+                  seed=0,
+                  new=0):
     """
-    dist =     ["normal",
-                "uniform",
-                "arcsine",
-                "exponential"]
+    k:遅延長
+    n:多項式の次数
+    name:使用する多項式
+    dist:入力の分布
+    seed:乱数のシード値
     """
-    max = np.max(n_k[:,1])
-    T += max
-    V,_ = n_k.shape
+    if not new:
+        u = np.load("./ipc3_dir/input"+str(n)+".npy")
+        d = np.load("./ipc3_dir/target"+str(n)+".npy")
+        return u,d
     np.random.seed(seed)
 
     if dist=="normal":
         u = np.random.normal(size=(T,1))
-    if dist=="uniform":
+    elif dist=="uniform":
         u = np.random.uniform(-1,1,(T,1))
-    if dist=="arcsine":
+    elif dist=="arcsine":
         u = st.arcsine.rvs(size=(T,1))
-    if dist=="exponential":
+    elif dist=="exponential":
         u = st.expon.rvs(size=(T,1))
-    # plt.hist(u,bins = np.arange(-1,1,0.01))
-    # plt.show()
-    #u = u.reshape(T,1)
-    d = np.zeros((T,1))
 
     
-    for l in range(T-max):
-        y = 1
-        for i in range(V):
-            [n,k] = n_k[i]
-            y *= polynomial(name=name,x=u[l+k,0],degree=n)
+    delay = np.arange(k)  # 遅延長z 
+    d = np.empty((T, len(delay)))
+    
+    for t in range(T):
+        for k in range(len(delay)):
+            y = polynomial(name,u,n)
+            # if k>0:
+            #     y *=prev_y
+            d[t, k] = y[t-delay[k],0]  # 遅延系列
+            prev_y = y
 
-        d[l,0] = y
 
-    u = u[:T-max]
-    d = d[:T-max]
-    d = d.reshape(-1,1)
-    #print(u.shape,d.shape)
-
+    if new:
+        np.save("./ipc3_dir/input"+str(n)+".npy",arr=u)
+        np.save("./ipc3_dir/target"+str(n)+".npy",arr=d)
     return u,d
-    plt.plot(u)
-    plt.plot(d)
-    plt.show()
+
+
 
 
 
 if __name__=="__main__":
-    # func = polynomial(n=2,name="Hermite")
-    # a = func(3)
-    # print(a)
-    # data = np.random.uniform(0,1,(100000,1))
-    # d = func(data)
+    for i in range(10+1):
+        u,d = datasets(k=20,n = i,
+                    T=1000, 
+                    name="Legendre",
+                    dist="uniform",
+                    #dist="exponential",
+                    seed=0,
+                    new=1)
 
-    # #plt.plot(d)
-    # plt.hist(d,bins=np.arange(-10,10,0.1))
+    # plt.plot(d[:,:])
     # plt.show()
-
-    u,d= datasets()
-    #print(u,d)
-    plt.plot(d)
-    plt.show()
+    # print(u.shape,d.shape)

@@ -30,11 +30,11 @@ class Config():
         self.dataset=1
         self.seed:int=0 # 乱数生成のためのシード
         self.NN=256 # １サイクルあたりの時間ステップ
-        self.MM=1200 # サイクル数
-        self.MM0 = 200 #
+        self.MM=1000 # サイクル数
+        self.MM0 = 100 #
 
         self.Nu = 1   #size of input
-        self.Nh = 100 #size of dynamical reservior
+        self.Nh = 400 #size of dynamical reservior
         self.Ny = 1   #size of output
 
         self.Temp=1.0

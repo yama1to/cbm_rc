@@ -12,8 +12,9 @@ import matplotlib.pyplot as plt
 import copy
 import time
 from explorer import common
-from generate_data_sequence_ipc import *
+from generate_data_sequence_ipc2 import *
 from generate_matrix import *
+from tqdm import tqdm
 
 class Config():
     def __init__(self):
@@ -29,13 +30,13 @@ class Config():
         # config
         self.dataset=1
         self.seed:int=0 # 乱数生成のためのシード
-        self.NN=256 # １サイクルあたりの時間ステップ
+        self.NN=2**3 # １サイクルあたりの時間ステップ
         self.MM=1000 # サイクル数
         self.MM0 = 100 #
 
         self.Nu = 1   #size of input
-        self.Nh = 400 #size of dynamical reservior
-        self.Ny = 1   #size of output
+        self.Nh = 50 #size of dynamical reservior
+        self.Ny = 20   #size of output
 
         self.Temp=1.0
         self.dt=1.0/self.NN #0.01
@@ -52,12 +53,12 @@ class Config():
 
         self.lambda0 = 0.
 
-        self.n_k    =   np.array([[1,10]])
+        self.delay = 10
+        self.degree = 10
         self.set = 1    #0,1,2,3
-
         # Results
-        self.CAPACITY = None
-        self.sumOfCAPACITY = None
+        self.MC = None
+        self.per = None 
         self.cnt_overflow=None
 
 def generate_weight_matrix():
@@ -82,8 +83,8 @@ def run_network(mode):
     Hx = np.zeros((c.MM*c.NN, c.Nh))
     Hs = np.zeros((c.MM*c.NN, c.Nh))
     hsign = np.zeros(c.Nh)
-    #hx = np.zeros(c.Nh)
-    hx = np.random.uniform(0,1,c.Nh) # [0,1]の連続値
+    hx = np.zeros(c.Nh)
+    #hx = np.random.uniform(0,1,c.Nh) # [0,1]の連続値
     hs = np.zeros(c.Nh) # {0,1}の２値
     hs_prev = np.zeros(c.Nh)
     hc = np.zeros(c.Nh) # ref.clockに対する位相差を求めるためのカウント
@@ -107,7 +108,7 @@ def run_network(mode):
     rs_prev = 0
     any_hs_change = True
     m=0
-    for n in range(c.NN * c.MM):
+    for n in tqdm(range(c.NN * c.MM)):
         theta = np.mod(n/c.NN,1) # (0,1)
         rs_prev = rs
         hs_prev = hs.copy()
@@ -150,14 +151,13 @@ def run_network(mode):
         any_hs_change = np.any(hs!=hs_prev)
 
         # record
-        if c.plot:
-            Rs[n]=rs
-            Hx[n]=hx
-            Hs[n]=hs
-            Yx[n]=yx
-            Ys[n]=ys
-            Us[n]=us
-            Ds[n]=ds
+        Rs[n]=rs
+        Hx[n]=hx
+        Hs[n]=hs
+        Yx[n]=yx
+        Ys[n]=ys
+        Us[n]=us
+        Ds[n]=ds
 
     # オーバーフローを検出する。
     global cnt_overflow
@@ -231,48 +231,31 @@ def plot1():
 
     plt.show()
     #plt.savefig(c.fig1)
-def plot2():
-    plt.plot(c.CAPACITY)
-    plt.xlabel("delay k")
-    plt.ylabel("capacity")
-    plt.title("CBM: units=%d,data = %d,trainsient=%d, sum of capacity=%.2lf \n poly = %s,dist = %s, degree = %d " \
-        % (c.Nh,c.MM,c.MM0,sumOfCAPACITY,name,dist,c.n_k[0,0]))
-    plt.ylim([-0.1,1.1])
-    #plt.show()
-    file_name = common.string_now()+"_"+name+"_"+dist+"_cbm"
-    plt.savefig("./ipc_fig_dir/"+file_name)
+
 
 def execute(c):
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM
-    global Yp,Dp,CAPACITY,sumOfCAPACITY, name ,dist 
+    global Yp,Dp,CAPACITY,sumOfCapacity, name ,dist 
     t_start=time.time()
     #if c.seed>=0:
     c.Nh = int(c.Nh)
     c.seed = int(c.seed)
+    c.Ny = c.delay
     np.random.seed(c.seed)    
     
-    delay = 20
-    c.Ny = delay
 
-    
+    ### generate data
     name_list = ["Legendre","Hermite","Chebyshev","Laguerre"]
     dist_list = ["uniform","normal","arcsine","exponential"]
     dist = dist_list[c.set]
     name = name_list[c.set]
-    n_k=c.n_k
-    for i in range(delay):
-        n_k[0,1] =i
-        if i==0:
-            U,D = datasets(n_k=n_k,T = c.MM,name=name,dist=dist,seed=c.seed)
-            #print(D.shape)
-        else:
-            _,d = datasets(n_k=n_k,T = c.MM,name=name,dist=dist,seed=c.seed)
-            #print(d.shape)
-            D = np.hstack((D,d))
-    #plt.plot(U)
-    # for i in range(D.shape[1]):
-    #     plt.plot(D[i],label = str(i))
-    # plt.legend()
+    
+    U,D = datasets(k=c.delay,n=c.degree,T = c.MM,name=name,dist=dist,seed=c.seed,new=1)
+
+    max = np.max(np.max(abs(D)))
+    D /= max*1.01
+    # plt.plot(D)
+    # plt.plot(U)
     # plt.show()
 
     generate_weight_matrix()
@@ -293,39 +276,34 @@ def execute(c):
 
     ### evaluation
 
-    
     Yp = fy(Yp[c.MM0:])
     Dp = fy(Dp[c.MM0:])
-
-
-    CAPACITY = np.zeros(delay)
-    for i in range(delay):
-        r = np.corrcoef(Dp[i:,i],Yp[i:,i])[0,1]
-        CAPACITY[i] = r**2
-    sumOfCAPACITY = np.sum(CAPACITY)
-
+    MC = 0
+    CAPACITY = []
+    for i in range(c.delay):
+        r = np.corrcoef(Dp[c.delay:,i],Yp[c.delay:,i])[0,1]
+        print(r**2)
+        CAPACITY.append(r**2)
+    MC = sum(CAPACITY)
+    ep = 1.7*10**(-4)
+    MC = np.heaviside(MC-ep,1)*MC
+    
     SUM = np.sum((Yp-Dp)**2)
-    RMSE1 = np.sqrt(SUM/c.Ny/Dp.shape[0])
+    RMSE1 = np.sqrt(SUM/c.Ny/(c.MM-c.MM0-c.delay))
 
-    print("-------------"+name+","+dist+"-------------")
-    #print("RMSE=",RMSE1)
-    print("IPC=",CAPACITY)
-    print("sum of IPC=",sumOfCAPACITY)
-
-
+    #RMSE2 = 0
+    print("-------------"+name+","+dist+",degree = "+str(c.degree)+"-------------")
+    print("RMSE=",RMSE1)
+    print("IPC=",MC)
 
 ######################################################################################
-     # Results
+     # Results8
 
-    c.CAPACITY = CAPACITY
-    c.sumOfCAPACITY = sumOfCAPACITY
+    c.MC = MC
     c.cnt_overflow = cnt_overflow
 #####################################################################################
-
-    if c.plot: 
-        #plot1()
-        plot2()
-
+    plt.plot(CAPACITY)
+    if c.plot: plot1()
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
@@ -334,11 +312,23 @@ if __name__ == "__main__":
 
     c=Config()
     if a.config: c=common.load_config(a)
-    for i in range(4):
-        c.set = i
-        c.plot = 1
-        execute(c)
-        plt.clf()
+    degree  = c.degree
+
+    c.per = []
+    for j in range(1):
+        #c.alpha_i = j/10
+        #prev = 0
+        
+        for i in range(1,degree+1):
+            c.plot = 0
+            c.degree = i
+            execute(c)
+
+            # plt.bar([c.alpha_i],[c.CAPACITY],bottom=prev,width=0.1,label=str(i+1))
+            # prev+=c.CAPACITY
+            # c.per.append([[c.alpha_i],[c.CAPACITY]])
+    plt.show()
+     
     if a.config: common.save_config(c)
     # if a.config: c=common.load_config(c)
     # execute()
