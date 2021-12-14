@@ -45,14 +45,14 @@ class Config():
         self.alpha0 = 1#0.1
         self.alpha1 = 0#-5.8
 
-        self.beta_i = 0.9
-        self.beta_r = 0.34
+        self.beta_i = 0.1
+        self.beta_r = 0.9
         self.beta_b = 0.1
 
         self.lambda0 = 0
 
         self.delay = 20
-        self.degree = 5
+        self.degree = 10
         self.set = 0    #0,1,2,3
         # Results
         self.CAPACITY = None
@@ -214,10 +214,9 @@ def execute(c):
     RMSE1 = np.sqrt(SUM/c.Ny/(c.MM-c.MM0-c.delay))
 
     #RMSE2 = 0
-    if c.plot:
-        print("-------------"+name+","+dist+",degree = "+str(c.degree)+"-------------")
-        print("RMSE=",RMSE1)
-        print("IPC=",MC)
+    print("-------------"+name+","+dist+",degree = "+str(c.degree)+"-------------")
+    print("RMSE=",RMSE1)
+    print("IPC=",MC)
 
 ######################################################################################
      # Results8
@@ -240,7 +239,25 @@ if __name__ == "__main__":
 
     c=Config()
     if a.config: c=common.load_config(a)
-    execute(c)
+    degree  = c.degree
+
+    plt.title("legendre")
+    for i in range(1,degree+1):
+        c.plot = 0
+        c.degree = i
+        execute(c)
+        plt.plot(c.CAPACITY,label="degree = "+str(i))
+
+            # plt.bar([c.alpha_i],[c.CAPACITY],bottom=prev,width=0.1,label=str(i+1))
+            # prev+=c.CAPACITY
+            # c.per.append([[c.alpha_i],[c.CAPACITY]]
+    plt.ylabel("Capacity")
+    plt.xlabel("delay")
+    plt.ylim([-0.1,1.1])
+    plt.xlim([-0.1,20.1])
+    plt.legend()
+    plt.show()
+     
     if a.config: common.save_config(c)
     # if a.config: c=common.load_config(c)
     # execute()

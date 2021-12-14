@@ -45,7 +45,7 @@ def Laguerre(x,degree):
     return P 
 
 def polynomial(name,x,degree):
-    if degree == 0:  return x
+    if degree == 1:  return x
     if name == "Legendre":
         return Legendre(x,degree)
     elif name == "Hermite":

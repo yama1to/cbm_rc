@@ -42,19 +42,19 @@ class Config():
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 0.27
-        self.alpha_r = 0.1
+        self.alpha_i = 0.08
+        self.alpha_r = 0.66
         self.alpha_b = 0.
-        self.alpha_s = 1.52
+        self.alpha_s = 1.43
 
-        self.beta_i = 0.66
-        self.beta_r = 0.68
+        self.beta_i = 0.74
+        self.beta_r = 0.74
         self.beta_b = 0.1
 
         self.lambda0 = 0.
 
         self.delay = 20
-        self.degree = 9
+        self.degree = 1
         self.set = 1    #0,1,2,3
         # Results
         self.MC = None
@@ -241,6 +241,7 @@ def execute(c):
     c.Nh = int(c.Nh)
     c.seed = int(c.seed)
     c.Ny = int(c.delay)
+    c.set = int(c.set)
     np.random.seed(c.seed)    
     
 
@@ -254,6 +255,7 @@ def execute(c):
 
     max = np.max(np.max(abs(D)))
     D /= max*1.01
+    U /= max*1.01
     # plt.plot(D)
     # plt.plot(U)
     # plt.show()
@@ -303,7 +305,8 @@ def execute(c):
     c.MC = MC
     c.cnt_overflow = cnt_overflow
 #####################################################################################
-    plt.plot(CAPACITY)
+    # plt.plot(CAPACITY)
+    # plt.show()
     if c.plot: plot1()
 
 if __name__ == "__main__":

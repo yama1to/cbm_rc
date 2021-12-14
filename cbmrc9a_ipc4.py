@@ -30,35 +30,35 @@ class Config():
         # config
         self.dataset=1
         self.seed:int=0 # 乱数生成のためのシード
-        self.NN=2**3 # １サイクルあたりの時間ステップ
+        self.NN=2**8 # １サイクルあたりの時間ステップ
         self.MM=1000 # サイクル数
         self.MM0 = 100 #
 
         self.Nu = 1   #size of input
-        self.Nh = 50 #size of dynamical reservior
+        self.Nh = 100 #size of dynamical reservior
         self.Ny = 20   #size of output
 
         self.Temp=1.0
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 0.8
-        self.alpha_r = 0.1
+        self.alpha_i = 0.08
+        self.alpha_r = 0.66
         self.alpha_b = 0.
-        self.alpha_s = 0.6
+        self.alpha_s = 1.43
 
-        self.beta_i = 0.1
-        self.beta_r = 0.1
+        self.beta_i = 0.74
+        self.beta_r = 0.74
         self.beta_b = 0.1
 
         self.lambda0 = 0.
 
-        self.delay = 10
+        self.delay = 20
         self.degree = 10
         self.set = 1    #0,1,2,3
         # Results
         self.MC = None
-        self.per = None 
+        self.CAPACITY = None 
         self.cnt_overflow=None
 
 def generate_weight_matrix():
@@ -254,6 +254,7 @@ def execute(c):
 
     max = np.max(np.max(abs(D)))
     D /= max*1.01
+    U /= max*1.01
     # plt.plot(D)
     # plt.plot(U)
     # plt.show()
@@ -300,9 +301,15 @@ def execute(c):
      # Results8
 
     c.MC = MC
+    c.CAPACITY = CAPACITY
     c.cnt_overflow = cnt_overflow
 #####################################################################################
-    plt.plot(CAPACITY)
+    # plt.plot(Yp)
+    # plt.show()
+    # plt.plot(Dp)
+    # plt.show()
+    # plt.plot(Up)
+    # plt.show()
     if c.plot: plot1()
 
 if __name__ == "__main__":
@@ -314,19 +321,21 @@ if __name__ == "__main__":
     if a.config: c=common.load_config(a)
     degree  = c.degree
 
-    c.per = []
-    for j in range(1):
-        #c.alpha_i = j/10
-        #prev = 0
-        
-        for i in range(1,degree+1):
-            c.plot = 0
-            c.degree = i
-            execute(c)
+    plt.title("legendre")
+    for i in range(1,degree+1):
+        c.plot = 0
+        c.degree = i
+        execute(c)
+        plt.plot(c.CAPACITY,label="degree = "+str(i))
 
             # plt.bar([c.alpha_i],[c.CAPACITY],bottom=prev,width=0.1,label=str(i+1))
             # prev+=c.CAPACITY
-            # c.per.append([[c.alpha_i],[c.CAPACITY]])
+            # c.per.append([[c.alpha_i],[c.CAPACITY]]
+    plt.ylabel("Capacity")
+    plt.xlabel("delay")
+    plt.ylim([-0.1,1.1])
+    plt.xlim([-0.1,20.1])
+    plt.legend()
     plt.show()
      
     if a.config: common.save_config(c)
