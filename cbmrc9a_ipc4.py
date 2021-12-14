@@ -42,20 +42,20 @@ class Config():
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 0.08
-        self.alpha_r = 0.66
+        self.alpha_i = 0.69
+        self.alpha_r = 0.79
         self.alpha_b = 0.
-        self.alpha_s = 1.43
+        self.alpha_s = 1.62
 
-        self.beta_i = 0.74
-        self.beta_r = 0.74
+        self.beta_i = 0.53
+        self.beta_r = 0.71
         self.beta_b = 0.1
 
         self.lambda0 = 0.
 
         self.delay = 20
         self.degree = 10
-        self.set = 1    #0,1,2,3
+        self.set = 0    #0,1,2,3
         # Results
         self.MC = None
         self.CAPACITY = None 
@@ -76,6 +76,7 @@ def fyi(h):
 
 def p2s(theta,p):
     return np.heaviside( np.sin(np.pi*(2*theta-p)),1)
+
 
 def run_network(mode):
     global Hx, Hs, Hp, Y, Yx, Ys, Yp, Y, Us, Ds,Rs
@@ -108,6 +109,7 @@ def run_network(mode):
     rs_prev = 0
     any_hs_change = True
     m=0
+    count =0
     for n in tqdm(range(c.NN * c.MM)):
         theta = np.mod(n/c.NN,1) # (0,1)
         rs_prev = rs
@@ -134,8 +136,9 @@ def run_network(mode):
         hs = np.heaviside(hx+hs-1,0)
         hx = np.fmin(np.fmax(hx,0),1)
 
-        if rs==1:
-            hc+=hs # デコードのためのカウンタ、ref.clockとhsのANDでカウントアップ
+        # if rs==1:
+        #     hc+=hs # デコードのためのカウンタ、ref.clockとhsのANDでカウントアップ
+        hc[(hs_prev == 1)& (hs==0)] = count 
 
         # ref.clockの立ち上がり
         if rs_prev==0 and rs==1:
@@ -147,17 +150,20 @@ def run_network(mode):
             Hp[m]=hp
             Yp[m]=yp
             m+=1
+            count = 0
 
         any_hs_change = np.any(hs!=hs_prev)
+        count += 1
 
+        if c.plot:
         # record
-        Rs[n]=rs
-        Hx[n]=hx
-        Hs[n]=hs
-        Yx[n]=yx
-        Ys[n]=ys
-        Us[n]=us
-        Ds[n]=ds
+            Rs[n]=rs
+            Hx[n]=hx
+            Hs[n]=hs
+            Yx[n]=yx
+            Ys[n]=ys
+            Us[n]=us
+            Ds[n]=ds
 
     # オーバーフローを検出する。
     global cnt_overflow
@@ -255,8 +261,8 @@ def execute(c):
     max = np.max(np.max(abs(D)))
     D /= max*1.01
     U /= max*1.01
-    # plt.plot(D)
-    # plt.plot(U)
+    # plt.plot(D[:,0])
+    #plt.plot(U)
     # plt.show()
 
     generate_weight_matrix()
@@ -321,7 +327,7 @@ if __name__ == "__main__":
     if a.config: c=common.load_config(a)
     degree  = c.degree
 
-    plt.title("legendre")
+    #plt.title("legendre")
     for i in range(1,degree+1):
         c.plot = 0
         c.degree = i
