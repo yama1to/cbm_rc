@@ -22,7 +22,7 @@ class Config():
         self.columns = None # 結果をCSVに保存する際のコラム
         self.csv = None # 結果を保存するファイル
         self.id  = None
-        self.plot = 0 # 図の出力のオンオフ
+        self.plot = 1 # 図の出力のオンオフ
         self.show = False # 図の表示（plt.show()）のオンオフ、explorerは実行時にこれをオフにする。
         self.savefig = False
         self.fig1 = "fig1.png" ### 画像ファイル名
@@ -30,28 +30,28 @@ class Config():
         # config
         self.dataset=6
         self.seed:int=2 # 乱数生成のためのシード
-        self.NN=2**16 # １サイクルあたりの時間ステップ
-        self.MM=200 # サイクル数
+        self.NN=2**8 # １サイクルあたりの時間ステップ
+        self.MM=1000 # サイクル数
         self.MM0 = 200 #
 
         self.Nu = 1         #size of input
-        self.Nh:int = 10   #815 #size of dynamical reservior
+        self.Nh:int = 100   #815 #size of dynamical reservior
         self.Ny = 20        #size of output
 
-        self.Temp=5.92
+        self.Temp=3.26
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 0.94
-        self.alpha_r = 0.97
+        self.alpha_i = 0.84
+        self.alpha_r = 0.16
         self.alpha_b = 0.
-        self.alpha_s = 1.2
+        self.alpha_s = 0.55
 
         self.alpha0 = 0#0.1
         self.alpha1 = 0#-5.8
 
-        self.beta_i = 0.85
-        self.beta_r = 0.98
+        self.beta_i = 0.92
+        self.beta_r = 0.1
         self.beta_b = 0.1
 
         self.lambda0 = 0.
@@ -88,47 +88,43 @@ def fyi(h):
 def p2s(theta,p):
     return np.heaviside( np.sin(np.pi*(2*theta-p)),1)
 
+
 def run_network(mode):
     global Hx, Hs, Hp, Y, Yx, Ys, Yp, Y, Us, Ds,Rs
-    Yp = np.zeros((c.MM, c.Ny))
     Hp = np.zeros((c.MM, c.Nh))
-    if c.plot:
-        Hx = np.zeros((c.MM*c.NN, c.Nh))
-        Hs = np.zeros((c.MM*c.NN, c.Nh))
-       
-        Yx = np.zeros((c.MM*c.NN, c.Ny))
-        Ys = np.zeros((c.MM*c.NN, c.Ny))
-        
-        Us = np.zeros((c.MM*c.NN, c.Nu))
-        Ds = np.zeros((c.MM*c.NN, c.Ny))
-        Rs = np.zeros((c.MM*c.NN, 1))
+    Hx = np.zeros((c.MM*c.NN, c.Nh))
+    Hs = np.zeros((c.MM*c.NN, c.Nh))
     hsign = np.zeros(c.Nh)
-    #hx = np.zeros(c.Nh)
-    hx = np.random.uniform(0,1,c.Nh) # [0,1]の連続値
+    hx = np.zeros(c.Nh)
+    #hx = np.random.uniform(0,1,c.Nh) # [0,1]の連続値
     hs = np.zeros(c.Nh) # {0,1}の２値
     hs_prev = np.zeros(c.Nh)
     hc = np.zeros(c.Nh) # ref.clockに対する位相差を求めるためのカウント
     hp = np.zeros(c.Nh) # [-1,1]の連続値
     ht = np.zeros(c.Nh) # {0,1}
 
-        
+    Yp = np.zeros((c.MM, c.Ny))
+    Yx = np.zeros((c.MM*c.NN, c.Ny))
+    Ys = np.zeros((c.MM*c.NN, c.Ny))
     #ysign = np.zeros(Ny)
     yp = np.zeros(c.Ny)
     yx = np.zeros(c.Ny)
     ys = np.zeros(c.Ny)
     #yc = np.zeros(Ny)
 
-    
+    Us = np.zeros((c.MM*c.NN, c.Nu))
+    Ds = np.zeros((c.MM*c.NN, c.Ny))
+    Rs = np.zeros((c.MM*c.NN, 1))
 
     rs = 1
     rs_prev = 0
     any_hs_change = True
     m=0
+    count =0
     for n in tqdm(range(c.NN * c.MM)):
         theta = np.mod(n/c.NN,1) # (0,1)
         rs_prev = rs
         hs_prev = hs.copy()
-        hx_prev = hx
 
         rs = p2s(theta,0)# 参照クロック
         us = p2s(theta,Up[m]) # エンコードされた入力
@@ -140,7 +136,7 @@ def run_network(mode):
         sum += c.alpha_s*(hs-rs)*ht # ref.clockと同期させるための結合
         sum += Wi@(2*us-1) # 外部入力
         sum += Wr@(2*hs-1) # リカレント結合
-        
+
         #if mode == 0:
         #    sum += Wb@ys
         #if mode == 1:  # teacher forcing
@@ -151,12 +147,13 @@ def run_network(mode):
         hs = np.heaviside(hx+hs-1,0)
         hx = np.fmin(np.fmax(hx,0),1)
 
-        if rs==1:
-            hc+=hs # デコードのためのカウンタ、ref.clockとhsのANDでカウントアップ
+        # if rs==1:
+        #     hc+=hs # デコードのためのカウンタ、ref.clockとhsのANDでカウントアップ
+        hc[(hs_prev == 1) & (hs==0)] = count 
 
         # ref.clockの立ち上がり
         if rs_prev==0 and rs==1:
-            hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
+            hp = 2*hc/c.NN-1    # デコード、カウンタの値を連続値に変換
             hc = np.zeros(c.Nh) #カウンタをリセット
             ht = 2*hs-1 #リファレンスクロック同期用ラッチ動作をコメントアウト
             yp = Wo@hp
@@ -164,11 +161,13 @@ def run_network(mode):
             Hp[m]=hp
             Yp[m]=yp
             m+=1
+            count = 0
 
         any_hs_change = np.any(hs!=hs_prev)
+        count += 1
 
         if c.plot:
-            # record
+        # record
             Rs[n]=rs
             Hx[n]=hx
             Hs[n]=hs
@@ -305,12 +304,15 @@ def execute(c):
     
     if c.dataset==6:
         T = c.MM
-        U,D = generate_white_noise(c.delay,T=T+200,)
+        #U,D = generate_white_noise(c.delay,T=T+200,)
+        U,D = generate_white_noise_quantize(c.delay,T=T+200,)
         U=U[200:]
         D=D[200:]
     ### training
     #print("training...")
-    
+    max = np.max(np.max(abs(D)))
+    D /= max*1.01
+    U /= max*1.01
     #Scale to (-1,1)
     Dp = D                # TARGET   #(MM,len(delay))   
     Up = U                # INPUT    #(MM,1)
@@ -374,8 +376,20 @@ def execute(c):
 
 #####################################################################################
     if c.plot:
+        fig=plt.figure(figsize=(12, 10))
+        ax = fig.add_subplot(2,1,1)
+        ax.cla()
+        ax.set_title("internal states")
+        ax.plot(Hx[50*256:100*256])
+        ax.set_xlabel("timestep")
+        ax = fig.add_subplot(2,1,2)
+        ax.cla()
+        ax.set_title("decoded internal states")
+        ax.plot(Hp[50:100])
+        ax.set_xlabel("time")
+        plt.show()
         #plot_delay()
-        plot_MC()
+        #plot_MC()
         #plot1()
 
 
