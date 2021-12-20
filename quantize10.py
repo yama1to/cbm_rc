@@ -49,7 +49,6 @@ def to10(value,fp,bits):
         if x:
             sum += 2**(x-1)
 
-    np.set_printoptions(precision = 32,suppress = True,floatmode = "fixed")
     for i in range(2+fp,len(value_st)):
         #print(value_st)
         
@@ -67,25 +66,28 @@ def to10(value,fp,bits):
     return float(txt)
 
 
-def quantize(value,fp=1,bits=8):
-    
+def quantize(value,fp=1,bits=10):
+    if value >=1 or value <= -1:
+        return 99999999999999
     value = to10(to2(value,fp,bits),fp,bits)
     return value
 
 
 if __name__=="__main__":
     #print(np.get_printoptions())
-    np.set_printoptions(precision = 32,suppress = True,floatmode = "fixed")
+    #np.set_printoptions(precision = 32,suppress = True,floatmode = "fixed")
     #print(np.get_printoptions())
     np.random.seed(seed=0)
-    b = np.random.uniform(0,1,50)/2# + 2**(-5)
+    b = np.random.uniform(-1,1,1000)*10# + 2**(-5)
+    #print(np.sum(abs(b)>=1))
     error = []
-    for i in range(50):
+    for i in range(1000):
         d = quantize(b[i],1,8)
         error.append(abs(d-b[i]))
     
     plt.title("error")
     plt.scatter(b,error)
+    plt.yscale("log")
     plt.show()
     # a = to2(b,1,8)
     # c = to10(a,1,8)
