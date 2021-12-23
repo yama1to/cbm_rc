@@ -132,7 +132,7 @@ def run_network(mode):
         hs = np.heaviside(hx+hs-1,0)
         hx = np.fmin(np.fmax(hx,0),1)
 
-        hc[(hs_prev==1) & (hs==0)] += count 
+        hc[(hs_prev==1) & (hs==0)] = count 
 
         # ref.clockの立ち上がり
         if rs_prev==0 and rs==1:
@@ -144,10 +144,10 @@ def run_network(mode):
             Hp[m]=hp
             Yp[m]=yp
             m+=1
-            count +=1
+            count = 0
 
         any_hs_change = np.any(hs!=hs_prev)
-        count = 0
+        count += 1
         # record
         Rs[n]=rs
         Hx[n]=hx
