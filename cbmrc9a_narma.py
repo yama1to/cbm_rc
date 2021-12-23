@@ -113,6 +113,8 @@ def run_network(mode):
     rs_prev = 0
     any_hs_change = True
     m=0
+    count = 0
+    
     for n in range(c.NN * c.MM):
         theta = np.mod(n/c.NN,1) # (0,1)
         rs_prev = rs
@@ -139,8 +141,7 @@ def run_network(mode):
         hs = np.heaviside(hx+hs-1,0)
         hx = np.fmin(np.fmax(hx,0),1)
 
-        if rs==1:
-            hc+=hs # デコードのためのカウンタ、ref.clockとhsのANDでカウントアップ
+        hc[(hs_prev == 1)& (hs==0)] = count 
 
         # ref.clockの立ち上がり
         if rs_prev==0 and rs==1:
@@ -152,9 +153,10 @@ def run_network(mode):
             Hp[m]=hp
             Yp[m]=yp
             m+=1
+            count = 0
 
         any_hs_change = np.any(hs!=hs_prev)
-
+        count += 1
         # record
 
         if c.plot:

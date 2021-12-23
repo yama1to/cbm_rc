@@ -70,6 +70,7 @@ def run_network(mode):
     rs_prev = 0
     any_hs_change = True
     m=0
+    count =0 
     for n in range(c.NN * c.MM):
         theta = np.mod(n/c.NN,1) # (0,1)
         rs_prev = rs
@@ -103,15 +104,16 @@ def run_network(mode):
         if rs_prev==0 and rs==1:
             hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
             hc = np.zeros(c.Nh) #カウンタをリセット
-            #ht = 2*hs-1 リファレンスクロック同期用ラッチ動作をコメントアウト
+            ht = 2*hs-1 #リファレンスクロック同期用ラッチ動作をコメントアウト
             yp = Wo@hp
             # record
             Hp[m]=hp
             Yp[m]=yp
             m+=1
+            count =0 
 
         any_hs_change = np.any(hs!=hs_prev)
-
+        count += 1
         # record
         if c.plot:
             Rs[n]=rs

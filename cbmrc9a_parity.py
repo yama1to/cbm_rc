@@ -57,7 +57,7 @@ class Config():
         self.beta_r = 0.2
         self.beta_b = 0.1
 
-        self.lambda0 = 0.01
+        self.lambda0 = 0.0
 
         # Results
         self.RMSE1=None
@@ -112,6 +112,7 @@ def run_network(mode):
     rs_prev = 0
     any_hs_change = True
     m=0
+    count = 0
     for n in range(c.NN * c.MM):
         theta = np.mod(n/c.NN,1) # (0,1)
         rs_prev = rs
@@ -138,22 +139,22 @@ def run_network(mode):
         hs = np.heaviside(hx+hs-1,0)
         hx = np.fmin(np.fmax(hx,0),1)
 
-        if rs==1:
-            hc+=hs # デコードのためのカウンタ、ref.clockとhsのANDでカウントアップ
+        hc[(hs_prev == 1)& (hs==0)] = count 
 
         # ref.clockの立ち上がり
         if rs_prev==0 and rs==1:
             hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
             hc = np.zeros(c.Nh) #カウンタをリセット
-            #ht = 2*hs-1 リファレンスクロック同期用ラッチ動作をコメントアウト
+            ht = 2*hs-1 #リファレンスクロック同期用ラッチ動作をコメントアウト
             yp = fy(Wo@hp)
             # record
             Hp[m]=hp
             Yp[m]=yp
             m+=1
+            count =0 
 
         any_hs_change = np.any(hs!=hs_prev)
-
+        count += 1
         if c.plot:
             # record
             Rs[n]=rs
@@ -287,10 +288,7 @@ def execute(c):
 
     #閾値を0.5としてバイナリ変換する
     for n in range(T):
-        if train_Y[n, 0] <= rang/2:
-            train_Y_binary[n] = 0
-        else:
-            train_Y_binary[n] = rang
+        train_Y_binary[n] = np.heaviside(train_Y[n]-0.5,0)
     
     y = train_Y_binary
     d = Dp[:,0]
