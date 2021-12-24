@@ -12,11 +12,10 @@ import scipy.linalg
 import matplotlib.pyplot as plt
 import copy
 import time
-from cbmrc9a import generate_weight_matrix, run_network
 from explorer import common
 from generate_data_sequence import *
 from generate_matrix import *
-
+from tqdm import tqdm
 
 class Cbmrc:
     def __init__(self):
@@ -33,11 +32,11 @@ class Cbmrc:
         self.dataset=1
         self.seed:int=0 # 乱数生成のためのシード
         self.NN=256 # １サイクルあたりの時間ステップ
-        self.MM=300 # サイクル数
-        self.MM0 = 50 #
+        self.MM=700 # サイクル数
+        self.MM0 = 100 #
 
         self.Nu = 1   #size of input
-        self.Nh = 100 #size of dynamical reservior
+        self.Nh = 300 #size of dynamical reservior
         self.Ny = 20   #size of output
 
         self.Temp=1.0
@@ -50,10 +49,10 @@ class Cbmrc:
         self.alpha_s = 0.6
 
         self.beta_i = 0.1
-        self.beta_r = 0.1
+        self.beta_r = 0.5
         self.beta_b = 0.1
 
-        self.lambda0 = 0
+        self.lambda0 = 0.0
 
         # Results
         self.RMSE1=None
@@ -72,7 +71,7 @@ class Cbmrc:
 
         
     def fit(self,X_train,y_train):
-        global Wo
+        global Wo,G
         self.generate_weight_matrix()
         self.run_network(X_train,y_train)
         
@@ -96,7 +95,7 @@ class Cbmrc:
 
     def predict(self,X_test):
         self.run_network(X_test)
-        return Yp
+        return Yp[self.MM0:],G
 
     def fy(self,h):
         return np.tanh(h)
@@ -108,7 +107,7 @@ class Cbmrc:
         return np.heaviside( np.sin(np.pi*(2*theta-p)),1)
         
     def run_network(self,X,y=None):
-        global Hx, Hs, Hp, Y, Yx, Ys, Yp, Y, Us, Ds,Rs
+        global Hx, Hs, Hp, Y, Yx, Ys, Yp, Y, Us, Ds,Rs,Dp
         Up = X 
         Dp = y
         Hp = np.zeros((self.MM, self.Nh))
@@ -141,7 +140,7 @@ class Cbmrc:
         any_hs_change = True
         m=0
         count =0 
-        for n in range(self.NN * self.MM):
+        for n in tqdm(range(self.NN * self.MM)):
             theta = np.mod(n/self.NN,1) # (0,1)
             rs_prev = rs
             hs_prev = hs.copy()
@@ -202,21 +201,27 @@ class Cbmrc:
             cnt_overflow += tmp
 
 if __name__ == "__main__":
-    u,d = generate_white_noise(delay_s=20,T=300)
-    u,d = u/5,d/5
     cbm = Cbmrc()
+    u,d = generate_white_noise(delay_s=20,T=cbm.MM,dist="uniform")
+    u,d = u/5,d/5
+    
     cbm.fit(u,d)
-    y = cbm.predict(u)
-    print(y)
-    ### evaluation
+    y,d = cbm.predict(u)
+    print(y.shape,d.shape)
     sum=0
-    for j in range(cbm.MM0,cbm.MM):
-        sum += (Yp[j] - d[j])**2
+    for j in range(cbm.MM-cbm.MM0):
+        sum += (y[j] - d[j])**2
+
     SUM=np.sum(sum)
     RMSE1 = np.sqrt(SUM/cbm.Ny/(cbm.MM-cbm.MM0))
     RMSE2 = 0
     print (RMSE1)
 
-    plt.plot(d)
-    plt.plot(y)
+    DC = np.zeros(20)
+    for k in range(20):
+        corr = np.corrcoef(np.vstack((d.T[k, k:], y.T[k, k:])))   #相関係数
+        DC[k] = corr[0, 1] ** 2                                     #決定係数 = 相関係数 **2
+
+    MC = np.sum(DC)
+    plt.plot(DC)
     plt.show()
