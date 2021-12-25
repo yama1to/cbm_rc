@@ -45,3 +45,10 @@ count_gap　不連続、オーバーフローになる回数をカウントす�
 
 #### cbmrc8.py
 cbmrc6b4.pyのコピー、STMタスクとcapacityの評価を実装する。
+
+#### cbmrc9a.py
+各タスクの実装
+cbmrc9a.pyはテンプレート
+
+#### cbmrc9b.py
+cbmrc9a.pyのモジュール化予定
