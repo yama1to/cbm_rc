@@ -3,17 +3,21 @@
 NOTE: cbm_rc　時系列生成タスク　
 cbmrc6e.pyを改変
 Configクラスによるパラメータ設定
+
+
+入力から予測を出力する
+
 """
 
 import argparse
 import numpy as np
-from numpy.linalg.linalg import norm
+from numpy.core.fromnumeric import size
 import scipy.linalg
 import matplotlib.pyplot as plt
 import copy
 import time
 from explorer import common
-from generate_data_sequence_santafe import *
+from generate_data_sequence_narma import *
 from generate_matrix import *
 import gc
 
@@ -24,7 +28,7 @@ class Config():
         self.columns = None # 結果をCSVに保存する際のコラム
         self.csv = None # 結果を保存するファイル
         self.id  = None
-        self.plot = True # 図の出力のオンオフ
+        self.plot = 1 # 図の出力のオンオフ
         self.show = True # 図の表示（plt.show()）のオンオフ、explorerは実行時にこれをオフにする。
         self.savefig = True
         self.fig1 = "fig1.png" ### 画像ファイル名
@@ -33,32 +37,32 @@ class Config():
         self.dataset=1
         self.seed:int=0 # 乱数生成のためのシード
         self.NN=256 # １サイクルあたりの時間ステップ
-        self.MM=300 # サイクル数
-        self.MM0 = 0 #
+        self.MM=500 # サイクル数
+        self.MM0 = 200 #
 
         self.Nu = 1   #size of input
         self.Nh = 300 #size of dynamical reservior
-        self.Ny = 5   #size of output
+        self.Ny = 1   #size of output
 
-        self.Temp=1.0
+        self.Temp=1
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 5
+        self.alpha_i = 1
         self.alpha_r = 0.9
         self.alpha_b = 0.
-        self.alpha_s = 10
+        self.alpha_s = 0.48
 
         self.beta_i = 0.9
-        self.beta_r = 0.15
+        self.beta_r = 0.1
         self.beta_b = 0.1
 
-        self.lambda0 = 0.1
+        self.lambda0 = 0.0001
 
         # Results
-        self.RMSE=None
+        self.RMSE = None
         self.NRMSE=None
-        self.NRMSE2 =None
+        self.NMSE=None
         self.cnt_overflow=None
 
 def generate_weight_matrix():
@@ -95,6 +99,7 @@ def run_network(mode):
     Yx = np.zeros((c.MM*c.NN, c.Ny))
     Ys = np.zeros((c.MM*c.NN, c.Ny))
     #ysign = np.zeros(Ny)
+    
     yp = np.zeros(c.Ny)
     yx = np.zeros(c.Ny)
     ys = np.zeros(c.Ny)
@@ -104,12 +109,11 @@ def run_network(mode):
     Ds = np.zeros((c.MM*c.NN, c.Ny))
     Rs = np.zeros((c.MM*c.NN, 1))
 
-    rs = 0
+    rs = 1
+    rs_prev = 0
     any_hs_change = True
-    count = 0
-    
+    m=0
     for n in range(c.NN * c.MM):
-        m = int(n/c.NN)
         theta = np.mod(n/c.NN,1) # (0,1)
         rs_prev = rs
         hs_prev = hs.copy()
@@ -135,7 +139,8 @@ def run_network(mode):
         hs = np.heaviside(hx+hs-1,0)
         hx = np.fmin(np.fmax(hx,0),1)
 
-        hc[(hs_prev == 1)& (hs==0)] = count 
+        if rs==1:
+            hc+=hs # デコードのためのカウンタ、ref.clockとhsのANDでカウントアップ
 
         # ref.clockの立ち上がり
         if rs_prev==0 and rs==1:
@@ -146,12 +151,13 @@ def run_network(mode):
             # record
             Hp[m]=hp
             Yp[m]=yp
-            count = 0
+            m+=1
 
         any_hs_change = np.any(hs!=hs_prev)
-        count += 1
+
+        # record
+
         if c.plot:
-            # record
             Rs[n]=rs
             Hx[n]=hx
             Hs[n]=hs
@@ -174,17 +180,21 @@ def train_network():
     run_network(1) # run netwrok with teacher forcing
 
     M = Hp[c.MM0:, :]
-    invD = Dp
+    invD =Dp
     G = invD[c.MM0:, :]
 
     #print("Hp\n",Hp)
     #print("M\n",M)
 
     ### Ridge regression
-    E = np.identity(c.Nh)
-    TMP1 = np.linalg.inv(M.T@M + c.lambda0 * E)
-    WoT = TMP1@M.T@G
-    Wo = WoT.T
+    if c.lambda0 == 0:
+        Wo = np.dot(G.T,np.linalg.pinv(M).T)
+        #print("a")
+    else:
+        E = np.identity(c.Nh)
+        TMP1 = np.linalg.inv(M.T@M + c.lambda0 * E)
+        WoT = TMP1@M.T@G
+        Wo = WoT.T
     #print("WoT\n", WoT)
 
 def test_network():
@@ -217,18 +227,14 @@ def plot1():
 
     ax = fig.add_subplot(Nr,1,5)
     ax.cla()
-    ax.set_title("Yp - Dp")
-    
-    ax.plot(Dp,label = "Dp")
-    ax.plot(Yp,label = "Yp")
-    ax.legend()
-
+    ax.set_title("Yp")
+    ax.plot(Yp)
 
     ax = fig.add_subplot(Nr,1,6)
     ax.cla()
-    ax.set_title("Dp")
+    ax.set_title("Y,Dp")
     ax.plot(Dp)
-
+    ax.plot(Yp)
     plt.show()
     plt.savefig(c.fig1)
 
@@ -237,96 +243,102 @@ def plot2():
     Nr=2
     ax = fig.add_subplot(Nr,1,1)
     ax.cla()
-    ax.set_title("Yp,Dp, delay = %s" % delay[0])
-    ax.plot(list(range(train_num,train_num+test_num)),Yp,label = "prediction ")
-    ax.plot(list(range(train_num,train_num+test_num)),Dp, label = "Target")
+    ax.set_title("Yp,Dp")
+    ax.plot(Yp,label = "prediction ")
+    ax.plot(Dp, label = "Target")
     ax.legend()
 
     ax = fig.add_subplot(Nr,1,2)
     ax.cla()
-    ax.set_title("error")
-    ax.plot(list(range(train_num,train_num+test_num)),abs(Yp-Dp))
-
+    ax.set_title("error",size=10)
+    ax.plot(abs(Yp-Dp))
+    plt.xlabel("time")
 
     plt.show()
 
+def calc(Yp,Dp):
+    error = (Yp-Dp)**2
+    NMSE = np.mean(error)/np.var(Dp)
+    RMSE = np.sqrt(np.mean(error))
+    NRMSE = RMSE/np.var(Dp)
+    return RMSE,NRMSE,NMSE
+
 def execute():
-    global D,Ds,Dp,U,Us,Up,Rs,R2s,MM
-    global RMSE1,RMSE2,Yp,normalize,train_num,test_num,delay
+    global D,Ds,Dp,U,Us,Up,Rs,R2s,MM,Yp
+
     t_start=time.time()
-    #if c.seed>=0:
-    np.random.seed(int(c.seed))
-    #np.random.seed(c.seed)
-
-    
+    c.seed = int(c.seed)
     c.Nh = int(c.Nh)
-    ### generate data
-    train_num = 600
-    test_num = 500
-    if c.dataset==1:
-        #delay = 1,2,3,4,5
-        delay =  [10]
-        U1,D1,U2,D2,normalize = generate_santafe(delay = delay,train_num = train_num,test_num =test_num,)
 
-    #print(normalize)
-    c.Ny = int(len(delay))
+    np.random.seed(c.seed)
     generate_weight_matrix()
-    ### training
-    #print("training...")
-    c.MM= U1.size
+
+    MM1 = 1000
+    MM2 = 2000
+    U1,D1  = generate_narma(N=MM1,seed=0)
+    U2,D2  = generate_narma(N=MM2,seed=1)
+
+    #print((MM2-2))
+    #print(np.var(D1))
 
     Dp = D1
-    Up = U1
-    if c.plot:
-        del U1,D1
+    Up = U1 
+    c.MM = MM1
+    if not c.plot: 
+        del D1,U1
         gc.collect()
-
     train_network()
 
-    
+    # RMSE1,NRMSE1 = calc(Yp,Dp)
+    # print(RMSE1,NRMSE1)
 
+    
+        
 
     ### test
     #print("test...")
-    c.MM= U2.size
-
+    c.MM = MM2
     Dp = D2
     Up = U2
-    if c.plot:
+    if not c.plot: 
         del U2,D2
         gc.collect()
     test_network()
 
+    global Yp 
+    Yp = fy(Yp)
+    Dp = fy(Dp)
 
-    ### evaluation
-    sum=0
-    Yp = Yp*normalize
-    Dp = Dp*normalize
- 
-    for j in range(c.MM):
-        sum += (Yp[j] - Dp[j])**2
-    MSE = sum/c.MM
-    RMSE = np.sqrt(MSE)
-    NRMSE = RMSE/np.var(Dp)#np.std(Dp)#np.var(Dp)
-
+    RMSE,NRMSE,NMSE = calc(Yp,Dp)
+    #print(1/np.var(Dp))
+    print("RMSE:",RMSE) 
+    print("NRMSE:",NRMSE)
+    print("NMSE:",NMSE)
     c.RMSE = RMSE
-    c.NRMSE2 = NRMSE
-    print(RMSE)
-    print(NRMSE)
-   #print("それぞれのdelayのNRMSE: "+str(NRMSE))
-
-    c.NRMSE = np.sum(NRMSE)/NRMSE.size
-    c.cnt_overflow=cnt_overflow
-
-    #print(RRMSE1)
-    #print("それぞれのdelayでのNRMSEを全部加算した場合のNRMSE: "+str(c.NRMSE))
+    c.NRMSE = NRMSE
+    c.NMSE = NMSE
+    c.cnt_overflow=cnt_overflow/(c.MM-2)
     #print("time: %.6f [sec]" % (time.time()-t_start))
 
     if c.plot: 
-        #plot1()
-        plot2()
-        #print(RMSE)
-        print("それぞれのdelayでのNRMSEを全部加算した場合のNRMSE: "+str(c.NRMSE))
+       # plot1()
+        fig=plt.figure(figsize=(5, 3))
+        Nr = 1
+        ax = fig.add_subplot(Nr,1,1)
+        ax.plot(Up[500:600])
+        plt.show()
+        plt.cla()
+        fig=plt.figure(figsize=(5, 3))
+        ax = fig.add_subplot(Nr,1,1)
+        ax.plot(Yp[500:600],c = "tab:orange")
+        plt.show()
+        plt.cla()
+        fig=plt.figure(figsize=(5, 3))
+        ax = fig.add_subplot(Nr,1,1)
+        ax.plot(Dp[500:600])
+
+        plt.show()
+       # plot2()
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()

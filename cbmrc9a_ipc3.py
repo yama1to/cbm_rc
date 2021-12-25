@@ -104,12 +104,11 @@ def run_network(mode):
     Ds = np.zeros((c.MM*c.NN, c.Ny))
     Rs = np.zeros((c.MM*c.NN, 1))
 
-    rs = 1
-    rs_prev = 0
+    rs = 0
     any_hs_change = True
-    m=0
     count =0
     for n in tqdm(range(c.NN * c.MM)):
+        m = int(n/c.NN)
         theta = np.mod(n/c.NN,1) # (0,1)
         rs_prev = rs
         hs_prev = hs.copy()
@@ -148,7 +147,6 @@ def run_network(mode):
             # record
             Hp[m]=hp
             Yp[m]=yp
-            m+=1
             count = 0
 
         any_hs_change = np.any(hs!=hs_prev)

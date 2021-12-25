@@ -108,16 +108,15 @@ def run_network(mode):
     Ds = np.zeros((c.MM*c.NN, c.Ny))
     Rs = np.zeros((c.MM*c.NN, 1))
 
-    rs = 1
-    rs_prev = 0
+    rs = 0
     any_hs_change = True
     m=0
     count = 0
     for n in range(c.NN * c.MM):
+        m = int(n/c.NN)
         theta = np.mod(n/c.NN,1) # (0,1)
         rs_prev = rs
         hs_prev = hs.copy()
-
         rs = p2s(theta,0)# 参照クロック
         us = p2s(theta,Up[m]) # エンコードされた入力
         ds = p2s(theta,Dp[m]) #
@@ -139,7 +138,7 @@ def run_network(mode):
         hs = np.heaviside(hx+hs-1,0)
         hx = np.fmin(np.fmax(hx,0),1)
 
-        hc[(hs_prev == 1)& (hs==0)] = count 
+        hc[(hs_prev == 1)&(hs == 0)] = count 
 
         # ref.clockの立ち上がり
         if rs_prev==0 and rs==1:
@@ -150,11 +149,11 @@ def run_network(mode):
             # record
             Hp[m]=hp
             Yp[m]=yp
-            m+=1
-            count =0 
+            count = 0
 
         any_hs_change = np.any(hs!=hs_prev)
         count += 1
+        
         if c.plot:
             # record
             Rs[n]=rs
@@ -223,13 +222,13 @@ def plot1():
     ax = fig.add_subplot(Nr,1,5)
     ax.cla()
     ax.set_title("Yp")
-    ax.plot(y)
+    ax.plot(Yp)
 
     ax = fig.add_subplot(Nr,1,6)
     ax.cla()
     ax.set_title("y-d")
-    ax.plot(y,label = "pred=bin")
-    ax.plot(d,label="target")
+    ax.plot(train_Y_binary,label = "pred=bin")
+    ax.plot(Dp,label="target")
     ax.legend()
     
     
@@ -278,21 +277,17 @@ def execute(c):
     
     
     # 評価（ビット誤り率, BER）
-    Dp = fyi(Dp)[k:-k+1]                    #TARGET
-    train_Y = fyi(Yp)[k:-k+1]                    #PRED
-
-    T =train_Y.shape[0]
-    train_Y_binary = np.zeros(T)    #PRED binary
-
-    rang = 1
+    train_Y_binary = np.zeros(MM1-tau)
+    Yp[(Yp>fy(1))] = fy(1)
+    Yp[(Yp<fy(0))] = fy(0)
+    train_Y = fyi(Yp[tau:])        #(T-tau,1)
+    Dp      = fyi(Dp[tau:])          #(T-tau,1)
 
     #閾値を0.5としてバイナリ変換する
-    for n in range(T):
+    for n in range(MM1-tau):
         train_Y_binary[n] = np.heaviside(train_Y[n]-0.5,0)
     
-    y = train_Y_binary
-    d = Dp[:,0]
-    BER = np.linalg.norm(y-d,1)/T
+    BER = np.linalg.norm(train_Y_binary-Dp[:,0], 1)/(MM1-tau)
 
     print('BER =', BER)
 

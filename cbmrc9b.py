@@ -135,12 +135,12 @@ class Cbmrc:
         Ds = np.zeros((self.MM*self.NN, self.Ny))
         Rs = np.zeros((self.MM*self.NN, 1))
 
-        rs = 1
-        rs_prev = 0
+        rs = 0
         any_hs_change = True
         m=0
         count =0 
         for n in tqdm(range(self.NN * self.MM)):
+            m = int(n/self.NN)
             theta = np.mod(n/self.NN,1) # (0,1)
             rs_prev = rs
             hs_prev = hs.copy()
@@ -178,7 +178,6 @@ class Cbmrc:
                 # record
                 Hp[m]=hp
                 Yp[m]=yp
-                m+=1
                 count = 0
 
             any_hs_change = np.any(hs!=hs_prev)

@@ -41,7 +41,7 @@ class Config():
         self.MM0 = 0 #
 
         self.Nu = 1   #size of input
-        self.Nh = 2200 #size of dynamical reservior
+        self.Nh = 100 #size of dynamical reservior
         self.Ny = 1   #size of output
 
         self.Temp=1
@@ -109,13 +109,13 @@ def run_network(mode):
     Ds = np.zeros((c.MM*c.NN, c.Ny))
     Rs = np.zeros((c.MM*c.NN, 1))
 
-    rs = 1
-    rs_prev = 0
+    rs = 0
     any_hs_change = True
     m=0
     count = 0
     
     for n in range(c.NN * c.MM):
+        m = int(n/c.NN)
         theta = np.mod(n/c.NN,1) # (0,1)
         rs_prev = rs
         hs_prev = hs.copy()
@@ -152,7 +152,6 @@ def run_network(mode):
             # record
             Hp[m]=hp
             Yp[m]=yp
-            m+=1
             count = 0
 
         any_hs_change = np.any(hs!=hs_prev)
@@ -323,7 +322,8 @@ def execute():
     #print("time: %.6f [sec]" % (time.time()-t_start))
 
     if c.plot: 
-       # plot1()
+       # 
+        plot1()
         plot2()
 
 if __name__ == "__main__":

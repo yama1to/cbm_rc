@@ -37,20 +37,20 @@ class Config():
         self.Nh:int = 20 #size of dynamical reservior
         self.Ny = 1   #size of output
     
-        self.Temp=1
+        self.Temp=2
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 3.53/2
-        self.alpha_r = 0.84
+        self.alpha_i = 0.62
+        self.alpha_r = 0.68
         self.alpha_b = 0.
-        self.alpha_s = 3.4/2
+        self.alpha_s = 1.49
 
         self.alpha0 = 0#0.1
         self.alpha1 = 0#-5.8
 
-        self.beta_i = 0.88
-        self.beta_r = 0.37
+        self.beta_i = 0.47
+        self.beta_r = 0.1
         self.beta_b = 0.1
 
         self.lambda0 = 0.0
@@ -135,13 +135,13 @@ def run_network(mode):
         hs = np.heaviside(hx+hs-1,0)
         hx = np.fmin(np.fmax(hx,0),1)
 
-        hc[(hs_prev == 1)& (hs==0)] = count 
+        hc[(hs_prev == 1)&(hs==0)] = count
         # ref.clockの立ち上がり
         if rs_prev==0 and rs==1:
             hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
             hc = np.zeros(c.Nh) #カウンタをリセット
             ht = 2*hs-1 #リファレンスクロック同期用ラッチ動作をコメントアウト
-            yp = fy(Wo@hp)
+            yp = Wo@hp
             # record
             Hp[m]=hp
             Yp[m]=yp
@@ -175,7 +175,7 @@ def train_network():
     run_network(1) # run netwrok with teacher forcing
 
     M = Hp[c.MM0:, :]
-    invD = fyi(Dp)
+    invD = Dp
     G = invD[c.MM0:, :]
 
     #print("Hp\n",Hp)
@@ -246,12 +246,10 @@ def execute():
     ### generate data
     if c.dataset==4:
         MM1=c.MM
-        MM2 = c.MM+3
+        MM2 = c.MM
         U,D = generate_xor(MM1+MM2 +2)
         U1 = U[:MM1]
         D1 = D[:MM1]
-        U2 = U[MM1:]
-        D2 = D[MM1:]
     ### training
     #print("training...")
     c.MM = MM1
@@ -262,28 +260,25 @@ def execute():
     ### test
     #print("test...")
     c.MM = MM2
-    Dp = D2
-    Up = np.tanh(U2)
 
 
     test_network()                      #output = Yp
 
     tau = 2
-    T = MM1 +tau   
+
     
     # 評価（ビット誤り率, BER）
-    train_Y_binary = np.zeros(T-tau)
-
-    train_Y = Yp[tau:-1]     #(T-tau,1)
-    Dp      = Dp[tau:-1]     #(T-tau,1)
-
-
+    train_Y_binary = np.zeros(MM1-tau)
+    Yp[(Yp>fy(1))] = fy(1)
+    Yp[(Yp<fy(0))] = fy(0)
+    train_Y = fyi(Yp[tau:])        #(T-tau,1)
+    Dp      = fyi(Dp[tau:])          #(T-tau,1)
 
     #閾値を0.5としてバイナリ変換する
-    for n in range(T-tau):
+    for n in range(MM1-tau):
         train_Y_binary[n] = np.heaviside(train_Y[n]-0.5,0)
     
-    BER = np.linalg.norm(train_Y_binary-Dp[:,0], 1)/(T-tau)
+    BER = np.linalg.norm(train_Y_binary-Dp[:,0], 1)/(MM1-tau)
 
 
     print('BER ={:.3g}'.format(BER))
