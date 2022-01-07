@@ -74,14 +74,15 @@ def fyi(h):
 def p2s(theta,p):
     return np.heaviside( np.sin(np.pi*(2*theta-p)),1)
 
+
 def run_network(mode):
     global Hx, Hs, Hp, Y, Yx, Ys, Yp, Y, Us, Ds,Rs
     Hp = np.zeros((c.MM, c.Nh))
     Hx = np.zeros((c.MM*c.NN, c.Nh))
     Hs = np.zeros((c.MM*c.NN, c.Nh))
     hsign = np.zeros(c.Nh)
-    #hx = np.zeros(Nh)
-    hx = np.random.uniform(0,1,c.Nh) # [0,1]の連続値
+    hx = np.zeros(c.Nh)
+    #hx = np.random.uniform(0,1,c.Nh) # [0,1]の連続値
     hs = np.zeros(c.Nh) # {0,1}の２値
     hs_prev = np.zeros(c.Nh)
     hc = np.zeros(c.Nh) # ref.clockに対する位相差を求めるためのカウント
@@ -101,12 +102,11 @@ def run_network(mode):
     Ds = np.zeros((c.MM*c.NN, c.Ny))
     Rs = np.zeros((c.MM*c.NN, 1))
 
-    rs = 0
+    rs = 1
     any_hs_change = True
-    m=0
-    count =0 
-    for n in range(c.NN * c.MM):
-        m = int(n/c.NN)
+    count =0
+    m = 0
+    for n in tqdm(range(c.NN * c.MM)):
         theta = np.mod(n/c.NN,1) # (0,1)
         rs_prev = rs
         hs_prev = hs.copy()
@@ -132,29 +132,40 @@ def run_network(mode):
         hs = np.heaviside(hx+hs-1,0)
         hx = np.fmin(np.fmax(hx,0),1)
 
-        hc[(hs_prev==1) & (hs==0)] = count 
-
+        hc[(hs_prev == 1)& (hs==0)] = count
+        
         # ref.clockの立ち上がり
         if rs_prev==0 and rs==1:
             hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
             hc = np.zeros(c.Nh) #カウンタをリセット
             ht = 2*hs-1 #リファレンスクロック同期用ラッチ動作をコメントアウト
-            yp = fy(Wo@hp)
-            # record
+            yp = Wo@hp
+            # record    
             Hp[m]=hp
             Yp[m]=yp
             count = 0
+            m += 1
 
-        any_hs_change = np.any(hs!=hs_prev)
+        #境界条件
+        if n == (c.NN * c.MM-1):
+            hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
+            yp = Wo@hp
+            # record
+            Hp[m]=hp
+            Yp[m]=yp
+
         count += 1
+        any_hs_change = np.any(hs!=hs_prev)
+
+        if c.plot:
         # record
-        Rs[n]=rs
-        Hx[n]=hx
-        Hs[n]=hs
-        Yx[n]=yx
-        Ys[n]=ys
-        Us[n]=us
-        Ds[n]=ds
+            Rs[n]=rs
+            Hx[n]=hx
+            Hs[n]=hs
+            Yx[n]=yx
+            Ys[n]=ys
+            Us[n]=us
+            Ds[n]=ds
 
     # オーバーフローを検出する。
     global cnt_overflow

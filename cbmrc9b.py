@@ -32,7 +32,7 @@ class Cbmrc:
         self.dataset=1
         self.seed:int=0 # 乱数生成のためのシード
         self.NN=256 # １サイクルあたりの時間ステップ
-        self.MM=700 # サイクル数
+        self.MM=2000 # サイクル数
         self.MM0 = 100 #
 
         self.Nu = 1   #size of input
@@ -105,17 +105,15 @@ class Cbmrc:
 
     def p2s(self,theta,p):
         return np.heaviside( np.sin(np.pi*(2*theta-p)),1)
-        
-    def run_network(self,X,y=None):
-        global Hx, Hs, Hp, Y, Yx, Ys, Yp, Y, Us, Ds,Rs,Dp
-        Up = X 
-        Dp = y
+            
+    def run_network(self,X,y = None):
+        global Hx, Hs, Hp, Y, Yx, Ys, Yp, Y, Us, Ds,Rs
         Hp = np.zeros((self.MM, self.Nh))
         Hx = np.zeros((self.MM*self.NN, self.Nh))
         Hs = np.zeros((self.MM*self.NN, self.Nh))
         hsign = np.zeros(self.Nh)
-        #hx = np.zeros(Nh)
-        hx = np.random.uniform(0,1,self.Nh) # [0,1]の連続値
+        hx = np.zeros(self.Nh)
+        #hx = np.random.uniform(0,1,self.Nh) # [0,1]の連続値
         hs = np.zeros(self.Nh) # {0,1}の２値
         hs_prev = np.zeros(self.Nh)
         hc = np.zeros(self.Nh) # ref.clockに対する位相差を求めるためのカウント
@@ -135,20 +133,18 @@ class Cbmrc:
         Ds = np.zeros((self.MM*self.NN, self.Ny))
         Rs = np.zeros((self.MM*self.NN, 1))
 
-        rs = 0
+        rs = 1
         any_hs_change = True
-        m=0
-        count =0 
+        count =0
+        m = 0
         for n in tqdm(range(self.NN * self.MM)):
-            m = int(n/self.NN)
             theta = np.mod(n/self.NN,1) # (0,1)
             rs_prev = rs
             hs_prev = hs.copy()
 
             rs = self.p2s(theta,0)# 参照クロック
-            us = self.p2s(theta,Up[m]) # エンコードされた入力
-            if Dp is not None:
-                ds = self.p2s(theta,Dp[m]) #
+            us = self.p2s(theta,X[m]) # エンコードされた入力
+            #ds = self.p2s(theta,y[m]) #
             ys = self.p2s(theta,yp)
 
             sum = np.zeros(self.Nh)
@@ -167,30 +163,40 @@ class Cbmrc:
             hs = np.heaviside(hx+hs-1,0)
             hx = np.fmin(np.fmax(hx,0),1)
 
-            hc[(hs_prev==1) & (hs==0)] = count 
-
+            hc[(hs_prev == 1)& (hs==0)] = count
+            
             # ref.clockの立ち上がり
             if rs_prev==0 and rs==1:
                 hp = 2*hc/self.NN-1 # デコード、カウンタの値を連続値に変換
                 hc = np.zeros(self.Nh) #カウンタをリセット
-                ht = 2*hs-1         #リファレンスクロック同期用ラッチ動作をコメントアウト
-                yp = self.fy(Wo@hp)
-                # record
+                ht = 2*hs-1 #リファレンスクロック同期用ラッチ動作をコメントアウト
+                yp = Wo@hp
+                # record    
                 Hp[m]=hp
                 Yp[m]=yp
                 count = 0
+                m += 1
 
-            any_hs_change = np.any(hs!=hs_prev)
+            #境界条件
+            if n == (self.NN * self.MM-1):
+                hp = 2*hc/self.NN-1 # デコード、カウンタの値を連続値に変換
+                yp = Wo@hp
+                # record
+                Hp[m]=hp
+                Yp[m]=yp
+
             count += 1
+            any_hs_change = np.any(hs!=hs_prev)
+
+            if self.plot:
             # record
-            Rs[n]=rs
-            Hx[n]=hx
-            Hs[n]=hs
-            Yx[n]=yx
-            Ys[n]=ys
-            Us[n]=us
-            if Dp is not None:
-                Ds[n]=ds
+                Rs[n]=rs
+                Hx[n]=hx
+                Hs[n]=hs
+                Yx[n]=yx
+                Ys[n]=ys
+                Us[n]=us
+                #Ds[n]=ds
 
         # オーバーフローを検出する。
         global cnt_overflow
@@ -198,6 +204,7 @@ class Cbmrc:
         for m in range(2,self.MM-1):
             tmp = np.sum( np.heaviside( np.fabs(Hp[m+1]-Hp[m]) - 0.6 ,0))
             cnt_overflow += tmp
+            #print(tmp)
 
 if __name__ == "__main__":
     cbm = Cbmrc()

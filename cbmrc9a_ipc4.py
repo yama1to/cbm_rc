@@ -32,7 +32,7 @@ class Config():
         self.seed:int=0 # 乱数生成のためのシード
         self.NN=2**8 # １サイクルあたりの時間ステップ
         self.MM=1000 # サイクル数
-        self.MM0 = 100 #
+        self.MM0 = 0 #
 
         self.Nu = 1   #size of input
         self.Nh = 100 #size of dynamical reservior
@@ -42,13 +42,13 @@ class Config():
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 0.69
-        self.alpha_r = 0.79
+        self.alpha_i = 0.11
+        self.alpha_r = 0.89
         self.alpha_b = 0.
-        self.alpha_s = 1.62
+        self.alpha_s = 1.58
 
-        self.beta_i = 0.53
-        self.beta_r = 0.71
+        self.beta_i = 0.39
+        self.beta_r = 0.88
         self.beta_b = 0.1
 
         self.lambda0 = 0.
@@ -105,11 +105,11 @@ def run_network(mode):
     Ds = np.zeros((c.MM*c.NN, c.Ny))
     Rs = np.zeros((c.MM*c.NN, 1))
 
-    rs = 0
+    rs = 1
     any_hs_change = True
     count =0
+    m = 0
     for n in tqdm(range(c.NN * c.MM)):
-        m = int(n/c.NN)
         theta = np.mod(n/c.NN,1) # (0,1)
         rs_prev = rs
         hs_prev = hs.copy()
@@ -135,23 +135,30 @@ def run_network(mode):
         hs = np.heaviside(hx+hs-1,0)
         hx = np.fmin(np.fmax(hx,0),1)
 
-        # if rs==1:
-        #     hc+=hs # デコードのためのカウンタ、ref.clockとhsのANDでカウントアップ
-        hc[(hs_prev == 1)& (hs==0)] = count 
-
+        hc[(hs_prev == 1)& (hs==0)] = count
+        
         # ref.clockの立ち上がり
         if rs_prev==0 and rs==1:
             hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
             hc = np.zeros(c.Nh) #カウンタをリセット
             ht = 2*hs-1 #リファレンスクロック同期用ラッチ動作をコメントアウト
             yp = Wo@hp
-            # record
+            # record    
             Hp[m]=hp
             Yp[m]=yp
             count = 0
+            m += 1
 
-        any_hs_change = np.any(hs!=hs_prev)
+        #境界条件
+        if n == (c.NN * c.MM-1):
+            hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
+            yp = Wo@hp
+            # record
+            Hp[m]=hp
+            Yp[m]=yp
+
         count += 1
+        any_hs_change = np.any(hs!=hs_prev)
 
         if c.plot:
         # record
@@ -254,14 +261,15 @@ def execute(c):
     dist = dist_list[c.set]
     name = name_list[c.set]
     
-    U,D = datasets(k=c.delay,n=c.degree,T = c.MM,name=name,dist=dist,seed=c.seed,new=1)
-
-    max = np.max(np.max(abs(D)))
-    D /= max*1.01
-    U /= max*1.01
+    U,D = datasets(k=c.delay,n=c.degree,T = c.MM,name=name,dist=dist,seed=c.seed,new=0)
+    print(U.shape,D.shape)
+    # max = np.max(np.max(abs(D)))
+    # D /= max*1.01
+    # U /= max*1.01
     # plt.plot(D[:,0])
     #plt.plot(U)
     # plt.show()
+    D = D[:,:c.delay]
 
     generate_weight_matrix()
     ### training
@@ -281,25 +289,29 @@ def execute(c):
 
     ### evaluation
 
-    Yp = fy(Yp[c.MM0:])
-    Dp = fy(Dp[c.MM0:])
+    Yp = Yp[c.MM0:]
+    Dp = Dp[c.MM0:]
+    # plt.plot(Yp)
+    # plt.plot(Dp)
+    # plt.show()
     MC = 0
     CAPACITY = []
     for i in range(c.delay):
         r = np.corrcoef(Dp[c.delay:,i],Yp[c.delay:,i])[0,1]
-        print(r**2)
         CAPACITY.append(r**2)
     MC = sum(CAPACITY)
-    ep = 1.7*10**(-4)
-    MC = np.heaviside(MC-ep,1)*MC
+    # ep = 1.7*10**(-4)
+    # MC = np.heaviside(MC-ep,1)*MC
     
     SUM = np.sum((Yp-Dp)**2)
     RMSE1 = np.sqrt(SUM/c.Ny/(c.MM-c.MM0-c.delay))
 
     #RMSE2 = 0
     print("-------------"+name+","+dist+",degree = "+str(c.degree)+"-------------")
-    print("RMSE=",RMSE1)
+    print(CAPACITY)
+    #print("RMSE=",RMSE1)
     print("IPC=",MC)
+
 
 ######################################################################################
      # Results8
@@ -324,23 +336,33 @@ if __name__ == "__main__":
     c=Config()
     if a.config: c=common.load_config(a)
     degree  = c.degree
+    name_list = ["Legendre","Hermite","Chebyshev","Laguerre"]
+    dist_list = ["uniform","normal","arcsine","exponential"]
+    
+    for c.set in range(4):
+        c.dist = dist_list[c.set]
+        c.name = name_list[c.set]
+        for i in range(1,11):
+            c.plot = 0
+            c.degree = i
+            
+            execute(c)
+            plt.plot(c.CAPACITY,label="degree = "+str(i))
 
-    #plt.title("legendre")
-    for i in range(1,degree+1):
-        c.plot = 0
-        c.degree = i
-        execute(c)
-        plt.plot(c.CAPACITY,label="degree = "+str(i))
-
-            # plt.bar([c.alpha_i],[c.CAPACITY],bottom=prev,width=0.1,label=str(i+1))
-            # prev+=c.CAPACITY
-            # c.per.append([[c.alpha_i],[c.CAPACITY]]
-    plt.ylabel("Capacity")
-    plt.xlabel("delay")
-    plt.ylim([-0.1,1.1])
-    plt.xlim([-0.1,20.1])
-    plt.legend()
-    plt.show()
+                # plt.bar([c.alpha_i],[c.CAPACITY],bottom=prev,width=0.1,label=str(i+1))
+                # prev+=c.CAPACITY
+                # c.per.append([[c.alpha_i],[c.CAPACITY]]
+        plt.ylabel("Capacity")
+        plt.xlabel("delay")
+        plt.ylim([-0.1,1.1])
+        plt.xlim([-0.1,20.1])
+        plt.title("cbm::"+c.name+"::"+c.dist)
+        plt.legend()
+        #plt.show()
+        t = common.string_now()
+        na = "./all_fig/%s-ipc4_cbm_fixed_in_tar_%s.png" % (t,str(c.set))
+        plt.savefig(na)
+        plt.clf()
      
     if a.config: common.save_config(c)
     # if a.config: c=common.load_config(c)
