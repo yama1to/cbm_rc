@@ -159,13 +159,16 @@ def learn(batch_size,nx_train, t_train, W1, b1, W2, b2, W3, b3, lr):
             b3 = b3 - lr * db3
 
         #境界条件
-        if k != (NN*nx_train.shape[0]-1):
+        if k == (NN*nx_train.shape[0]-2):
             yp = 2*hc/NN-1 # デコード、カウンタの値を連続値に変換
             y[m]=yp
 
             #back propagation 
+
             dy = softmax_cross_entropy_error_back(y, t)
+            
             du2, dW3, db3 = cbm_back(dx3,dy ,hs3, W3, b3) #cbm_back(dx,u,W,hsign,Temp)
+            print(dx2.shape,du2.shape,hs2.shape, W2.shape)#(50,) (50, 10) (50,) (100, 50)
             du1, dW2, db2 = cbm_back(dx2,du2,hs2, W2, b2)
             _   , dW1, db1 = cbm_back(dx1,du1,hs1,W1, b1)
             # du1, dW1, db1 = cbm_back(dx1,dy,hs1,W1, b1)
@@ -232,7 +235,7 @@ def predict(x, W1, b1, W2, b2, W3, b3):
             count = 0
             m += 1
         #境界条件
-        if k == (NN*nx_train.shape[0]-1):
+        if k == (NN*x.shape[0]-1):
             yp = 2*hc/NN-1 # デコード、カウンタの値を連続値に変換
             y[m]=yp
         count += 1
