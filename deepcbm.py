@@ -1,10 +1,9 @@
 import numpy as np
-from numpy.core.numeric import zeros_like
-
+from numpy.lib.npyio import zipfile_factory
 from tqdm import tqdm
-
+import matplotlib.pyplot as plt 
 global NN
-NN = 2**1
+NN = 2**8
 Temp = 1
 
 # affine変換
@@ -69,6 +68,7 @@ def decode(u_s,step):
     return dec
 
 def cbm(us,Wi,b1,hs,hx,Temp,dt,):
+    
     z = (2*us-1)@Wi + b1
     hsign = 1 - 2*hs
     dx = hsign*(1.0+np.exp(hsign*z/Temp))*dt
@@ -77,21 +77,17 @@ def cbm(us,Wi,b1,hs,hx,Temp,dt,):
     hx = np.fmin(np.fmax(hx,0),1)
     return hs,hx,dx
 
-def gradient(dx,Temp,hsign,z):
-    print("hsign:",str(hsign.shape))
-    print("z:",str(z.shape))
-    p  = hsign*z/Temp
-    return dx*p
 
-def cbm_back(dx,u,hs,W,Temp):
+def cbm_back(dx,z,us,hs,W,Temp,dt):
+    #(10,) (10,) (50,) (10,) (50, 10)
     hsign = 1-2*hs
-
-    z = 2*u-1
-    dW = gradient(dx,Temp,hsign,z)
-    z = 2*W
-    du = gradient(dx,Temp,hsign,z)
-    z = np.ones(hs.shape[0])
-    db = gradient(dx,Temp,hsign,z)
+    #print(dx,us)
+    dW = dx*hsign*(2*us-1)*dt/Temp
+    dW = dW@z
+    du = dx*hsign*(2*W)*dt/Temp
+    du = du@z
+    db = dx*hsign*(np.ones((hs.shape[0],1)))*dt/Temp
+    db = db@z
     return du, dW, db
 
 def learn(batch_size,nx_train, t_train, W1, b1, W2, b2, W3, b3, lr):
@@ -105,32 +101,35 @@ def learn(batch_size,nx_train, t_train, W1, b1, W2, b2, W3, b3, lr):
     hx2 = np.zeros((50))
     hx3 = np.zeros((10))
     
-
+    total = NN*nx_train.shape[0]
     m = 0
     y = np.zeros((nx_train.shape[0],10))
     rs =1
     count = 0
     hc = np.zeros((10))
-    hs = np.zeros(10)
-    for k in tqdm(range(0,NN*nx_train.shape[0])):
+    hs = np.zeros((10))
+    Rs = np.zeros((total))
+    
+    for k in tqdm(range(0,total)):
         idx = int(k/NN)
         x,t = nx_train[idx], t_train[idx]
+        #print(x.shape,t.shape)
         hs_prev = hs.copy()
         rs_prev = rs
-        theta = np.mod(m/NN,1) # (0,1)
+        theta = np.mod(k/NN,1) # (0,1)
         rs = p2s(theta,0)# 参照クロック
         us = p2s(theta,x)
 
         # 順伝播
         hs1,hx1,dx1 = cbm(us,W1,b1,hs1,hx1,Temp,dt,)
-        z1 = hs1
+        z1 = relu(hs1)
         hs2,hx2,dx2 = cbm(z1,W2,b2,hs2,hx2,Temp,dt,)
-        z2 = hs2
+        z2 = relu(hs2)
         hs3,hx3,dx3 = cbm(z2,W3,b3,hs3,hx3,Temp,dt,)
         z3 = softmax(hs3[:,np.newaxis])
  
         hs = z3[:,0]
-        hc[(hs_prev == 1)& (hs==0)] = count
+        hc[(hs_prev == 1) & (hs==0)] = count
     
         # ref.clockの立ち上がり
         if rs_prev==0 and rs==1:
@@ -138,18 +137,20 @@ def learn(batch_size,nx_train, t_train, W1, b1, W2, b2, W3, b3, lr):
             hc = np.zeros(10) #カウンタをリセット
             #ht = 2*hs-1 #リファレンスクロック同期用ラッチ動作をコメントアウト
             y[m]=yp
-            count = 0
-            m += 1
 
             #back propagation
-            dy = softmax_cross_entropy_error_back(y, t)
-            du2, dW3, db3 = cbm_back(dx3,dy ,hs3, W3, b3) #cbm_back(dx,u,W,hsign,Temp)
-            du1, dW2, db2 = cbm_back(dx2,du2,hs2, W2, b2)
-            _ , dW1, db1 = cbm_back(dx1,du1,hs1,W1, b1)
+            dz3 = softmax_cross_entropy_error_back(yp, t)
+            #print(dx3.shape,dz3.shape,z2.shape,hs3.shape,W3.shape)
+            #(10,) (10,) (50,) (10,) (50, 10)
+            dz2, dW3, db3 = cbm_back(dx3,dz3,z3,hs3, W3, b3, dt) #cbm_back(dx,u,W,hsign,Temp)
+            du2 = relu_back(dz2, hs2)
+            dz1, dW2, db2 = cbm_back(dx2,dz2,z2,hs2, W2, b2, dt)
+            du1 = relu_back(dz1, hs1)
+            _  , dW1, db1 = cbm_back(dx1,dz1,z1,hs1, W1, b1, dt)
             # du1, dW1, db1 = cbm_back(dx1,dy,hs1,W1, b1)
             # du2, dW2, db2 = cbm_back(dx2,du1,hs2, W2, b2)
             # _, dW3, db3 = cbm_back(dx3,du2 ,hs3, W3, b3) #cbm_back(dx,u,W,hsign,Temp)
-           
+            #print(dW1,dW2,dW3)
             # 重み、バイアスの更新
             W1 = W1 - lr * dW1
             b1 = b1 - lr * db1
@@ -158,19 +159,22 @@ def learn(batch_size,nx_train, t_train, W1, b1, W2, b2, W3, b3, lr):
             W3 = W3 - lr * dW3
             b3 = b3 - lr * db3
 
+            count = 0
+            m += 1
+
         #境界条件
-        if k == (NN*nx_train.shape[0]-2):
+        if k == (NN*nx_train.shape[0]-1):
             yp = 2*hc/NN-1 # デコード、カウンタの値を連続値に変換
             y[m]=yp
 
+            # plt.plot(Rs)
+            # plt.show()
             #back propagation 
-
-            dy = softmax_cross_entropy_error_back(y, t)
-            
-            du2, dW3, db3 = cbm_back(dx3,dy ,hs3, W3, b3) #cbm_back(dx,u,W,hsign,Temp)
-            print(dx2.shape,du2.shape,hs2.shape, W2.shape)#(50,) (50, 10) (50,) (100, 50)
-            du1, dW2, db2 = cbm_back(dx2,du2,hs2, W2, b2)
-            _   , dW1, db1 = cbm_back(dx1,du1,hs1,W1, b1)
+            dy = softmax_cross_entropy_error_back(yp, t)
+            du2, dW3, db3 = cbm_back(dx3,dy,z3,hs3, W3, b3, dt) #cbm_back(dx,u,W,hsign,Temp)
+            # print(dx2.shape,du2.shape,hs2.shape, W2.shape)#(50,) (50, 10) (50,) (100, 50)
+            du1, dW2, db2 = cbm_back(dx2,du2,z2,hs2, W2, b2, dt)
+            _  , dW1, db1 = cbm_back(dx1,du1,z1,hs1,W1, b1, dt)
             # du1, dW1, db1 = cbm_back(dx1,dy,hs1,W1, b1)
             # du2, dW2, db2 = cbm_back(dx2,du1,hs2, W2, b2)
             # _, dW3, db3 = cbm_back(dx3,du2 ,hs3, W3, b3) #cbm_back(dx,u,W,hsign,Temp)
@@ -183,6 +187,7 @@ def learn(batch_size,nx_train, t_train, W1, b1, W2, b2, W3, b3, lr):
             W3 = W3 - lr * dW3
             b3 = b3 - lr * db3
         count += 1
+        Rs[k] = rs
     return W1, b1, W2, b2, W3, b3
 
 def predict(x, W1, b1, W2, b2, W3, b3):
@@ -248,10 +253,10 @@ import gzip
 import numpy as np
 # MNIST読み込み
 def load_mnist( mnist_path ) :
-    return _load_image(mnist_path + 'train-images-idx3-ubyte.gz'), \
-           _load_label(mnist_path + 'train-labels-idx1-ubyte.gz'), \
-           _load_image(mnist_path + 't10k-images-idx3-ubyte.gz'), \
-           _load_label(mnist_path + 't10k-labels-idx1-ubyte.gz')
+    return _load_image(mnist_path + 'train-images-idx3.gz'), \
+           _load_label(mnist_path + 'train-labels-idx1.gz'), \
+           _load_image(mnist_path + 't10k-images-idx3.gz'), \
+           _load_label(mnist_path + 't10k-labels-idx1.gz')
 
 def _load_image( image_path ) :
     # 画像データの読み込み
@@ -288,7 +293,7 @@ def accuracy_rate(y, t):
 if __name__ == "__main__":
 
     # MNISTデータ読み込み
-    x_train, t_train, x_test, t_test = load_mnist('/home/yamato/Downloads/cbm_rc/mnist_data/')
+    x_train, t_train, x_test, t_test = load_mnist('/Users/yamato/pypr/')
 
     # 入力データの正規化(0～1)
     nx_train = x_train/255
@@ -318,18 +323,18 @@ if __name__ == "__main__":
     # 学習回数
     epoch = 50
     
-    # 予測（学習データ）
-    y_train = predict(nx_train, W1, b1, W2, b2, W3, b3)
-    # 予測（テストデータ）
-    y_test = predict(nx_test, W1, b1, W2, b2, W3, b3)
-    # 正解率、誤差表示
-    #print(x_train.shape, t_train.shape, x_test.shape, t_test.shape )
-    # = (60000, 784) (60000, 10) (10000, 784) (10000, 10)
-    #print(y_train.shape, t_train.shape, y_test.shape, t_test.shape )
-    # #(60000, 10) (60000, 10) (60000, 10) (10000, 10)
-    train_rate, train_err = accuracy_rate(y_train, t_train), cross_entropy_error(y_train, t_train)
-    test_rate, test_err = accuracy_rate(y_test, t_test), cross_entropy_error(y_test, t_test)
-    print("{0:3d} train_rate={1:6.2f}% test_rate={2:6.2f}% train_err={3:8.5f} test_err={4:8.5f}".format((0), train_rate*100, test_rate*100, train_err, test_err))
+    # # 予測（学習データ）
+    # #y_train = predict(nx_train, W1, b1, W2, b2, W3, b3)
+    # # 予測（テストデータ）
+    # #y_test = predict(nx_test, W1, b1, W2, b2, W3, b3)
+    # # 正解率、誤差表示
+    # #print(x_train.shape, t_train.shape, x_test.shape, t_test.shape )
+    # # = (60000, 784) (60000, 10) (10000, 784) (10000, 10)
+    # #print(y_train.shape, t_train.shape, y_test.shape, t_test.shape )
+    # # #(60000, 10) (60000, 10) (60000, 10) (10000, 10)
+    # train_rate, train_err = accuracy_rate(y_train, t_train), cross_entropy_error(y_train, t_train)
+    # test_rate, test_err = accuracy_rate(y_test, t_test), cross_entropy_error(y_test, t_test)
+    # print("{0:3d} train_rate={1:6.2f}% test_rate={2:6.2f}% train_err={3:8.5f} test_err={4:8.5f}".format((0), train_rate*100, test_rate*100, train_err, test_err))
 
     for i in range(epoch):
         # 学習
