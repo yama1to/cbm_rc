@@ -20,6 +20,7 @@ from explorer import common
 from generate_data_sequence_narma import *
 from generate_matrix import *
 import gc
+from tqdm import tqdm 
 
 
 class Config():
@@ -37,8 +38,8 @@ class Config():
         self.dataset=1
         self.seed:int=0 # 乱数生成のためのシード
         self.NN=256 # １サイクルあたりの時間ステップ
-        self.MM=300 # サイクル数
-        self.MM0 = 0 #
+        self.MM=2000 # サイクル数
+        self.MM0 = 200 #
 
         self.Nu = 1   #size of input
         self.Nh = 100 #size of dynamical reservior
@@ -48,22 +49,22 @@ class Config():
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 0.8
-        self.alpha_r = 0.78
+        self.alpha_i = 0.48
+        self.alpha_r = 0.14
         self.alpha_b = 0.
-        self.alpha_s = 0.7
+        self.alpha_s = 0.34
 
-        self.beta_i = 0.88
-        self.beta_r = 0.08
+        self.beta_i = 0.2
+        self.beta_r = 0.48
         self.beta_b = 0.1
 
         self.lambda0 = 0.0001
-
+        self.delay = 9
         # Results
-        self.RMSE = None
-        self.NRMSE=None
-        self.NMSE=None
-        self.cnt_overflow=None
+        self.RMSE   =   None
+        self.NRMSE  =   None
+        self.NMSE   =   None
+        self.cnt_overflow   =   None
 
 def generate_weight_matrix():
     global Wr, Wb, Wo, Wi
@@ -80,7 +81,6 @@ def fyi(h):
 
 def p2s(theta,p):
     return np.heaviside( np.sin(np.pi*(2*theta-p)),1)
-
 def run_network(mode):
     global Hx, Hs, Hp, Y, Yx, Ys, Yp, Y, Us, Ds,Rs
     Hp = np.zeros((c.MM, c.Nh))
@@ -99,7 +99,6 @@ def run_network(mode):
     Yx = np.zeros((c.MM*c.NN, c.Ny))
     Ys = np.zeros((c.MM*c.NN, c.Ny))
     #ysign = np.zeros(Ny)
-    
     yp = np.zeros(c.Ny)
     yx = np.zeros(c.Ny)
     ys = np.zeros(c.Ny)
@@ -109,13 +108,11 @@ def run_network(mode):
     Ds = np.zeros((c.MM*c.NN, c.Ny))
     Rs = np.zeros((c.MM*c.NN, 1))
 
-    rs = 0
+    rs = 1
     any_hs_change = True
-    m=0
-    count = 0
-    
-    for n in range(c.NN * c.MM):
-        m = int(n/c.NN)
+    count =0
+    m = 0
+    for n in tqdm(range(c.NN * c.MM)):
         theta = np.mod(n/c.NN,1) # (0,1)
         rs_prev = rs
         hs_prev = hs.copy()
@@ -141,24 +138,33 @@ def run_network(mode):
         hs = np.heaviside(hx+hs-1,0)
         hx = np.fmin(np.fmax(hx,0),1)
 
-        hc[(hs_prev == 1)& (hs==0)] = count 
-
+        hc[(hs_prev == 1)& (hs==0)] = count
+        
         # ref.clockの立ち上がり
         if rs_prev==0 and rs==1:
             hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
             hc = np.zeros(c.Nh) #カウンタをリセット
             ht = 2*hs-1 #リファレンスクロック同期用ラッチ動作をコメントアウト
             yp = Wo@hp
-            # record
+            # record    
             Hp[m]=hp
             Yp[m]=yp
             count = 0
+            m += 1
 
-        any_hs_change = np.any(hs!=hs_prev)
+        #境界条件
+        if n == (c.NN * c.MM-1):
+            hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
+            yp = Wo@hp
+            # record
+            Hp[m]=hp
+            Yp[m]=yp
+
         count += 1
-        # record
+        any_hs_change = np.any(hs!=hs_prev)
 
         if c.plot:
+        # record
             Rs[n]=rs
             Hx[n]=hx
             Hs[n]=hs
@@ -174,7 +180,6 @@ def run_network(mode):
         tmp = np.sum( np.heaviside( np.fabs(Hp[m+1]-Hp[m]) - 0.6 ,0))
         cnt_overflow += tmp
         #print(tmp)
-
 def train_network():
     global Wo
 
@@ -270,14 +275,17 @@ def execute():
     t_start=time.time()
     c.seed = int(c.seed)
     c.Nh = int(c.Nh)
+    c.delay = int(c.delay)
+    c.Ny = c.delay
+    
 
     np.random.seed(c.seed)
     generate_weight_matrix()
 
-    MM1 = 1000
-    MM2 = 2000
-    U1,D1  = generate_narma(N=MM1,seed=0)
-    U2,D2  = generate_narma(N=MM2,seed=1)
+    MM1 = 1200
+    MM2 = 2200
+    U1,D1  = generate_narma(N=MM1,seed=0,delay=c.delay)
+    U2,D2  = generate_narma(N=MM2,seed=1,delay=c.delay)
 
     #print((MM2-2))
     #print(np.var(D1))
@@ -307,22 +315,19 @@ def execute():
     test_network()
 
     global Yp 
-    Yp = fy(Yp)
-    Dp = fy(Dp)
+    Yp = Yp[c.MM0:]
+    Dp = Dp[c.MM0:]
 
     RMSE,NRMSE,NMSE = calc(Yp,Dp)
     #print(1/np.var(Dp))
-    print("RMSE:",RMSE) 
-    print("NRMSE:",NRMSE)
-    print("NMSE:",NMSE)
+    print("RMSE:",RMSE,"NRMSE:",NRMSE,"NMSE:",NMSE)
     c.RMSE = RMSE
     c.NRMSE = NRMSE
     c.NMSE = NMSE
     c.cnt_overflow=cnt_overflow/(c.MM-2)
     #print("time: %.6f [sec]" % (time.time()-t_start))
 
-    if c.plot: 
-       # 
+    if c.plot:
         plot1()
         plot2()
 

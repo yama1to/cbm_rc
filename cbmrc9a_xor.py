@@ -15,6 +15,8 @@ from explorer import common
 from generate_data_sequence import *
 from generate_matrix import *
 
+from tqdm import tqdm 
+
 class Config():
     def __init__(self):
         # columns, csv, id: データの管理のために必須の変数
@@ -76,7 +78,6 @@ def fyi(h):
 
 def p2s(theta,p):
     return np.heaviside( np.sin(np.pi*(2*theta-p)),1)
-
 def run_network(mode):
     global Hx, Hs, Hp, Y, Yx, Ys, Yp, Y, Us, Ds,Rs
     Hp = np.zeros((c.MM, c.Nh))
@@ -105,11 +106,10 @@ def run_network(mode):
     Rs = np.zeros((c.MM*c.NN, 1))
 
     rs = 1
-    rs_prev = 0
     any_hs_change = True
-    m=0
-    count = 0
-    for n in range(c.NN * c.MM):
+    count =0
+    m = 0
+    for n in tqdm(range(c.NN * c.MM)):
         theta = np.mod(n/c.NN,1) # (0,1)
         rs_prev = rs
         hs_prev = hs.copy()
@@ -124,7 +124,7 @@ def run_network(mode):
         sum += c.alpha_s*(hs-rs)*ht # ref.clockと同期させるための結合
         sum += Wi@(2*us-1) # 外部入力
         sum += Wr@(2*hs-1) # リカレント結合
-        
+
         #if mode == 0:
         #    sum += Wb@ys
         #if mode == 1:  # teacher forcing
@@ -135,24 +135,33 @@ def run_network(mode):
         hs = np.heaviside(hx+hs-1,0)
         hx = np.fmin(np.fmax(hx,0),1)
 
-        hc[(hs_prev == 1)&(hs==0)] = count
+        hc[(hs_prev == 1)& (hs==0)] = count
+        
         # ref.clockの立ち上がり
         if rs_prev==0 and rs==1:
             hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
             hc = np.zeros(c.Nh) #カウンタをリセット
             ht = 2*hs-1 #リファレンスクロック同期用ラッチ動作をコメントアウト
             yp = Wo@hp
+            # record    
+            Hp[m]=hp
+            Yp[m]=yp
+            count = 0
+            m += 1
+
+        #境界条件
+        if n == (c.NN * c.MM-1):
+            hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
+            yp = Wo@hp
             # record
             Hp[m]=hp
             Yp[m]=yp
-            m+=1
-            count = 0
-            
 
-        any_hs_change = np.any(hs!=hs_prev)
         count += 1
-        # record
+        any_hs_change = np.any(hs!=hs_prev)
+
         if c.plot:
+        # record
             Rs[n]=rs
             Hx[n]=hx
             Hs[n]=hs
