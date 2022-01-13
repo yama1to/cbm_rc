@@ -1,0 +1,5 @@
+import test_cbmrc9a_memory2_taisyo
+import test_cbmrc9a_narma_taisyo
+import test_cbmrc9a_narma
+import test_cbmrc9a_santafe
+import test_cbmrc9a_ipc3_taisyo

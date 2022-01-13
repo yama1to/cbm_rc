@@ -51,14 +51,14 @@ def optimize():
     opt.clear()#設定をクリアする
     opt.appendid()#id:必ず加える
     opt.appendseed()# 乱数のシード（０から始まる整数値）
-    opt.append("beta_r",value=0.01,min=0.01,max=1,round=2)
-    opt.append("beta_i",value=0.01,min=0.01,max=1,round=2)
-    opt.append("alpha_i",value=1,min=0.01,max=1,round=2)
-    opt.append("alpha_r",value=1,min=0.,max=1,round=2)
+    #opt.append("beta_r",value=0.01,min=0.0,max=1,round=2)
+    #opt.append("beta_i",value=0.01,min=0.0,max=1,round=2)
+    opt.append("alpha_i",value=1,min=0.00,max=1,round=2)
+    #opt.append("alpha_r",value=1,min=0.,max=1,round=2)
     opt.append("alpha_s",value=1,min=0,max=2,round=2)
     #opt.append("alpha0",value=1,min=0,max=1,round=2)
-    opt.append("Temp",value=10,min=1,max=10,round=2)
-    opt.maximize(target="MC",iteration=20,population=20,samples=3)
+    #opt.append("Temp",value=10,min=1,max=10,round=2)
+    opt.maximize(target="MC",iteration=10,population=10,samples=3)
     common.config = opt.best_config # 最適化で得られた設定を基本設定とする
 optimize()
 
@@ -98,7 +98,7 @@ def gridsearch(X1,min=0,max=1,num=41,samples=10):
 
 def gs2():
     ns=3
-    gridsearch("Nh",min=50,max=700,num=41,samples=ns)
+    #gridsearch("Nh",min=50,max=700,num=41,samples=ns)
     gridsearch("alpha_r",min=0.01,max=1,num=41,samples=ns)
     gridsearch("alpha_i",min=0.01,max=1,num=41,samples=ns)
     gridsearch("alpha_s",min=0.0,max=2,num=41,samples=ns)

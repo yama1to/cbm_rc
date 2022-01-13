@@ -56,16 +56,19 @@ def optimize(i,x):
     opt.append("beta_i",value=0.01,min=0.01,max=1,round=2)
     opt.append("alpha_i",value=1,min=0.01,max=1,round=2)
     opt.append("alpha_r",value=1,min=0.,max=1,round=2)
-    opt.append("alpha_s",value=1,min=1,max=2,round=2)
+    opt.append("alpha_s",value=1,min=0,max=2,round=2)
     opt.append("degree",value=i,min=i,max=i,round=0)
     opt.append("set",value=x,min=x,max=x,round=0)
     #opt.append("Temp",value=10,min=1,max=10,round=2)
-    opt.maximize(target="MC",iteration=30,population=30,samples=3)
+    opt.maximize(target="MC",iteration=20,population=20,samples=3)
     #opt.minimize(TARGET=func,iteration=5,population=10,samples=4)
     common.config = opt.best_config # 最適化で得られた設定を基本設定とする
-for x in range(4):
-    for i in range(1,2):
+for x in range(1):
+    for i in range(10):
         optimize(i+1,x)
+
+
+
 
 def plot1(x,y,ystd,ymin,ymax,color=None,width=1,label=None):
     # エラーバーをつけてグラフを描画、平均、標準偏差、最大値、最小値をプロットする。

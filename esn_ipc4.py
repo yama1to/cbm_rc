@@ -14,7 +14,7 @@ import time
 from explorer import common
 from generate_data_sequence_ipc2 import *
 from generate_matrix import *
-
+from quantize10 import quantize
 class Config():
     def __init__(self):
         # columns, csv, id: データの管理のために必須の変数
@@ -38,14 +38,14 @@ class Config():
 
 
         #sigma_np = -5
-        self.alpha_i = 0.1
-        self.alpha_r = 0.9
+        self.alpha_i = 0.9
+        self.alpha_r = 0.95
         self.alpha_b = 0.
 
         self.alpha0 = 1#0.1
         self.alpha1 = 0#-5.8
 
-        self.beta_i = 0.1
+        self.beta_i = 0.9
         self.beta_r = 0.9
         self.beta_b = 0.1
 
@@ -54,6 +54,8 @@ class Config():
         self.delay = 20
         self.degree = 10
         self.set = 0    #0,1,2,3
+        self.name = None
+        self.dist = None
         # Results
         self.CAPACITY = None
         self.MC = None 
@@ -77,14 +79,18 @@ def run_network(mode):
     #x = np.random.uniform(-1, 1, c.Nh)
     x = np.zeros(c.Nh)
     
-
+    for i in range(Up.shape[0]):
+        Up[i,0] = quantize(Up[i,0],8)
     for n in range(c.MM):
         
         u = Up[n, :]
 
         #Hp[n+1,:] = x + 1.0/tau * (-alpha0 * x + fx(Wi@u + Wr@x))
         next_x = (1 - c.alpha0) * x + c.alpha0*fy(Wi@u + Wr@x)
-        Hp[n,:] = next_x
+        #Hp[n,:] = next_x
+        for i in range(c.Nh):
+            next_x[i] = quantize(next_x[i],8)
+        Hp[n] = next_x
         x= next_x
 
         
@@ -167,15 +173,12 @@ def execute(c):
     
 
     ### generate data
-    name_list = ["Legendre","Hermite","Chebyshev","Laguerre"]
-    dist_list = ["uniform","normal","arcsine","exponential"]
-    dist = dist_list[c.set]
-    name = name_list[c.set]
     
-    U,D = datasets(k=c.delay,n=c.degree,T = c.MM,name=name,dist=dist,seed=c.seed,new=1)
+    
+    U,D = datasets(k=c.delay,n=c.degree,T = c.MM,name=c.name,dist=c.dist,seed=c.seed,new=0)
 
-    max = np.max(np.max(abs(D)))
-    D /= max*1.01
+    # max = np.max(np.max(abs(D)))
+    # D /= max*1.01
     # plt.plot(D)
     # plt.plot(U)
     # plt.show()
@@ -198,23 +201,22 @@ def execute(c):
 
     ### evaluation
 
-    Yp = fy(Yp[c.MM0:])
-    Dp = fy(Dp[c.MM0:])
+    Yp = Yp[c.MM0:]
+    Dp = Dp[c.MM0:]
     MC = 0
     CAPACITY = []
     for i in range(c.delay):
         r = np.corrcoef(Dp[c.delay:,i],Yp[c.delay:,i])[0,1]
-        print(r**2)
         CAPACITY.append(r**2)
     MC = sum(CAPACITY)
-    ep = 1.7*10**(-4)
-    MC = np.heaviside(MC-ep,1)*MC
+    # ep = 1.7*10**(-4)
+    # MC = np.heaviside(MC-ep,1)*MC
     
     SUM = np.sum((Yp-Dp)**2)
     RMSE1 = np.sqrt(SUM/c.Ny/(c.MM-c.MM0-c.delay))
 
     #RMSE2 = 0
-    print("-------------"+name+","+dist+",degree = "+str(c.degree)+"-------------")
+    print("-------------"+c.name+","+c.dist+",degree = "+str(c.degree)+"-------------")
     print("RMSE=",RMSE1)
     print("IPC=",MC)
 
@@ -240,23 +242,33 @@ if __name__ == "__main__":
     c=Config()
     if a.config: c=common.load_config(a)
     degree  = c.degree
+    name_list = ["Legendre","Hermite","Chebyshev","Laguerre"]
+    dist_list = ["uniform","normal","arcsine","exponential"]
+    
+    for c.set in range(4):
+        c.dist = dist_list[c.set]
+        c.name = name_list[c.set]
+        for i in range(1,11):
+            c.plot = 0
+            c.degree = i
+            
+            execute(c)
+            plt.plot(c.CAPACITY,label="degree = "+str(i))
 
-    plt.title("legendre")
-    for i in range(1,degree+1):
-        c.plot = 0
-        c.degree = i
-        execute(c)
-        plt.plot(c.CAPACITY,label="degree = "+str(i))
-
-            # plt.bar([c.alpha_i],[c.CAPACITY],bottom=prev,width=0.1,label=str(i+1))
-            # prev+=c.CAPACITY
-            # c.per.append([[c.alpha_i],[c.CAPACITY]]
-    plt.ylabel("Capacity")
-    plt.xlabel("delay")
-    plt.ylim([-0.1,1.1])
-    plt.xlim([-0.1,20.1])
-    plt.legend()
-    plt.show()
+                # plt.bar([c.alpha_i],[c.CAPACITY],bottom=prev,width=0.1,label=str(i+1))
+                # prev+=c.CAPACITY
+                # c.per.append([[c.alpha_i],[c.CAPACITY]]
+        plt.ylabel("Capacity")
+        plt.xlabel("delay")
+        plt.ylim([-0.1,1.1])
+        plt.xlim([-0.1,20.1])
+        plt.title("esn::"+c.name+"::"+c.dist)
+        plt.legend()
+        #plt.show()
+        t = common.string_now()
+        na = "./all_fig/%s-ipc4_esn_fixed_in_tar_%s.png" % (t,str(c.set))
+        plt.savefig(na)
+        plt.clf()
      
     if a.config: common.save_config(c)
     # if a.config: c=common.load_config(c)
