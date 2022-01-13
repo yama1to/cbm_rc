@@ -11,12 +11,10 @@ import scipy.linalg
 import matplotlib.pyplot as plt
 import copy
 import time
-import os
-import gc
-from generate_data_sequence_ipc import datasets
-from generate_data_sequence_ou import *
-from generate_matrix import *
 from explorer import common
+from generate_data_sequence_ipc2 import *
+from generate_matrix import *
+from tqdm import tqdm
 
 class Config():
     def __init__(self):
@@ -25,61 +23,50 @@ class Config():
         self.csv = None # 結果を保存するファイル
         self.id  = None
         self.plot = True # 図の出力のオンオフ
-        self.show = False # 図の表示（plt.show()）のオンオフ、explorerは実行時にこれをオフにする。
-        self.savefig = False
+        self.show = True # 図の表示（plt.show()）のオンオフ、explorerは実行時にこれをオフにする。
+        self.savefig = True
         self.fig1 = "fig1.png" ### 画像ファイル名
 
         # config
-        self.dataset=6
-        self.seed:int=2 # 乱数生成のためのシード
-        self.NN=256 # １サイクルあたりの時間ステップ
-        self.MM=2200 # サイクル数
-        self.MM0 = 200 #
+        self.dataset=1
+        self.seed:int=0 # 乱数生成のためのシード
+        self.NN=2**8 # １サイクルあたりの時間ステップ
+        self.MM=1000 # サイクル数
+        self.MM0 = 0 #
 
-        self.Nu = 1         #size of input
-        self.Nh:int = 100   #815 #size of dynamical reservior
-        self.Ny = 20        #size of output
+        self.Nu = 1   #size of input
+        self.Nh = 100 #size of dynamical reservior
+        self.Ny = 20   #size of output
 
-        self.Temp=5
+        self.Temp=1.0
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 1
-        self.alpha_r = 0.7
+        self.alpha_i = 0.11
+        self.alpha_r = 0.89
         self.alpha_b = 0.
-        self.alpha_s = 2
+        self.alpha_s = 1.58
 
-        self.alpha0 = 0#0.1
-        self.alpha1 = 0#-5.8
-
-        self.beta_i = 0.9
-        self.beta_r = 0.1
+        self.beta_i = 0.39
+        self.beta_r = 0.88
         self.beta_b = 0.1
 
         self.lambda0 = 0.
-        self.delay = 100
 
-
-        # ResultsX
-        self.RMSE1=None
-        self.RMSE2=None
+        self.delay = 20
+        self.degree = 10
+        self.set = 0    #0,1,2,3
+        # Results
         self.MC = None
-        self.MC1 = None 
-        self.MC2 = None
-        self.MC3 = None
-        self.MC4 = None
+        self.CAPACITY = None 
         self.cnt_overflow=None
-        #self.BER = None
-        
-        #self.DC = None 
-
 
 def generate_weight_matrix():
     global Wr, Wb, Wo, Wi
     Wr = generate_random_matrix(c.Nh,c.Nh,c.alpha_r,c.beta_r,distribution="one",normalization="sr")
     Wb = generate_random_matrix(c.Nh,c.Ny,c.alpha_b,c.beta_b,distribution="one",normalization="none")
     Wi = generate_random_matrix(c.Nh,c.Nu,c.alpha_i,c.beta_i,distribution="one",normalization="none")
-    Wo = np.zeros(c.Nh * c.Ny).reshape((c.Ny, c.Nh))
+    Wo = np.zeros(c.Nh * c.Ny).reshape(c.Ny, c.Nh)
 
 def fy(h):
     return np.tanh(h)
@@ -90,14 +77,15 @@ def fyi(h):
 def p2s(theta,p):
     return np.heaviside( np.sin(np.pi*(2*theta-p)),1)
 
+
 def run_network(mode):
     global Hx, Hs, Hp, Y, Yx, Ys, Yp, Y, Us, Ds,Rs
     Hp = np.zeros((c.MM, c.Nh))
     Hx = np.zeros((c.MM*c.NN, c.Nh))
     Hs = np.zeros((c.MM*c.NN, c.Nh))
     hsign = np.zeros(c.Nh)
-    hx = np.zeros(c.Nh)
-    #hx = np.random.uniform(0,1,c.Nh) # [0,1]の連続値
+    #hx = np.zeros(Nh)
+    hx = np.random.uniform(0,1,c.Nh) # [0,1]の連続値
     hs = np.zeros(c.Nh) # {0,1}の２値
     hs_prev = np.zeros(c.Nh)
     hc = np.zeros(c.Nh) # ref.clockに対する位相差を求めるためのカウント
@@ -118,10 +106,12 @@ def run_network(mode):
     Rs = np.zeros((c.MM*c.NN, 1))
 
     rs = 1
+    rs_prev = 1
     any_hs_change = True
-    count =0
-    m = 0
-    for n in tqdm(range(c.NN * c.MM)):
+    m=0
+    count = 0
+    csaaa = np.zeros((1000))
+    for n in range(c.NN * c.MM):
         theta = np.mod(n/c.NN,1) # (0,1)
         rs_prev = rs
         hs_prev = hs.copy()
@@ -147,40 +137,57 @@ def run_network(mode):
         hs = np.heaviside(hx+hs-1,0)
         hx = np.fmin(np.fmax(hx,0),1)
 
+        # if rs==1:
+        #     hc+=hs # デコードのためのカウンタ、ref.clockとhsのANDでカウントアップ
         hc[(hs_prev == 1)& (hs==0)] = count
-        
         # ref.clockの立ち上がり
         if rs_prev==0 and rs==1:
             hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
             hc = np.zeros(c.Nh) #カウンタをリセット
             ht = 2*hs-1 #リファレンスクロック同期用ラッチ動作をコメントアウト
-            yp = Wo@hp
-            # record    
+            yp = fy(Wo@hp)
+            # record
             Hp[m]=hp
             Yp[m]=yp
+            
+            #print(csaaa)
             count = 0
-            m += 1
-
-        #境界条件
+            m+=1
         if n == (c.NN * c.MM-1):
-            hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
-            yp = Wo@hp
+            hp = 2*hc/c.NN-1 
+            yp = fy(Wo@hp)
             # record
             Hp[m]=hp
             Yp[m]=yp
 
-        count += 1
+        # if rs ==0 and rs_prev == 1:
+        #     hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
+        #     hc = np.zeros(c.Nh) #カウンタをリセット
+        #     ht = 2*hs-1 #リファレンスクロック同期用ラッチ動作をコメントアウト
+        #     yp = fy(Wo@hp)
+        #     # record
+        #     Hp[m]=hp
+        #     Yp[m]=yp
+            
+        #     print(csaaa)
+        #     count = 0
+        #     m+=1
+        # if n==256:
+        #     plt.plot(Rs[:256])
+        #     plt.show()
+        count +=1
+        csaaa[m] += 1
         any_hs_change = np.any(hs!=hs_prev)
 
-        if c.plot:
         # record
-            Rs[n]=rs
-            Hx[n]=hx
-            Hs[n]=hs
-            Yx[n]=yx
-            Ys[n]=ys
-            Us[n]=us
-            Ds[n]=ds
+        Rs[n]=rs
+        Hx[n]=hx
+        Hs[n]=hs
+        Yx[n]=yx
+        Ys[n]=ys
+        Us[n]=us
+        Ds[n]=ds
+    print(csaaa)
 
     # オーバーフローを検出する。
     global cnt_overflow
@@ -203,6 +210,7 @@ def train_network():
     #print("M\n",M)
 
     ### Ridge regression
+
     if c.lambda0 == 0:
         Wo = np.dot(G.T,np.linalg.pinv(M).T)
         #print("a")
@@ -217,7 +225,7 @@ def test_network():
     run_network(0)
 
 def plot1():
-    fig=plt.figure(figsize=(16, 8))
+    fig=plt.figure(figsize=(10, 6))
     Nr=6
     ax = fig.add_subplot(Nr,1,1)
     ax.cla()
@@ -245,139 +253,99 @@ def plot1():
     ax.cla()
     ax.set_title("Yp")
     ax.plot(Yp)
-    #ax.plot(y)
 
     ax = fig.add_subplot(Nr,1,6)
     ax.cla()
-    ax.plot(DC)
-    ax.set_ylabel("determinant coefficient")
-    ax.set_xlabel("Delay k")
-    ax.set_ylim([0,1])
-    ax.set_xlim([0,c.delay])
-    ax.set_title('MC ~ %3.2lf' % MC, x=0.8, y=0.7)
+    ax.set_title("Dp")
+    ax.plot(Dp)
 
     plt.show()
-    plt.savefig(c.fig1)
+    #plt.savefig(c.fig1)
 
-def plot_delay():
-    fig=plt.figure(figsize=(16,16 ))
-    Nr=20
-    start = 0
-    for i in range(20):
-            ax = fig.add_subplot(Nr,1,i+1)
-            ax.cla()
-            ax.set_title("Yp,Dp, delay = %s" % str(i))
-            ax.plot(Yp.T[i,i:])
-            ax.plot(Dp.T[i,i:])
-
-    plt.show()
-
-
-def plot_MC():
-    plt.plot(DC)
-    plt.ylabel("determinant coefficient")
-    plt.xlabel("Delay k")
-    plt.ylim([0,1.1])
-    plt.xlim([0,c.delay])
-    plt.title('MC ~ %3.2lf,Nh = %d' % (MC,c.Nh), x=0.8, y=0.7)
-
-    if 1:
-        fname = "./MC_fig_dir/MC:alphai={0},r={1},s={2},betai={3},r={4}.png".format(c.alpha_i,c.alpha_r,c.alpha_s,c.beta_i,c.beta_r)
-        plt.savefig(fname)
-    plt.show()
 
 def execute(c):
-    global D,Ds,Dp,U,Us,Up,Rs,R2s,MM,Yp
-    global RMSE1,RMSE2
-    global train_Y_binary,MC,DC
-
-
-    c.delay = int(c.delay)
-    c.Ny = c.delay
-    c.NN = int(c.NN)
+    global D,Ds,Dp,U,Us,Up,Rs,R2s,MM
+    global Yp,Dp,CAPACITY,sumOfCapacity, name ,dist 
+    t_start=time.time()
+    #if c.seed>=0:
     c.Nh = int(c.Nh)
-
-    np.random.seed(seed = int(c.seed))    
-    generate_weight_matrix()
+    c.seed = int(c.seed)
+    c.Ny = c.delay
+    np.random.seed(c.seed)    
+    
 
     ### generate data
+    name_list = ["Legendre","Hermite","Chebyshev","Laguerre"]
+    dist_list = ["uniform","normal","arcsine","exponential"]
+    dist = dist_list[c.set]
+    name = name_list[c.set]
     
-    #U,D = generate_white_noise(delay_s=c.delay,T=c.MM+200,dist = c.dist,ave = c.ave,std = c.std)
-    U,D = datasets(T = c.MM + 200,delay_s = 100)
-    U=U[200:]
-    D=D[200:]
+    U,D = datasets(k=c.delay,n=c.degree,T = c.MM,name=name,dist=dist,seed=c.seed,new=0)
+    print(U.shape,D.shape)
+    # max = np.max(np.max(abs(D)))
+    # D /= max*1.01
+    # U /= max*1.01
+    # plt.plot(D[:,0])
+    #plt.plot(U)
+    # plt.show()
+    D = D[:,:c.delay]
+
+    generate_weight_matrix()
     ### training
     #print("training...")
     
-    #Scale to (-1,1)
-    Dp = D                # TARGET   #(MM,len(delay))   
-    Up = U                # INPUT    #(MM,1)
+    Dp = D[:]                # TARGET   #(MM,len(delay))   
+    Up = U[:]                # INPUT    #(MM,1)
 
     train_network()
-    if not c.plot: 
-        del D,U,Us,Rs
-        gc.collect()
-        
-
-    
+    #print("...end") 
     
     ### test
     #print("test...")
+    Dp = D[:]                    # TARGET   #(MM,len(delay))   
+    Up = U[:]                    # INPUT    #(MM,1)
     test_network()                  #OUTPUT = Yp
 
+    ### evaluation
 
+    Yp = Yp[c.MM0:]
+    Dp = Dp[c.MM0:]
+    # plt.plot(Yp)
+    # plt.plot(Dp)
+    # plt.show()
+    MC = 0
+    CAPACITY = []
+    for i in range(c.delay):
+        r = np.corrcoef(Dp[c.delay:,i],Yp[c.delay:,i])[0,1]
+        CAPACITY.append(r**2)
+    MC = sum(CAPACITY)
+    # ep = 1.7*10**(-4)
+    # MC = np.heaviside(MC-ep,1)*MC
     
-    DC = np.zeros((c.delay, 1))  # 決定係数
-    MC = 0.0                        # 記憶容量
+    SUM = np.sum((Yp-Dp)**2)
+    RMSE1 = np.sqrt(SUM/c.Ny/(c.MM-c.MM0-c.delay))
 
-    #inv scale
-    
-    Dp = Dp[c.MM0:]                    # TARGET    #(MM,len(delay))
-    Yp = Yp[c.MM0:]                    # PRED      #(MM,len(delay))
-    #print(np.max(Dp),np.max(Yp))
-    """
-    予測と目標から決定係数を求める。
-    決定係数の積分が記憶容量
-    """
-    for k in range(c.delay):
-        corr = np.corrcoef(np.vstack((Dp.T[k, k:], Yp.T[k, k:])))   #相関係数
-        DC[k] = corr[0, 1] ** 2                                     #決定係数 = 相関係数 **2
+    #RMSE2 = 0
+    print("-------------"+name+","+dist+",degree = "+str(c.degree)+"-------------")
+    print(CAPACITY)
+    #print("RMSE=",RMSE1)
+    print("IPC=",MC)
 
-    MC = np.sum(DC)
-    
-    #plot_MC()
+
 ######################################################################################
-     # Results
-    c.RMSE1=None
-    c.RMSE2=None
-    c.cnt_overflow=cnt_overflow
+     # Results8
 
     c.MC = MC
-    #c.DC =DC
-
-    # if c.delay >=5:
-    #     MC1 = np.sum(DC[:5])
-    #     c.MC1 = MC1
-
-    # if c.delay >=10:
-    #     MC2 = np.sum(DC[:10])
-    #     c.MC2 = MC2
-
-    # if c.delay >=20:
-    #     MC3 = np.sum(DC[:20])
-    #     c.MC3 = MC3
-
-    # if c.delay >=50:
-    #     MC4 = np.sum(DC[:50])
-    #     c.MC4 = MC4
-    print("MC =",c.MC)
-    print("overflow =",c.cnt_overflow)
+    c.CAPACITY = CAPACITY
+    c.cnt_overflow = cnt_overflow
 #####################################################################################
-    if c.plot:
-        plot_delay()
-        plot_MC()
-        #plot1()
-
+    # plt.plot(Yp)
+    # plt.show()
+    # plt.plot(Dp)
+    # plt.show()
+    # plt.plot(Up)
+    # plt.show()
+    if c.plot: plot1()
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
@@ -386,5 +354,36 @@ if __name__ == "__main__":
 
     c=Config()
     if a.config: c=common.load_config(a)
-    execute(c)
+    degree  = c.degree
+    name_list = ["Legendre","Hermite","Chebyshev","Laguerre"]
+    dist_list = ["uniform","normal","arcsine","exponential"]
+    
+    for c.set in range(1):
+        c.dist = dist_list[c.set]
+        c.name = name_list[c.set]
+        for i in range(1,2):
+            c.plot = 1
+            c.degree = i
+            
+            execute(c)
+            plt.plot(c.CAPACITY,label="degree = "+str(i))
+
+                # plt.bar([c.alpha_i],[c.CAPACITY],bottom=prev,width=0.1,label=str(i+1))
+                # prev+=c.CAPACITY
+                # c.per.append([[c.alpha_i],[c.CAPACITY]]
+        plt.ylabel("Capacity")
+        plt.xlabel("delay")
+        plt.ylim([-0.1,1.1])
+        plt.xlim([-0.1,20.1])
+        plt.title("cbm::"+c.name+"::"+c.dist)
+        plt.legend()
+        #plt.show()
+        t = common.string_now()
+        na = "./all_fig/%s-ipc4_cbm_fixed_in_tar_%s.png" % (t,str(c.set))
+        plt.savefig(na)
+        plt.clf()
+     
     if a.config: common.save_config(c)
+    # if a.config: c=common.load_config(c)
+    # execute()
+    # if a.config: common.save_config(c)

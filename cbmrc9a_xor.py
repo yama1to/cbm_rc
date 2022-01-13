@@ -36,10 +36,10 @@ class Config():
         self.MM0 = 0 #
 
         self.Nu = 1   #size of input
-        self.Nh:int = 20 #size of dynamical reservior
+        self.Nh:int = 100 #size of dynamical reservior
         self.Ny = 1   #size of output
     
-        self.Temp=2
+        self.Temp=1
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
@@ -209,34 +209,34 @@ def plot1():
     Nr=6
     ax = fig.add_subplot(Nr,1,1)
     ax.cla()
-    ax.set_title("Up")
+    ax.set_title("input")
     ax.plot(Up)
 
     ax = fig.add_subplot(Nr,1,2)
     ax.cla()
-    ax.set_title("Us")
+    ax.set_title("encoded input")
     ax.plot(Us)
     ax.plot(Rs,"r:")
     #ax.plot(R2s,"b:")
 
     ax = fig.add_subplot(Nr,1,3)
     ax.cla()
-    ax.set_title("Hx")
+    ax.set_title("reservoir states")
     ax.plot(Hx)
 
     ax = fig.add_subplot(Nr,1,4)
     ax.cla()
-    ax.set_title("Hp")
+    ax.set_title("decoded reservoir states")
     ax.plot(Hp)
 
     ax = fig.add_subplot(Nr,1,5)
     ax.cla()
-    ax.set_title("Yp")
+    ax.set_title("predictive output")
     ax.plot(train_Y)
 
     ax = fig.add_subplot(Nr,1,6)
     ax.cla()
-    ax.set_title("Dp")
+    ax.set_title("desired output")
     ax.plot(Dp)
     ax.plot(train_Y_binary)
     ax.plot()
@@ -256,13 +256,16 @@ def execute():
     if c.dataset==4:
         MM1=c.MM
         MM2 = c.MM
-        U,D = generate_xor(MM1+MM2 +2)
+        U,D = generate_xor(MM1+MM2 +1)
         U1 = U[:MM1]
         D1 = D[:MM1]
+        # plt.plot(U1)
+        # plt.plot(D1)
+        # plt.show()
     ### training
     #print("training...")
     c.MM = MM1
-    Dp = np.tanh(D1)
+    Dp = D1
     Up = np.tanh(U1)
     train_network()                     #Up,Dpからネットワークを学習する
 
@@ -274,18 +277,15 @@ def execute():
     test_network()                      #output = Yp
 
     tau = 2
-
-    
     # 評価（ビット誤り率, BER）
     train_Y_binary = np.zeros(MM1-tau)
-    Yp[(Yp>fy(1))] = fy(1)
-    Yp[(Yp<fy(0))] = fy(0)
-    train_Y = fyi(Yp[tau:])        #(T-tau,1)
-    Dp      = fyi(Dp[tau:])          #(T-tau,1)
+
+    train_Y = Yp[tau:]        #(T-tau,1)
+    Dp      = Dp[tau:]          #(T-tau,1)
 
     #閾値を0.5としてバイナリ変換する
     for n in range(MM1-tau):
-        train_Y_binary[n] = np.heaviside(train_Y[n]-0.5,0)
+        train_Y_binary[n] = np.heaviside(train_Y[n]-fy(0.5),0)
     
     BER = np.linalg.norm(train_Y_binary-Dp[:,0], 1)/(MM1-tau)
 

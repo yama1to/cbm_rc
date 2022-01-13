@@ -49,13 +49,13 @@ class Config():
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 0.48
-        self.alpha_r = 0.14
+        self.alpha_i = 0.35
+        self.alpha_r = 0.15
         self.alpha_b = 0.
-        self.alpha_s = 0.34
+        self.alpha_s = 0.47
 
-        self.beta_i = 0.2
-        self.beta_r = 0.48
+        self.beta_i = 0.28
+        self.beta_r = 0.51
         self.beta_b = 0.1
 
         self.lambda0 = 0.0001
@@ -65,10 +65,41 @@ class Config():
         self.NRMSE  =   None
         self.NMSE   =   None
         self.cnt_overflow   =   None
-
+def bm_weight():
+    global Wr, Wb, Wo, Wi
+    #taikaku = "zero"
+    taikaku = "nonzero"
+    Wr = np.zeros((c.Nh,c.Nh))
+    x = c.Nh**2
+    if taikaku =="zero":
+        x -= c.Nh
+    nonzeros = int(x * c.beta_r)
+    x = np.zeros((x))
+    x[0:int(nonzeros / 2)] = 1
+    x[int(nonzeros / 2):int(nonzeros)] = -1
+    np.random.shuffle(x)
+    m = 0
+    
+    for i in range(c.Nh):
+        for j in range(i,c.Nh):
+            if taikaku =="zero":
+                if i!=j:
+                    Wr[i,j] = x[m]
+                    Wr[j,i] = x[m]
+                    m += 1
+            else:
+                Wr[i,j] = x[m]
+                Wr[j,i] = x[m]
+                m += 1
+    #print(Wr)
+    v = np.linalg.eigvals(Wr)
+    lambda_max = max(abs(v))
+    Wr = Wr/lambda_max*c.alpha_r
+    return Wr
 def generate_weight_matrix():
     global Wr, Wb, Wo, Wi
     Wr = generate_random_matrix(c.Nh,c.Nh,c.alpha_r,c.beta_r,distribution="one",normalization="sr")
+    #Wr  = bm_weight()
     Wb = generate_random_matrix(c.Nh,c.Ny,c.alpha_b,c.beta_b,distribution="one",normalization="none")
     Wi = generate_random_matrix(c.Nh,c.Nu,c.alpha_i,c.beta_i,distribution="one",normalization="none")
     Wo = np.zeros(c.Nh * c.Ny).reshape(c.Ny, c.Nh)

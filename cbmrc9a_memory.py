@@ -294,6 +294,8 @@ def execute(c):
 
     np.random.seed(seed = int(c.seed))    
     generate_weight_matrix()
+    # for i in range(c.Nh):
+    #     Wr[i,i] = 0
 
     ### generate data
     

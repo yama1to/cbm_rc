@@ -11,12 +11,9 @@ import scipy.linalg
 import matplotlib.pyplot as plt
 import copy
 import time
-import os
-import gc
-from generate_data_sequence_ipc import datasets
-from generate_data_sequence_ou import *
-from generate_matrix import *
 from explorer import common
+from generate_data_sequence import *
+from generate_matrix import *
 
 class Config():
     def __init__(self):
@@ -31,7 +28,7 @@ class Config():
 
         # config
         self.dataset=6
-        self.seed:int=2 # 乱数生成のためのシード
+        self.seed:int=1 # 乱数生成のためのシード
         self.NN=256 # １サイクルあたりの時間ステップ
         self.MM=2200 # サイクル数
         self.MM0 = 200 #
@@ -40,25 +37,26 @@ class Config():
         self.Nh:int = 100   #815 #size of dynamical reservior
         self.Ny = 20        #size of output
 
-        self.Temp=5
+        self.Temp=10
+
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 1
-        self.alpha_r = 0.7
+        self.alpha_i = 0.77
+        self.alpha_r = 0.88
         self.alpha_b = 0.
-        self.alpha_s = 2
+        self.alpha_s = 1.17
 
         self.alpha0 = 0#0.1
         self.alpha1 = 0#-5.8
 
-        self.beta_i = 0.9
-        self.beta_r = 0.1
+        self.beta_i = 0.26
+        self.beta_r = 0.89
         self.beta_b = 0.1
 
         self.lambda0 = 0.
-        self.delay = 100
 
+        self.delay = 20
 
         # ResultsX
         self.RMSE1=None
@@ -96,8 +94,8 @@ def run_network(mode):
     Hx = np.zeros((c.MM*c.NN, c.Nh))
     Hs = np.zeros((c.MM*c.NN, c.Nh))
     hsign = np.zeros(c.Nh)
-    hx = np.zeros(c.Nh)
-    #hx = np.random.uniform(0,1,c.Nh) # [0,1]の連続値
+    #hx = np.zeros(c.Nh)
+    hx = np.random.uniform(0,1,c.Nh) # [0,1]の連続値
     hs = np.zeros(c.Nh) # {0,1}の２値
     hs_prev = np.zeros(c.Nh)
     hc = np.zeros(c.Nh) # ref.clockに対する位相差を求めるためのカウント
@@ -118,10 +116,10 @@ def run_network(mode):
     Rs = np.zeros((c.MM*c.NN, 1))
 
     rs = 1
+    rs_prev = 0
     any_hs_change = True
-    count =0
-    m = 0
-    for n in tqdm(range(c.NN * c.MM)):
+    m=0
+    for n in range(c.NN * c.MM):
         theta = np.mod(n/c.NN,1) # (0,1)
         rs_prev = rs
         hs_prev = hs.copy()
@@ -136,7 +134,7 @@ def run_network(mode):
         sum += c.alpha_s*(hs-rs)*ht # ref.clockと同期させるための結合
         sum += Wi@(2*us-1) # 外部入力
         sum += Wr@(2*hs-1) # リカレント結合
-
+        
         #if mode == 0:
         #    sum += Wb@ys
         #if mode == 1:  # teacher forcing
@@ -147,33 +145,24 @@ def run_network(mode):
         hs = np.heaviside(hx+hs-1,0)
         hx = np.fmin(np.fmax(hx,0),1)
 
-        hc[(hs_prev == 1)& (hs==0)] = count
-        
+        if rs==1:
+            hc+=hs # デコードのためのカウンタ、ref.clockとhsのANDでカウントアップ
+
         # ref.clockの立ち上がり
         if rs_prev==0 and rs==1:
             hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
             hc = np.zeros(c.Nh) #カウンタをリセット
             ht = 2*hs-1 #リファレンスクロック同期用ラッチ動作をコメントアウト
             yp = Wo@hp
-            # record    
-            Hp[m]=hp
-            Yp[m]=yp
-            count = 0
-            m += 1
-
-        #境界条件
-        if n == (c.NN * c.MM-1):
-            hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
-            yp = Wo@hp
             # record
             Hp[m]=hp
             Yp[m]=yp
+            m+=1
 
-        count += 1
         any_hs_change = np.any(hs!=hs_prev)
 
         if c.plot:
-        # record
+            # record
             Rs[n]=rs
             Hx[n]=hx
             Hs[n]=hs
@@ -217,7 +206,7 @@ def test_network():
     run_network(0)
 
 def plot1():
-    fig=plt.figure(figsize=(16, 8))
+    fig=plt.figure(figsize=(20, 12))
     Nr=6
     ax = fig.add_subplot(Nr,1,1)
     ax.cla()
@@ -257,22 +246,20 @@ def plot1():
     ax.set_title('MC ~ %3.2lf' % MC, x=0.8, y=0.7)
 
     plt.show()
-    plt.savefig(c.fig1)
+    #plt.savefig(c.fig1)
 
 def plot_delay():
     fig=plt.figure(figsize=(16,16 ))
     Nr=20
     start = 0
     for i in range(20):
-            ax = fig.add_subplot(Nr,1,i+1)
-            ax.cla()
-            ax.set_title("Yp,Dp, delay = %s" % str(i))
-            ax.plot(Yp.T[i,i:])
-            ax.plot(Dp.T[i,i:])
+        ax = fig.add_subplot(Nr,1,i+1)
+        ax.cla()
+        ax.set_title("Yp,Dp, delay = %s" % str(i))
+        ax.plot(Yp.T[i,i:])
+        ax.plot(Dp.T[i,i:])
 
     plt.show()
-
-
 def plot_MC():
     plt.plot(DC)
     plt.ylabel("determinant coefficient")
@@ -281,10 +268,18 @@ def plot_MC():
     plt.xlim([0,c.delay])
     plt.title('MC ~ %3.2lf,Nh = %d' % (MC,c.Nh), x=0.8, y=0.7)
 
-    if 1:
+    if 0:
         fname = "./MC_fig_dir/MC:alphai={0},r={1},s={2},betai={3},r={4}.png".format(c.alpha_i,c.alpha_r,c.alpha_s,c.beta_i,c.beta_r)
         plt.savefig(fname)
     plt.show()
+# def plot_MC():
+#     plt.plot(DC)
+#     plt.ylabel("determinant coefficient")
+#     plt.xlabel("Delay k")
+#     plt.ylim([0,1])
+#     plt.xlim([0,c.delay])
+#     plt.title('MC ~ %3.2lf' % MC, x=0.8, y=0.7)
+#     plt.show()
 
 def execute(c):
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM,Yp
@@ -299,13 +294,12 @@ def execute(c):
 
     np.random.seed(seed = int(c.seed))    
     generate_weight_matrix()
-
+    #print(np.random.uniform(1,2,10)==np.random.uniform(1,2,10))
     ### generate data
     
-    #U,D = generate_white_noise(delay_s=c.delay,T=c.MM+200,dist = c.dist,ave = c.ave,std = c.std)
-    U,D = datasets(T = c.MM + 200,delay_s = 100)
-    U=U[200:]
-    D=D[200:]
+    if c.dataset==6:
+        U,D = generate_white_noise(c.delay,T=c.MM,)
+
     ### training
     #print("training...")
     
@@ -314,18 +308,21 @@ def execute(c):
     Up = U                # INPUT    #(MM,1)
 
     train_network()
-    if not c.plot: 
-        del D,U,Us,Rs
-        gc.collect()
-        
 
     
     
     ### test
+    
     #print("test...")
-    test_network()                  #OUTPUT = Yp
-
-
+    # c.MM = c.MM - c.MM0
+    # Dp = Dp[c.MM0:]                    # TARGET    #(MM,len(delay))
+    # Up = Up[c.MM0:]                    # PRED      #(MM,len(delay))
+    global Hp
+    #print(Wo.shape,Hp.shape)
+    Hp = (Hp).T
+    Yp = Wo@Hp
+    Yp = Yp.T
+    #test_network()                  #OUTPUT = Yp
     
     DC = np.zeros((c.delay, 1))  # 決定係数
     MC = 0.0                        # 記憶容量
@@ -345,7 +342,7 @@ def execute(c):
 
     MC = np.sum(DC)
     
-    #plot_MC()
+   
 ######################################################################################
      # Results
     c.RMSE1=None
@@ -353,28 +350,27 @@ def execute(c):
     c.cnt_overflow=cnt_overflow
 
     c.MC = MC
-    #c.DC =DC
 
-    # if c.delay >=5:
-    #     MC1 = np.sum(DC[:5])
-    #     c.MC1 = MC1
+    if c.delay >=5:
+        MC1 = np.sum(DC[:5])
+        c.MC1 = MC1
 
-    # if c.delay >=10:
-    #     MC2 = np.sum(DC[:10])
-    #     c.MC2 = MC2
+    if c.delay >=10:
+        MC2 = np.sum(DC[:10])
+        c.MC2 = MC2
 
-    # if c.delay >=20:
-    #     MC3 = np.sum(DC[:20])
-    #     c.MC3 = MC3
+    if c.delay >=20:
+        MC3 = np.sum(DC[:20])
+        c.MC3 = MC3
 
-    # if c.delay >=50:
-    #     MC4 = np.sum(DC[:50])
-    #     c.MC4 = MC4
+    if c.delay >=50:
+        MC4 = np.sum(DC[:50])
+        c.MC4 = MC4
     print("MC =",c.MC)
-    print("overflow =",c.cnt_overflow)
+
 #####################################################################################
     if c.plot:
-        plot_delay()
+        #plot_delay()
         plot_MC()
         #plot1()
 

@@ -99,7 +99,6 @@ def run_network(mode):
     Yx = np.zeros((c.MM*c.NN, c.Ny))
     Ys = np.zeros((c.MM*c.NN, c.Ny))
     #ysign = np.zeros(Ny)
-    
     yp = np.zeros(c.Ny)
     yx = np.zeros(c.Ny)
     ys = np.zeros(c.Ny)
@@ -110,10 +109,10 @@ def run_network(mode):
     Rs = np.zeros((c.MM*c.NN, 1))
 
     rs = 1
-    rs_prev = 0
     any_hs_change = True
-    m=0
-    for n in range(c.NN * c.MM):
+    count =0
+    m = 0
+    for n in tqdm(range(c.NN * c.MM)):
         theta = np.mod(n/c.NN,1) # (0,1)
         rs_prev = rs
         hs_prev = hs.copy()
@@ -139,25 +138,33 @@ def run_network(mode):
         hs = np.heaviside(hx+hs-1,0)
         hx = np.fmin(np.fmax(hx,0),1)
 
-        if rs==1:
-            hc+=hs # デコードのためのカウンタ、ref.clockとhsのANDでカウントアップ
-
+        hc[(hs_prev == 1)& (hs==0)] = count
+        
         # ref.clockの立ち上がり
         if rs_prev==0 and rs==1:
             hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
             hc = np.zeros(c.Nh) #カウンタをリセット
             ht = 2*hs-1 #リファレンスクロック同期用ラッチ動作をコメントアウト
             yp = Wo@hp
+            # record    
+            Hp[m]=hp
+            Yp[m]=yp
+            count = 0
+            m += 1
+
+        #境界条件
+        if n == (c.NN * c.MM-1):
+            hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
+            yp = Wo@hp
             # record
             Hp[m]=hp
             Yp[m]=yp
-            m+=1
 
+        count += 1
         any_hs_change = np.any(hs!=hs_prev)
 
-        # record
-
         if c.plot:
+        # record
             Rs[n]=rs
             Hx[n]=hx
             Hs[n]=hs

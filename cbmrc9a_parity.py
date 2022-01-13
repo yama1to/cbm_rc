@@ -18,6 +18,7 @@ import time
 from explorer import common
 from generate_data_sequence import *
 from generate_matrix import *
+from tqdm import tqdm
 
 class Config():
     def __init__(self):
@@ -32,7 +33,7 @@ class Config():
 
         # config
         self.dataset=5
-        self.seed:int=0 # 乱数生成のためのシード
+        self.seed:int=1.5 # 乱数生成のためのシード
         self.NN=256 # １サイクルあたりの時間ステップ
         self.MM=50 # サイクル数
         self.MM0 = 0 #
@@ -45,16 +46,16 @@ class Config():
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 1
-        self.alpha_r = 0.75
+        self.alpha_i = 0.18
+        self.alpha_r = 0.88
         self.alpha_b = 0.
-        self.alpha_s = 2
+        self.alpha_s = 0.78
 
         self.alpha0 = 0#0.1
         self.alpha1 = 0#-5.8
 
-        self.beta_i = 0.5
-        self.beta_r = 0.2
+        self.beta_i = 0.85
+        self.beta_r = 0.18
         self.beta_b = 0.1
 
         self.lambda0 = 0.0
@@ -108,15 +109,15 @@ def run_network(mode):
     Ds = np.zeros((c.MM*c.NN, c.Ny))
     Rs = np.zeros((c.MM*c.NN, 1))
 
-    rs = 0
+    rs = 1
     any_hs_change = True
-    m=0
-    count = 0
-    for n in range(c.NN * c.MM):
-        m = int(n/c.NN)
+    count =0
+    m = 0
+    for n in tqdm(range(c.NN * c.MM)):
         theta = np.mod(n/c.NN,1) # (0,1)
         rs_prev = rs
         hs_prev = hs.copy()
+
         rs = p2s(theta,0)# 参照クロック
         us = p2s(theta,Up[m]) # エンコードされた入力
         ds = p2s(theta,Dp[m]) #
@@ -127,7 +128,7 @@ def run_network(mode):
         sum += c.alpha_s*(hs-rs)*ht # ref.clockと同期させるための結合
         sum += Wi@(2*us-1) # 外部入力
         sum += Wr@(2*hs-1) # リカレント結合
-        
+
         #if mode == 0:
         #    sum += Wb@ys
         #if mode == 1:  # teacher forcing
@@ -138,24 +139,33 @@ def run_network(mode):
         hs = np.heaviside(hx+hs-1,0)
         hx = np.fmin(np.fmax(hx,0),1)
 
-        hc[(hs_prev == 1)&(hs == 0)] = count 
-
+        hc[(hs_prev == 1)& (hs==0)] = count
+        
         # ref.clockの立ち上がり
         if rs_prev==0 and rs==1:
             hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
             hc = np.zeros(c.Nh) #カウンタをリセット
             ht = 2*hs-1 #リファレンスクロック同期用ラッチ動作をコメントアウト
-            yp = fy(Wo@hp)
-            # record
+            yp = Wo@hp
+            # record    
             Hp[m]=hp
             Yp[m]=yp
             count = 0
+            m += 1
 
-        any_hs_change = np.any(hs!=hs_prev)
-        count += 1
-        
-        if c.plot:
+        #境界条件
+        if n == (c.NN * c.MM-1):
+            hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
+            yp = Wo@hp
             # record
+            Hp[m]=hp
+            Yp[m]=yp
+
+        count += 1
+        any_hs_change = np.any(hs!=hs_prev)
+
+        if c.plot:
+        # record
             Rs[n]=rs
             Hx[n]=hx
             Hs[n]=hs
@@ -178,17 +188,21 @@ def train_network():
     run_network(1) # run netwrok with teacher forcing
 
     M = Hp[c.MM0:, :]
-    invD = fyi(Dp)
+    invD = Dp
     G = invD[c.MM0:, :]
 
     #print("Hp\n",Hp)
     #print("M\n",M)
 
     ### Ridge regression
-    E = np.identity(c.Nh)
-    TMP1 = np.linalg.inv(M.T@M + c.lambda0 * E)
-    WoT = TMP1@M.T@G
-    Wo = WoT.T
+    if c.lambda0 == 0:
+        Wo = np.dot(G.T,np.linalg.pinv(M).T)
+        #print("a")
+    else:
+        E = np.identity(c.Nh)
+        TMP1 = np.linalg.inv(M.T@M + c.lambda0 * E)
+        WoT = TMP1@M.T@G
+        Wo = WoT.T
     #print("WoT\n", WoT)
 
 def test_network():
@@ -199,46 +213,43 @@ def plot1():
     Nr=6
     ax = fig.add_subplot(Nr,1,1)
     ax.cla()
-    ax.set_title("Up")
+    ax.set_title("input")
     ax.plot(Up)
 
     ax = fig.add_subplot(Nr,1,2)
     ax.cla()
-    ax.set_title("Us")
+    ax.set_title("encoded input")
     ax.plot(Us)
     ax.plot(Rs,"r:")
     #ax.plot(R2s,"b:")
 
     ax = fig.add_subplot(Nr,1,3)
     ax.cla()
-    ax.set_title("Hx")
+    ax.set_title("reservoir states")
     ax.plot(Hx)
 
     ax = fig.add_subplot(Nr,1,4)
     ax.cla()
-    ax.set_title("Hp")
+    ax.set_title("decoded reservoir states")
     ax.plot(Hp)
 
     ax = fig.add_subplot(Nr,1,5)
     ax.cla()
-    ax.set_title("Yp")
-    ax.plot(Yp)
+    ax.set_title("predictive output")
+    ax.plot(train_Y_binary)
 
     ax = fig.add_subplot(Nr,1,6)
     ax.cla()
-    ax.set_title("y-d")
-    ax.plot(train_Y_binary,label = "pred=bin")
-    ax.plot(Dp,label="target")
-    ax.legend()
+    ax.set_title("desired output")
+    ax.plot(Dp)
+    ax.plot(train_Y_binary)
+    ax.plot()
     
-    
-    if c.show:
-        plt.show()
-    if c.savefig:
-        plt.savefig(c.fig1)
+    plt.show()
+    plt.savefig(c.fig1)
 
 def execute(c):
-    global D,Ds,Dp,U,Us,Up,Rs,R2s,MM
+    global D,Ds,Dp,U,Us,Up,Rs,R2s,MM, Yp,Dp
     global RMSE1,RMSE2
     global train_Y_binary,y, d,tau,k,T 
     c.NN = int(c.NN)
@@ -251,7 +262,6 @@ def execute(c):
     
     if c.dataset==5:
         MM1 = c.MM
-        MM2 = c.MM
 
         tau = 4         #delay
         k = 3           #3bit
@@ -263,29 +273,22 @@ def execute(c):
 
     ### training
     #print("training...")
-    c.MM=MM1
-    Dp = np.tanh(D1)
+    Dp = D1
     Up = np.tanh(U1)
     train_network()
 
     ### test
     #print("test...")
-    c.MM=MM2
 
     test_network()                  #output = Yp
 
-    
-    
     # 評価（ビット誤り率, BER）
     train_Y_binary = np.zeros(MM1-tau)
-    Yp[(Yp>fy(1))] = fy(1)
-    Yp[(Yp<fy(0))] = fy(0)
-    train_Y = fyi(Yp[tau:])        #(T-tau,1)
-    Dp      = fyi(Dp[tau:])          #(T-tau,1)
-
+    Yp = Yp[tau:]
+    Dp = Dp[tau:]
     #閾値を0.5としてバイナリ変換する
     for n in range(MM1-tau):
-        train_Y_binary[n] = np.heaviside(train_Y[n]-0.5,0)
+        train_Y_binary[n] = np.heaviside(Yp[n]-fy(0.5),0)
     
     BER = np.linalg.norm(train_Y_binary-Dp[:,0], 1)/(MM1-tau)
 

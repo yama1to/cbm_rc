@@ -32,7 +32,7 @@ class Config():
         self.seed:int=0 # 乱数生成のためのシード
         self.NN=2**8 # １サイクルあたりの時間ステップ
         self.MM=1000 # サイクル数
-        self.MM0 = 100 #
+        self.MM0 = 200 #
 
         self.Nu = 1   #size of input
         self.Nh = 100 #size of dynamical reservior
@@ -53,9 +53,9 @@ class Config():
 
         self.lambda0 = 0.
 
-        self.delay = 20
+        self.delay = 1
         self.degree = 1
-        self.set = 1    #0,1,2,3
+        self.set = 0    #0,1,2,3
         # Results
         self.MC = None
         self.per = None 
@@ -104,11 +104,11 @@ def run_network(mode):
     Ds = np.zeros((c.MM*c.NN, c.Ny))
     Rs = np.zeros((c.MM*c.NN, 1))
 
-    rs = 0
+    rs = 1
     any_hs_change = True
     count =0
+    m = 0
     for n in tqdm(range(c.NN * c.MM)):
-        m = int(n/c.NN)
         theta = np.mod(n/c.NN,1) # (0,1)
         rs_prev = rs
         hs_prev = hs.copy()
@@ -134,23 +134,30 @@ def run_network(mode):
         hs = np.heaviside(hx+hs-1,0)
         hx = np.fmin(np.fmax(hx,0),1)
 
-        # if rs==1:
-        #     hc+=hs # デコードのためのカウンタ、ref.clockとhsのANDでカウントアップ
-        hc[(hs_prev == 1)& (hs==0)] = count 
-
+        hc[(hs_prev == 1)& (hs==0)] = count
+        
         # ref.clockの立ち上がり
         if rs_prev==0 and rs==1:
             hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
             hc = np.zeros(c.Nh) #カウンタをリセット
             ht = 2*hs-1 #リファレンスクロック同期用ラッチ動作をコメントアウト
             yp = Wo@hp
-            # record
+            # record    
             Hp[m]=hp
             Yp[m]=yp
             count = 0
+            m += 1
 
-        any_hs_change = np.any(hs!=hs_prev)
+        #境界条件
+        if n == (c.NN * c.MM-1):
+            hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
+            yp = Wo@hp
+            # record
+            Hp[m]=hp
+            Yp[m]=yp
+
         count += 1
+        any_hs_change = np.any(hs!=hs_prev)
 
         if c.plot:
         # record
@@ -245,20 +252,24 @@ def execute(c):
     c.seed = int(c.seed)
     c.Ny = int(c.delay)
     c.set = int(c.set)
+    c.degree = int(c.degree)
     np.random.seed(c.seed)    
     
 
     ### generate data
+    #c.set = 0
     name_list = ["Legendre","Hermite","Chebyshev","Laguerre"]
     dist_list = ["uniform","normal","arcsine","exponential"]
     dist = dist_list[c.set]
     name = name_list[c.set]
     
-    U,D = datasets(k=c.delay,n=c.degree,T = c.MM,name=name,dist=dist,seed=c.seed,new=0)
-
-    max = np.max(np.max(abs(D)))
-    D /= max*1.01
-    U /= max*1.01
+    U,D = datasets(k=c.delay,n=c.degree,T = c.MM,name=name,dist=dist,seed=c.seed,new=0,save=0)
+ 
+    D = D[:,:c.delay]
+    print(D.shape)
+    # max = np.max(np.max(abs(D)))
+    # D /= max*1.01
+    #print(U[:,0]==D[:,0])
     # plt.plot(D)
     # plt.plot(U)
     # plt.show()
@@ -281,25 +292,24 @@ def execute(c):
 
     ### evaluation
 
-    Yp = fy(Yp[c.MM0:])
-    Dp = fy(Dp[c.MM0:])
+    Yp = Yp[c.MM0:]
+    Dp = Dp[c.MM0:]
     MC = 0
-    CAPACITY = []
+
+    CAPACITY = np.zeros((c.delay))
     for i in range(c.delay):
-        r = np.corrcoef(Dp[c.delay:,i],Yp[c.delay:,i])[0,1]
-
-        CAPACITY.append(r**2)
-
+        r = np.corrcoef(Dp[i:,i],Yp[i:,i])[0,1]
+        CAPACITY[i] = r**2
+    ep = 1.7*10**(-1)
+    CAPACITY = np.heaviside(CAPACITY-ep,1)*CAPACITY
     MC = sum(CAPACITY)
-    ep = 1.7*10**(-4)
-    MC = np.heaviside(MC-ep,1)*MC
     
     SUM = np.sum((Yp-Dp)**2)
     RMSE1 = np.sqrt(SUM/c.Ny/(c.MM-c.MM0-c.delay))
 
     #RMSE2 = 0
     print("-------------"+name+","+dist+",degree = "+str(c.degree)+"-------------")
-    print("RMSE=",RMSE1)
+    # print("RMSE=",RMSE1)
     print("IPC=",MC)
 
 ######################################################################################
@@ -308,8 +318,8 @@ def execute(c):
     c.MC = MC
     c.cnt_overflow = cnt_overflow
 #####################################################################################
-    # plt.plot(CAPACITY)
-    # plt.show()
+    plt.plot(CAPACITY)
+    plt.show()
     if c.plot: plot1()
 
 if __name__ == "__main__":
@@ -319,7 +329,7 @@ if __name__ == "__main__":
 
     c=Config()
     if a.config: c=common.load_config(a)
-    c.degree = int(c.degree)
+    
     execute(c)
     if a.config: common.save_config(c)
     # if a.config: c=common.load_config(c)

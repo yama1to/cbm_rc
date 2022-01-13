@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import copy
 import time
 from explorer import common 
-from generate_data_sequence_speech5 import *
+from generate_data_sequence_speech7 import *
 from generate_matrix import *
 from tqdm import tqdm
 
@@ -35,9 +35,9 @@ class Config():
         self.MM=50 # サイクル数
         self.MM0 = 0 #
 
-        self.Nu = 77   #size of input
-        self.Nh = 300 #size of dynamical reservior
-        self.Ny = 10   #size of output
+        self.Nu = 86       #size of input
+        self.Nh = 300       #size of dynamical reservior
+        self.Ny = 10          #size of output
 
         self.Temp=1
         self.dt=1.0/self.NN #0.01
@@ -74,7 +74,6 @@ def fyi(h):
 def p2s(theta,p):
     return np.heaviside( np.sin(np.pi*(2*theta-p)),1)
 
-
 def run_network(mode):
     global Hx, Hs, Hp, Y, Yx, Ys, Yp, Y, Us, Ds,Rs
     Hp = np.zeros((c.MM, c.Nh))
@@ -92,22 +91,20 @@ def run_network(mode):
     Yp = np.zeros((c.MM, c.Ny))
     Yx = np.zeros((c.MM*c.NN, c.Ny))
     Ys = np.zeros((c.MM*c.NN, c.Ny))
-    #ysign = np.zeros(Ny)
+
     yp = np.zeros(c.Ny)
     yx = np.zeros(c.Ny)
     ys = np.zeros(c.Ny)
-    #yc = np.zeros(Ny)
 
     Us = np.zeros((c.MM*c.NN, c.Nu))
     Ds = np.zeros((c.MM*c.NN, c.Ny))
     Rs = np.zeros((c.MM*c.NN, 1))
 
     rs = 1
-    any_hs_change = True
-    count =0
-    m = 0
+    rs_prev = 0
+
+    m=0
     for n in range(c.NN * c.MM):
-    #for n in tqdm(range(c.NN * c.MM)):
         theta = np.mod(n/c.NN,1) # (0,1)
         rs_prev = rs
         hs_prev = hs.copy()
@@ -133,33 +130,23 @@ def run_network(mode):
         hs = np.heaviside(hx+hs-1,0)
         hx = np.fmin(np.fmax(hx,0),1)
 
-        hc[(hs_prev == 1)& (hs==0)] = count
-        
+        if rs==1:
+            hc+=hs # デコードのためのカウンタ、ref.clockとhsのANDでカウントアップ
+
         # ref.clockの立ち上がり
         if rs_prev==0 and rs==1:
             hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
             hc = np.zeros(c.Nh) #カウンタをリセット
-            ht = 2*hs-1 #リファレンスクロック同期用ラッチ動作をコメントアウト
-            yp = Wo@hp
-            # record    
-            Hp[m]=hp
-            Yp[m]=yp
-            count = 0
-            m += 1
-
-        #境界条件
-        if n == (c.NN * c.MM-1):
-            hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
+            ht = 2*hs-1     #リファレンスクロック同期用ラッチ動作をコメントアウト
             yp = Wo@hp
             # record
             Hp[m]=hp
             Yp[m]=yp
+            m+=1
 
-        count += 1
         any_hs_change = np.any(hs!=hs_prev)
-
         if c.plot:
-        # record
+            # record
             Rs[n]=rs
             Hx[n]=hx
             Hs[n]=hs
@@ -168,6 +155,8 @@ def run_network(mode):
             Us[n]=us
             Ds[n]=ds
 
+    # オーバーフローを検出する。
+    
     #cnt_overflow = c.cnt_overflow
     if not mode:
         for m in range(2,c.MM-1):

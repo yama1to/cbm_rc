@@ -59,6 +59,7 @@ class Config():
         self.RMSE=None
         self.NRMSE=None
         self.NRMSE2 =None
+        self.NMSE = None
         self.cnt_overflow=None
 
 def generate_weight_matrix():
@@ -104,12 +105,11 @@ def run_network(mode):
     Ds = np.zeros((c.MM*c.NN, c.Ny))
     Rs = np.zeros((c.MM*c.NN, 1))
 
-    rs = 0
+    rs = 1
     any_hs_change = True
-    count = 0
-    
-    for n in range(c.NN * c.MM):
-        m = int(n/c.NN)
+    count =0
+    m = 0
+    for n in tqdm(range(c.NN * c.MM)):
         theta = np.mod(n/c.NN,1) # (0,1)
         rs_prev = rs
         hs_prev = hs.copy()
@@ -135,23 +135,33 @@ def run_network(mode):
         hs = np.heaviside(hx+hs-1,0)
         hx = np.fmin(np.fmax(hx,0),1)
 
-        hc[(hs_prev == 1)& (hs==0)] = count 
-
+        hc[(hs_prev == 1)& (hs==0)] = count
+        
         # ref.clockの立ち上がり
         if rs_prev==0 and rs==1:
             hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
             hc = np.zeros(c.Nh) #カウンタをリセット
             ht = 2*hs-1 #リファレンスクロック同期用ラッチ動作をコメントアウト
             yp = Wo@hp
-            # record
+            # record    
             Hp[m]=hp
             Yp[m]=yp
             count = 0
+            m += 1
 
-        any_hs_change = np.any(hs!=hs_prev)
-        count += 1
-        if c.plot:
+        #境界条件
+        if n == (c.NN * c.MM-1):
+            hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
+            yp = Wo@hp
             # record
+            Hp[m]=hp
+            Yp[m]=yp
+
+        count += 1
+        any_hs_change = np.any(hs!=hs_prev)
+
+        if c.plot:
+        # record
             Rs[n]=rs
             Hx[n]=hx
             Hs[n]=hs
@@ -261,13 +271,19 @@ def execute():
     
     c.Nh = int(c.Nh)
     ### generate data
-    train_num = 600
-    test_num = 500
+    train_num = 1000
+    test_num = 2000
     if c.dataset==1:
         #delay = 1,2,3,4,5
-        delay =  [10]
-        U1,D1,U2,D2,normalize = generate_santafe(delay = delay,train_num = train_num,test_num =test_num,)
-
+        delay =  [1,2,3,4,5]
+        U1,D1,U2,D2,normalize = generate_santafe(future = delay,train_num = train_num,test_num =test_num,)
+    
+    #print(D2[:,2]==D2[:,3])
+    plt.plot(U2,label="u")
+    for i in range(5):
+        plt.plot(D2[:,i],label=i+1)
+    plt.legend()
+    plt.show()
     #print(normalize)
     c.Ny = int(len(delay))
     generate_weight_matrix()
@@ -314,7 +330,7 @@ def execute():
     print(RMSE)
     print(NRMSE)
    #print("それぞれのdelayのNRMSE: "+str(NRMSE))
-
+    c.NMSE = MSE/np.var(Dp)
     c.NRMSE = np.sum(NRMSE)/NRMSE.size
     c.cnt_overflow=cnt_overflow
 

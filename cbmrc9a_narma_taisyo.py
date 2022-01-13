@@ -3,20 +3,25 @@
 NOTE: cbm_rc　時系列生成タスク　
 cbmrc6e.pyを改変
 Configクラスによるパラメータ設定
+
+
+入力から予測を出力する
+
 """
 
 import argparse
 import numpy as np
+from numpy.core.fromnumeric import size
 import scipy.linalg
 import matplotlib.pyplot as plt
 import copy
 import time
-import os
-import gc
-from generate_data_sequence_ipc import datasets
-from generate_data_sequence_ou import *
-from generate_matrix import *
 from explorer import common
+from generate_data_sequence_narma import *
+from generate_matrix import *
+import gc
+from tqdm import tqdm 
+
 
 class Config():
     def __init__(self):
@@ -24,62 +29,80 @@ class Config():
         self.columns = None # 結果をCSVに保存する際のコラム
         self.csv = None # 結果を保存するファイル
         self.id  = None
-        self.plot = True # 図の出力のオンオフ
-        self.show = False # 図の表示（plt.show()）のオンオフ、explorerは実行時にこれをオフにする。
-        self.savefig = False
+        self.plot = 1 # 図の出力のオンオフ
+        self.show = True # 図の表示（plt.show()）のオンオフ、explorerは実行時にこれをオフにする。
+        self.savefig = True
         self.fig1 = "fig1.png" ### 画像ファイル名
 
         # config
-        self.dataset=6
-        self.seed:int=2 # 乱数生成のためのシード
+        self.dataset=1
+        self.seed:int=0 # 乱数生成のためのシード
         self.NN=256 # １サイクルあたりの時間ステップ
-        self.MM=2200 # サイクル数
+        self.MM=2000 # サイクル数
         self.MM0 = 200 #
 
-        self.Nu = 1         #size of input
-        self.Nh:int = 100   #815 #size of dynamical reservior
-        self.Ny = 20        #size of output
+        self.Nu = 1   #size of input
+        self.Nh = 100 #size of dynamical reservior
+        self.Ny = 1   #size of output
 
-        self.Temp=5
+        self.Temp=1
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 1
-        self.alpha_r = 0.7
+        self.alpha_i = 0.35
+        self.alpha_r = 0.15
         self.alpha_b = 0.
-        self.alpha_s = 2
+        self.alpha_s = 0.47
 
-        self.alpha0 = 0#0.1
-        self.alpha1 = 0#-5.8
-
-        self.beta_i = 0.9
-        self.beta_r = 0.1
+        self.beta_i = 0.28
+        self.beta_r = 0.48
         self.beta_b = 0.1
 
-        self.lambda0 = 0.
-        self.delay = 100
-
-
-        # ResultsX
-        self.RMSE1=None
-        self.RMSE2=None
-        self.MC = None
-        self.MC1 = None 
-        self.MC2 = None
-        self.MC3 = None
-        self.MC4 = None
-        self.cnt_overflow=None
-        #self.BER = None
-        
-        #self.DC = None 
-
-
+        self.lambda0 = 0.0001
+        self.delay = 9
+        # Results
+        self.RMSE   =   None
+        self.NRMSE  =   None
+        self.NMSE   =   None
+        self.cnt_overflow   =   None
+def bm_weight():
+    global Wr, Wb, Wo, Wi
+    #taikaku = "zero"
+    taikaku = "nonzero"
+    Wr = np.zeros((c.Nh,c.Nh))
+    x = c.Nh**2
+    if taikaku =="zero":
+        x -= c.Nh
+    nonzeros = int(x * c.beta_r)
+    x = np.zeros((x))
+    x[0:int(nonzeros / 2)] = 1
+    x[int(nonzeros / 2):int(nonzeros)] = -1
+    np.random.shuffle(x)
+    m = 0
+    
+    for i in range(c.Nh):
+        for j in range(i,c.Nh):
+            if taikaku =="zero":
+                if i!=j:
+                    Wr[i,j] = x[m]
+                    Wr[j,i] = x[m]
+                    m += 1
+            else:
+                Wr[i,j] = x[m]
+                Wr[j,i] = x[m]
+                m += 1
+    #print(Wr)
+    v = np.linalg.eigvals(Wr)
+    lambda_max = max(abs(v))
+    Wr = Wr/lambda_max*c.alpha_r
+    return Wr
 def generate_weight_matrix():
     global Wr, Wb, Wo, Wi
-    Wr = generate_random_matrix(c.Nh,c.Nh,c.alpha_r,c.beta_r,distribution="one",normalization="sr")
+    #Wr = generate_random_matrix(c.Nh,c.Nh,c.alpha_r,c.beta_r,distribution="one",normalization="sr")
+    Wr  = bm_weight()
     Wb = generate_random_matrix(c.Nh,c.Ny,c.alpha_b,c.beta_b,distribution="one",normalization="none")
     Wi = generate_random_matrix(c.Nh,c.Nu,c.alpha_i,c.beta_i,distribution="one",normalization="none")
-    Wo = np.zeros(c.Nh * c.Ny).reshape((c.Ny, c.Nh))
+    Wo = np.zeros(c.Nh * c.Ny).reshape(c.Ny, c.Nh)
 
 def fy(h):
     return np.tanh(h)
@@ -89,7 +112,6 @@ def fyi(h):
 
 def p2s(theta,p):
     return np.heaviside( np.sin(np.pi*(2*theta-p)),1)
-
 def run_network(mode):
     global Hx, Hs, Hp, Y, Yx, Ys, Yp, Y, Us, Ds,Rs
     Hp = np.zeros((c.MM, c.Nh))
@@ -189,14 +211,13 @@ def run_network(mode):
         tmp = np.sum( np.heaviside( np.fabs(Hp[m+1]-Hp[m]) - 0.6 ,0))
         cnt_overflow += tmp
         #print(tmp)
-
 def train_network():
     global Wo
 
     run_network(1) # run netwrok with teacher forcing
 
     M = Hp[c.MM0:, :]
-    invD = Dp
+    invD =Dp
     G = invD[c.MM0:, :]
 
     #print("Hp\n",Hp)
@@ -217,7 +238,7 @@ def test_network():
     run_network(0)
 
 def plot1():
-    fig=plt.figure(figsize=(16, 8))
+    fig=plt.figure(figsize=(20, 12))
     Nr=6
     ax = fig.add_subplot(Nr,1,1)
     ax.cla()
@@ -245,139 +266,101 @@ def plot1():
     ax.cla()
     ax.set_title("Yp")
     ax.plot(Yp)
-    #ax.plot(y)
 
     ax = fig.add_subplot(Nr,1,6)
     ax.cla()
-    ax.plot(DC)
-    ax.set_ylabel("determinant coefficient")
-    ax.set_xlabel("Delay k")
-    ax.set_ylim([0,1])
-    ax.set_xlim([0,c.delay])
-    ax.set_title('MC ~ %3.2lf' % MC, x=0.8, y=0.7)
-
+    ax.set_title("Y,Dp")
+    ax.plot(Dp)
+    ax.plot(Yp)
     plt.show()
     plt.savefig(c.fig1)
 
-def plot_delay():
-    fig=plt.figure(figsize=(16,16 ))
-    Nr=20
-    start = 0
-    for i in range(20):
-            ax = fig.add_subplot(Nr,1,i+1)
-            ax.cla()
-            ax.set_title("Yp,Dp, delay = %s" % str(i))
-            ax.plot(Yp.T[i,i:])
-            ax.plot(Dp.T[i,i:])
+def plot2():
+    fig=plt.figure(figsize=(20, 12))
+    Nr=2
+    ax = fig.add_subplot(Nr,1,1)
+    ax.cla()
+    ax.set_title("Yp,Dp")
+    ax.plot(Yp,label = "prediction ")
+    ax.plot(Dp, label = "Target")
+    ax.legend()
+
+    ax = fig.add_subplot(Nr,1,2)
+    ax.cla()
+    ax.set_title("error",size=10)
+    ax.plot(abs(Yp-Dp))
+    plt.xlabel("time")
 
     plt.show()
 
+def calc(Yp,Dp):
+    error = (Yp-Dp)**2
+    NMSE = np.mean(error)/np.var(Dp)
+    RMSE = np.sqrt(np.mean(error))
+    NRMSE = RMSE/np.var(Dp)
+    return RMSE,NRMSE,NMSE
 
-def plot_MC():
-    plt.plot(DC)
-    plt.ylabel("determinant coefficient")
-    plt.xlabel("Delay k")
-    plt.ylim([0,1.1])
-    plt.xlim([0,c.delay])
-    plt.title('MC ~ %3.2lf,Nh = %d' % (MC,c.Nh), x=0.8, y=0.7)
-
-    if 1:
-        fname = "./MC_fig_dir/MC:alphai={0},r={1},s={2},betai={3},r={4}.png".format(c.alpha_i,c.alpha_r,c.alpha_s,c.beta_i,c.beta_r)
-        plt.savefig(fname)
-    plt.show()
-
-def execute(c):
+def execute():
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM,Yp
-    global RMSE1,RMSE2
-    global train_Y_binary,MC,DC
 
-
+    t_start=time.time()
+    c.seed = int(c.seed)
+    c.Nh = int(c.Nh)
     c.delay = int(c.delay)
     c.Ny = c.delay
-    c.NN = int(c.NN)
-    c.Nh = int(c.Nh)
+    
 
-    np.random.seed(seed = int(c.seed))    
+    np.random.seed(c.seed)
     generate_weight_matrix()
 
-    ### generate data
-    
-    #U,D = generate_white_noise(delay_s=c.delay,T=c.MM+200,dist = c.dist,ave = c.ave,std = c.std)
-    U,D = datasets(T = c.MM + 200,delay_s = 100)
-    U=U[200:]
-    D=D[200:]
-    ### training
-    #print("training...")
-    
-    #Scale to (-1,1)
-    Dp = D                # TARGET   #(MM,len(delay))   
-    Up = U                # INPUT    #(MM,1)
+    MM1 = 1200
+    MM2 = 2200
+    U1,D1  = generate_narma(N=MM1,seed=0,delay=c.delay)
+    U2,D2  = generate_narma(N=MM2,seed=1,delay=c.delay)
 
-    train_network()
+    #print((MM2-2))
+    #print(np.var(D1))
+
+    Dp = D1
+    Up = U1 
+    c.MM = MM1
     if not c.plot: 
-        del D,U,Us,Rs
+        del D1,U1
         gc.collect()
+    train_network()
+
+    # RMSE1,NRMSE1 = calc(Yp,Dp)
+    # print(RMSE1,NRMSE1)
+
+    
         
 
-    
-    
     ### test
     #print("test...")
-    test_network()                  #OUTPUT = Yp
+    c.MM = MM2
+    Dp = D2
+    Up = U2
+    if not c.plot: 
+        del U2,D2
+        gc.collect()
+    test_network()
 
+    global Yp 
+    Yp = Yp[c.MM0:]
+    Dp = Dp[c.MM0:]
 
-    
-    DC = np.zeros((c.delay, 1))  # 決定係数
-    MC = 0.0                        # 記憶容量
+    RMSE,NRMSE,NMSE = calc(Yp,Dp)
+    #print(1/np.var(Dp))
+    print("RMSE:",RMSE,"NRMSE:",NRMSE,"NMSE:",NMSE)
+    c.RMSE = RMSE
+    c.NRMSE = NRMSE
+    c.NMSE = NMSE
+    c.cnt_overflow=cnt_overflow/(c.MM-2)
+    #print("time: %.6f [sec]" % (time.time()-t_start))
 
-    #inv scale
-    
-    Dp = Dp[c.MM0:]                    # TARGET    #(MM,len(delay))
-    Yp = Yp[c.MM0:]                    # PRED      #(MM,len(delay))
-    #print(np.max(Dp),np.max(Yp))
-    """
-    予測と目標から決定係数を求める。
-    決定係数の積分が記憶容量
-    """
-    for k in range(c.delay):
-        corr = np.corrcoef(np.vstack((Dp.T[k, k:], Yp.T[k, k:])))   #相関係数
-        DC[k] = corr[0, 1] ** 2                                     #決定係数 = 相関係数 **2
-
-    MC = np.sum(DC)
-    
-    #plot_MC()
-######################################################################################
-     # Results
-    c.RMSE1=None
-    c.RMSE2=None
-    c.cnt_overflow=cnt_overflow
-
-    c.MC = MC
-    #c.DC =DC
-
-    # if c.delay >=5:
-    #     MC1 = np.sum(DC[:5])
-    #     c.MC1 = MC1
-
-    # if c.delay >=10:
-    #     MC2 = np.sum(DC[:10])
-    #     c.MC2 = MC2
-
-    # if c.delay >=20:
-    #     MC3 = np.sum(DC[:20])
-    #     c.MC3 = MC3
-
-    # if c.delay >=50:
-    #     MC4 = np.sum(DC[:50])
-    #     c.MC4 = MC4
-    print("MC =",c.MC)
-    print("overflow =",c.cnt_overflow)
-#####################################################################################
     if c.plot:
-        plot_delay()
-        plot_MC()
-        #plot1()
-
+        plot1()
+        plot2()
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
@@ -386,5 +369,5 @@ if __name__ == "__main__":
 
     c=Config()
     if a.config: c=common.load_config(a)
-    execute(c)
+    execute()
     if a.config: common.save_config(c)

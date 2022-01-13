@@ -11,12 +11,10 @@ import scipy.linalg
 import matplotlib.pyplot as plt
 import copy
 import time
-import os
-import gc
-from generate_data_sequence_ipc import datasets
-from generate_data_sequence_ou import *
-from generate_matrix import *
 from explorer import common
+from generate_data_sequence_ipc2 import *
+from generate_matrix import *
+from tqdm import tqdm
 
 class Config():
     def __init__(self):
@@ -25,61 +23,81 @@ class Config():
         self.csv = None # 結果を保存するファイル
         self.id  = None
         self.plot = True # 図の出力のオンオフ
-        self.show = False # 図の表示（plt.show()）のオンオフ、explorerは実行時にこれをオフにする。
-        self.savefig = False
+        self.show = True # 図の表示（plt.show()）のオンオフ、explorerは実行時にこれをオフにする。
+        self.savefig = True
         self.fig1 = "fig1.png" ### 画像ファイル名
 
         # config
-        self.dataset=6
-        self.seed:int=2 # 乱数生成のためのシード
-        self.NN=256 # １サイクルあたりの時間ステップ
-        self.MM=2200 # サイクル数
+        self.dataset=1
+        self.seed:int=0 # 乱数生成のためのシード
+        self.NN=2**8 # １サイクルあたりの時間ステップ
+        self.MM=1000 # サイクル数
         self.MM0 = 200 #
 
-        self.Nu = 1         #size of input
-        self.Nh:int = 100   #815 #size of dynamical reservior
-        self.Ny = 20        #size of output
+        self.Nu = 1   #size of input
+        self.Nh = 100 #size of dynamical reservior
+        self.Ny = 20   #size of output
 
-        self.Temp=5
+        self.Temp=1.0
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 1
-        self.alpha_r = 0.7
+        self.alpha_i = 0.08
+        self.alpha_r = 0.66
         self.alpha_b = 0.
-        self.alpha_s = 2
+        self.alpha_s = 1.43
 
-        self.alpha0 = 0#0.1
-        self.alpha1 = 0#-5.8
-
-        self.beta_i = 0.9
-        self.beta_r = 0.1
+        self.beta_i = 0.74
+        self.beta_r = 0.74
         self.beta_b = 0.1
 
         self.lambda0 = 0.
-        self.delay = 100
 
-
-        # ResultsX
-        self.RMSE1=None
-        self.RMSE2=None
+        self.delay = 1
+        self.degree = 1
+        self.set = 0    #0,1,2,3
+        # Results
         self.MC = None
-        self.MC1 = None 
-        self.MC2 = None
-        self.MC3 = None
-        self.MC4 = None
+        self.per = None 
         self.cnt_overflow=None
-        #self.BER = None
-        
-        #self.DC = None 
-
-
+def bm_weight():
+    global Wr, Wb, Wo, Wi
+    #taikaku = "zero"
+    taikaku = "nonzero"
+    Wr = np.zeros((c.Nh,c.Nh))
+    x = c.Nh**2
+    if taikaku =="zero":
+        x -= c.Nh
+    nonzeros = int(x * c.beta_r)
+    x = np.zeros((x))
+    x[0:int(nonzeros / 2)] = 1
+    x[int(nonzeros / 2):int(nonzeros)] = -1
+    np.random.shuffle(x)
+    m = 0
+    
+    for i in range(c.Nh):
+        for j in range(i,c.Nh):
+            if taikaku =="zero":
+                if i!=j:
+                    Wr[i,j] = x[m]
+                    Wr[j,i] = x[m]
+                    m += 1
+            else:
+                Wr[i,j] = x[m]
+                Wr[j,i] = x[m]
+                m += 1
+    #print(Wr)
+    v = np.linalg.eigvals(Wr)
+    lambda_max = max(abs(v))
+    Wr = Wr/lambda_max*c.alpha_r
+    return Wr
 def generate_weight_matrix():
     global Wr, Wb, Wo, Wi
-    Wr = generate_random_matrix(c.Nh,c.Nh,c.alpha_r,c.beta_r,distribution="one",normalization="sr")
+    #Wr = generate_random_matrix(c.Nh,c.Nh,c.alpha_r,c.beta_r,distribution="one",normalization="sr")
+    Wr = bm_weight()
     Wb = generate_random_matrix(c.Nh,c.Ny,c.alpha_b,c.beta_b,distribution="one",normalization="none")
     Wi = generate_random_matrix(c.Nh,c.Nu,c.alpha_i,c.beta_i,distribution="one",normalization="none")
-    Wo = np.zeros(c.Nh * c.Ny).reshape((c.Ny, c.Nh))
+    Wo = np.zeros(c.Nh * c.Ny).reshape(c.Ny, c.Nh)
 
 def fy(h):
     return np.tanh(h)
@@ -203,6 +221,7 @@ def train_network():
     #print("M\n",M)
 
     ### Ridge regression
+
     if c.lambda0 == 0:
         Wo = np.dot(G.T,np.linalg.pinv(M).T)
         #print("a")
@@ -217,7 +236,7 @@ def test_network():
     run_network(0)
 
 def plot1():
-    fig=plt.figure(figsize=(16, 8))
+    fig=plt.figure(figsize=(10, 6))
     Nr=6
     ax = fig.add_subplot(Nr,1,1)
     ax.cla()
@@ -245,139 +264,94 @@ def plot1():
     ax.cla()
     ax.set_title("Yp")
     ax.plot(Yp)
-    #ax.plot(y)
 
     ax = fig.add_subplot(Nr,1,6)
     ax.cla()
-    ax.plot(DC)
-    ax.set_ylabel("determinant coefficient")
-    ax.set_xlabel("Delay k")
-    ax.set_ylim([0,1])
-    ax.set_xlim([0,c.delay])
-    ax.set_title('MC ~ %3.2lf' % MC, x=0.8, y=0.7)
+    ax.set_title("Dp")
+    ax.plot(Dp)
 
     plt.show()
-    plt.savefig(c.fig1)
+    #plt.savefig(c.fig1)
 
-def plot_delay():
-    fig=plt.figure(figsize=(16,16 ))
-    Nr=20
-    start = 0
-    for i in range(20):
-            ax = fig.add_subplot(Nr,1,i+1)
-            ax.cla()
-            ax.set_title("Yp,Dp, delay = %s" % str(i))
-            ax.plot(Yp.T[i,i:])
-            ax.plot(Dp.T[i,i:])
-
-    plt.show()
-
-
-def plot_MC():
-    plt.plot(DC)
-    plt.ylabel("determinant coefficient")
-    plt.xlabel("Delay k")
-    plt.ylim([0,1.1])
-    plt.xlim([0,c.delay])
-    plt.title('MC ~ %3.2lf,Nh = %d' % (MC,c.Nh), x=0.8, y=0.7)
-
-    if 1:
-        fname = "./MC_fig_dir/MC:alphai={0},r={1},s={2},betai={3},r={4}.png".format(c.alpha_i,c.alpha_r,c.alpha_s,c.beta_i,c.beta_r)
-        plt.savefig(fname)
-    plt.show()
 
 def execute(c):
-    global D,Ds,Dp,U,Us,Up,Rs,R2s,MM,Yp
-    global RMSE1,RMSE2
-    global train_Y_binary,MC,DC
-
-
-    c.delay = int(c.delay)
-    c.Ny = c.delay
-    c.NN = int(c.NN)
+    global D,Ds,Dp,U,Us,Up,Rs,R2s,MM
+    global Yp,Dp,CAPACITY,sumOfCapacity, name ,dist 
+    t_start=time.time()
+    #if c.seed>=0:
     c.Nh = int(c.Nh)
-
-    np.random.seed(seed = int(c.seed))    
-    generate_weight_matrix()
+    c.seed = int(c.seed)
+    c.Ny = int(c.delay)
+    c.set = int(c.set)
+    c.degree = int(c.degree)
+    np.random.seed(c.seed)    
+    
 
     ### generate data
+    #c.set = 0
+    name_list = ["Legendre","Hermite","Chebyshev","Laguerre"]
+    dist_list = ["uniform","normal","arcsine","exponential"]
+    dist = dist_list[c.set]
+    name = name_list[c.set]
     
-    #U,D = generate_white_noise(delay_s=c.delay,T=c.MM+200,dist = c.dist,ave = c.ave,std = c.std)
-    U,D = datasets(T = c.MM + 200,delay_s = 100)
-    U=U[200:]
-    D=D[200:]
+    U,D = datasets(k=c.delay,n=c.degree,T = c.MM,name=name,dist=dist,seed=c.seed,new=0,save=0)
+ 
+    D = D[:,:c.delay]
+    #print(D.shape)
+    # max = np.max(np.max(abs(D)))
+    # D /= max*1.01
+    #print(U[:,0]==D[:,0])
+    # plt.plot(D)
+    # plt.plot(U)
+    # plt.show()
+
+    generate_weight_matrix()
     ### training
     #print("training...")
     
-    #Scale to (-1,1)
-    Dp = D                # TARGET   #(MM,len(delay))   
-    Up = U                # INPUT    #(MM,1)
+    Dp = D[:]                # TARGET   #(MM,len(delay))   
+    Up = U[:]                # INPUT    #(MM,1)
 
     train_network()
-    if not c.plot: 
-        del D,U,Us,Rs
-        gc.collect()
-        
-
-    
+    #print("...end") 
     
     ### test
     #print("test...")
+    Dp = D[:]                    # TARGET   #(MM,len(delay))   
+    Up = U[:]                    # INPUT    #(MM,1)
     test_network()                  #OUTPUT = Yp
 
+    ### evaluation
 
-    
-    DC = np.zeros((c.delay, 1))  # 決定係数
-    MC = 0.0                        # 記憶容量
+    Yp = Yp[c.MM0:]
+    Dp = Dp[c.MM0:]
+    MC = 0
 
-    #inv scale
+    CAPACITY = np.zeros((c.delay))
+    for i in range(c.delay):
+        r = np.corrcoef(Dp[i:,i],Yp[i:,i])[0,1]
+        CAPACITY[i] = r**2
+    ep = 1.7*10**(-1)
+    CAPACITY = np.heaviside(CAPACITY-ep,1)*CAPACITY
+    MC = sum(CAPACITY)
     
-    Dp = Dp[c.MM0:]                    # TARGET    #(MM,len(delay))
-    Yp = Yp[c.MM0:]                    # PRED      #(MM,len(delay))
-    #print(np.max(Dp),np.max(Yp))
-    """
-    予測と目標から決定係数を求める。
-    決定係数の積分が記憶容量
-    """
-    for k in range(c.delay):
-        corr = np.corrcoef(np.vstack((Dp.T[k, k:], Yp.T[k, k:])))   #相関係数
-        DC[k] = corr[0, 1] ** 2                                     #決定係数 = 相関係数 **2
+    SUM = np.sum((Yp-Dp)**2)
+    RMSE1 = np.sqrt(SUM/c.Ny/(c.MM-c.MM0-c.delay))
 
-    MC = np.sum(DC)
-    
-    #plot_MC()
+    #RMSE2 = 0
+    print("-------------"+name+","+dist+",degree = "+str(c.degree)+"-------------")
+    # print("RMSE=",RMSE1)
+    print("IPC=",MC)
+
 ######################################################################################
-     # Results
-    c.RMSE1=None
-    c.RMSE2=None
-    c.cnt_overflow=cnt_overflow
+     # Results8
 
     c.MC = MC
-    #c.DC =DC
-
-    # if c.delay >=5:
-    #     MC1 = np.sum(DC[:5])
-    #     c.MC1 = MC1
-
-    # if c.delay >=10:
-    #     MC2 = np.sum(DC[:10])
-    #     c.MC2 = MC2
-
-    # if c.delay >=20:
-    #     MC3 = np.sum(DC[:20])
-    #     c.MC3 = MC3
-
-    # if c.delay >=50:
-    #     MC4 = np.sum(DC[:50])
-    #     c.MC4 = MC4
-    print("MC =",c.MC)
-    print("overflow =",c.cnt_overflow)
+    c.cnt_overflow = cnt_overflow
 #####################################################################################
-    if c.plot:
-        plot_delay()
-        plot_MC()
-        #plot1()
-
+    plt.plot(CAPACITY)
+    plt.show()
+    if c.plot: plot1()
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
@@ -386,5 +360,9 @@ if __name__ == "__main__":
 
     c=Config()
     if a.config: c=common.load_config(a)
+    
     execute(c)
     if a.config: common.save_config(c)
+    # if a.config: c=common.load_config(c)
+    # execute()
+    # if a.config: common.save_config(c)
