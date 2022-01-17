@@ -52,13 +52,13 @@ def optimize():
     opt.appendid()#id:必ず加える
     opt.appendseed()# 乱数のシード（０から始まる整数値）
     # 変数の追加([変数名],[基本値],[下端],[上端],[まるめの桁数])
-    opt.append("alpha_i",value=1,min=0.,max=10,round=2)
+    opt.append("alpha_i",value=1,min=0.,max=1,round=2)
     opt.append("alpha_r",value=0.9,min=0.,max=1,round=2)
-    opt.append("alpha_s",value=2,min=0,max=10,round=2)
+    opt.append("alpha_s",value=2,min=0,max=2,round=2)
     opt.append("beta_i",value=1,min=0.0,max=1,round=2)
     opt.append("beta_r",value=1,min=0.0,max=1,round=2)
     #opt.append("lambda0",value=0.1,min=0.01,max=10,round=2)
-    opt.minimize(target="NMSE",iteration=20,population=20,samples=4)
+    opt.minimize(target="NMSE",iteration=20,population=16,samples=4)
     #opt.minimize(TARGET=func,iteration=5,population=10,samples=4)
     common.config = opt.best_config # 最適化で得られた設定を基本設定とする
 optimize()
@@ -82,7 +82,7 @@ def gridsearch(X1,min=0,max=1,num=41,samples=10):
 
     plt.subplot(2,1,1)
     x,ymean,ystd,ymin,ymax = vs.analyze(df,X1,"NMSE")
-    plot1(x,ymean,ystd,ymin,ymax,color=cmap(1),label="NRMSE")
+    plot1(x,ymean,ystd,ymin,ymax,color=cmap(1),label="NMSE")
     plt.ylabel("NMSE")
     plt.grid(linestyle="dotted")
 

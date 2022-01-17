@@ -17,6 +17,8 @@ from generate_data_sequence_santafe import *
 from generate_matrix import *
 import gc
 
+from tqdm import tqdm 
+
 
 class Config():
     def __init__(self):
@@ -37,7 +39,7 @@ class Config():
         self.MM0 = 0 #
 
         self.Nu = 1   #size of input
-        self.Nh = 300 #size of dynamical reservior
+        self.Nh = 100 #size of dynamical reservior
         self.Ny = 5   #size of output
 
         self.Temp=1.0
@@ -260,7 +262,7 @@ def plot2():
 
     plt.show()
 
-def execute():
+def execute(c):
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM
     global RMSE1,RMSE2,Yp,normalize,train_num,test_num,delay
     t_start=time.time()
@@ -279,11 +281,11 @@ def execute():
         U1,D1,U2,D2,normalize = generate_santafe(future = delay,train_num = train_num,test_num =test_num,)
     
     #print(D2[:,2]==D2[:,3])
-    plt.plot(U2,label="u")
-    for i in range(5):
-        plt.plot(D2[:,i],label=i+1)
-    plt.legend()
-    plt.show()
+    # plt.plot(U2,label="u")
+    # for i in range(5):
+    #     plt.plot(D2[:,i],label=i+1)
+    # plt.legend()
+    # plt.show()
     #print(normalize)
     c.Ny = int(len(delay))
     generate_weight_matrix()
@@ -339,10 +341,10 @@ def execute():
     #print("time: %.6f [sec]" % (time.time()-t_start))
 
     if c.plot: 
-        #plot1()
+        plot1()
         plot2()
         #print(RMSE)
-        print("それぞれのdelayでのNRMSEを全部加算した場合のNRMSE: "+str(c.NRMSE))
+        print("それぞれのdelayでのNMSEを全部加算した場合のNRMSE: "+str(c.NMSE))
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
@@ -351,5 +353,5 @@ if __name__ == "__main__":
 
     c=Config()
     if a.config: c=common.load_config(a)
-    execute()
+    execute(c)
     if a.config: common.save_config(c)
