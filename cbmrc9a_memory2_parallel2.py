@@ -1,6 +1,6 @@
 # Copyright (c) 2018-2021 Katori lab. All Rights Reserved
 """
-NOTE: cbm_rc　時系列生成タスク　
+NOTE: cbm_rc 時系列生成タスク 
 cbmrc6e.pyを改変
 Configクラスによるパラメータ設定
 """
@@ -15,7 +15,7 @@ from explorer import common
 from generate_data_sequence import *
 from generate_matrix import *
 from tqdm import tqdm
-
+from cbm_utils import *
 class Config():
     def __init__(self):
         # columns, csv, id: データの管理のために必須の変数
@@ -23,39 +23,51 @@ class Config():
         self.csv = None # 結果を保存するファイル
         self.id  = None
         self.plot = 1 # 図の出力のオンオフ
-        self.show = 1 # 図の表示（plt.show()）のオンオフ、explorerは実行時にこれをオフにする。
+        self.show = False # 図の表示（plt.show()）のオンオフ、explorerは実行時にこれをオフにする。
         self.savefig = False
         self.fig1 = "fig1.png" ### 画像ファイル名
 
         # config
         self.dataset=6
-        self.seed:int=0 # 乱数生成のためのシード
+        self.seed:int=1 # 乱数生成のためのシード
         self.NN=2**8 # １サイクルあたりの時間ステップ
-        self.MM=2200 # サイクル数
+        self.MM=1200 # サイクル数
         self.MM0 = 200 #
 
         self.Nu = 1         #size of input
-        self.Nh:int = 100   #815 #size of dynamical reservior
+        self.Nh:int = 50   #815 #size of dynamical reservior
         self.Ny = 20        #size of output
 
         self.Temp=1
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 0.16
-        self.alpha_r = 0.42
-        self.alpha_r2 = 0.9
+        self.alpha_i = 0.24
+        self.alpha_r = 0.64
+        self.alpha_s = 1.0
+        self.beta_i = 0.36
+        self.beta_r = 0.76
+
+        self.alpha_i2 = 0.24
+        self.alpha_r2 = 0.64
+        self.alpha_s2 = 1.0
+        self.beta_i2 = 0.36
+        self.beta_r2 = 0.76
+        
+
+        self.alpha_i3 = 0.24
+        self.alpha_r3 = 0.64
+        self.alpha_s3 = 1.0
+        self.beta_i3 = 0.36
+        self.beta_r3 = 0.76
 
         self.alpha_b = 0.
-        self.alpha_s = 0.44
-
-        self.alpha0 = 0.5 #0.1
-        self.alpha1 = 0#-5.8
-
-        self.beta_i = 0.22
-        self.beta_r = 0.43
-        self.beta_r2 = 0.69
         self.beta_b = 0.1
+
+        self.alpha0 = 0#0.1
+        self.alpha1 = 1#-5.8
+        
+        
 
         self.lambda0 = 0.
 
@@ -139,15 +151,20 @@ def small_world_weight():
     return Wr
 
 def generate_weight_matrix():
-    global Wr, Wb, Wo, Wi,Wr2
-    Wr = generate_random_matrix(c.Nh,c.Nh,c.alpha_r,c.beta_r,distribution="one",normalization="sr",diagnal=False)
-    Wr2 = generate_random_matrix(c.Nh,c.Nh,c.alpha_r2,c.beta_r2,distribution="one",normalization="sr",diagnal=False)
+    global Wr, Wb, Wo, Wi,Wr2,Wr3,Wi2,Wi3,Wh
+    Wr = generate_random_matrix(c.Nh,c.Nh,c.alpha_r,c.beta_r,distribution="one",normalization="sr",diagnal=1)
+    Wr2 = generate_random_matrix(c.Nh,c.Nh,c.alpha_r2,c.beta_r2,distribution="one",normalization="sr",diagnal=1)
+    Wr3 = generate_random_matrix(c.Nh,c.Nh,c.alpha_r3,c.beta_r3,distribution="one",normalization="sr",diagnal=1)
     #Wr = bm_weight()
     #Wr = ring_weight()
     #Wr = small_world_weight()
     Wb = generate_random_matrix(c.Nh,c.Ny,c.alpha_b,c.beta_b,distribution="one",normalization="none")
     Wi = generate_random_matrix(c.Nh,c.Nu,c.alpha_i,c.beta_i,distribution="one",normalization="none")
-    Wo = np.zeros(c.Nh * c.Ny).reshape((c.Ny, c.Nh))
+    Wi2 = generate_random_matrix(c.Nh,c.Nu,c.alpha_i2,c.beta_i2,distribution="one",normalization="none")
+    Wi3 = generate_random_matrix(c.Nh,c.Nu,c.alpha_i3,c.beta_i3,distribution="one",normalization="none")
+
+    Wh = generate_random_matrix(c.Nh,c.Nh*3,c.alpha_i3,c.beta_i3,distribution="one",normalization="none")
+    Wo = np.zeros(c.Nh*3 * c.Ny).reshape((c.Ny, c.Nh*3))
 
 def fy(h):
     return np.tanh(h)
@@ -158,24 +175,40 @@ def fyi(h):
 def p2s(theta,p):
     return np.heaviside( np.sin(np.pi*(2*theta-p)),1)
 
-def softmax(a):
-    x = np.exp(a)
-    u = np.sum(x)
-    return x/u
-
 def run_network(mode):
     global Hx, Hs, Hp, Y, Yx, Ys, Yp, Y, Us, Ds,Rs
-    Hp = np.zeros((c.MM, c.Nh))
+    Hp = np.zeros((c.MM, c.Nh*3))
     Hx = np.zeros((c.MM*c.NN, c.Nh))
     Hs = np.zeros((c.MM*c.NN, c.Nh))
     hsign = np.zeros(c.Nh)
+
     hx = np.zeros(c.Nh)
     #hx = np.random.uniform(0,1,c.Nh) # [0,1]の連続値
-    hs = np.zeros(c.Nh) # {0,1}の２値
+    hs = np.zeros(c.Nh) # {0,1}の
+
+    hsign2 = np.zeros(c.Nh)
+    hx2 = np.zeros(c.Nh)
+    #hx = np.random.uniform(0,1,c.Nh) # [0,1]の連続値
+    hs2 = np.zeros(c.Nh) # {0,1}の２値
+
+    hsign3 = np.zeros(c.Nh)
+    hx3 = np.zeros(c.Nh)
+    #hx = np.random.uniform(0,1,c.Nh) # [0,1]の連続値
+    hs3 = np.zeros(c.Nh) # {0,1}の２値
+
     hs_prev = np.zeros(c.Nh)
+
     hc = np.zeros(c.Nh) # ref.clockに対する位相差を求めるためのカウント
+    hc2 = np.zeros(c.Nh) # ref.clockに対する位相差を求めるためのカウント
+    hc3 = np.zeros(c.Nh) # ref.clockに対する位相差を求めるためのカウント
+
     hp = np.zeros(c.Nh) # [-1,1]の連続値
+    hp2 = np.zeros(c.Nh) # [-1,1]の連続値
+    hp3 = np.zeros(c.Nh) # [-1,1]の連続値
+
     ht = np.zeros(c.Nh) # {0,1}
+    ht2 = np.zeros(c.Nh) # {0,1}
+    ht3 = np.zeros(c.Nh) # {0,1}
 
     Yp = np.zeros((c.MM, c.Ny))
     Yx = np.zeros((c.MM*c.NN, c.Ny))
@@ -190,81 +223,148 @@ def run_network(mode):
     Ds = np.zeros((c.MM*c.NN, c.Ny))
     Rs = np.zeros((c.MM*c.NN, 1))
 
-    idx_linear = int(c.alpha0*c.Nh)
     rs = 1
     any_hs_change = True
     count =0
     m = 0
-    prev_hc = np.zeros((c.Nh))
-    hx_prev = np.zeros((c.Nh))
-    hs_prev = np.zeros((c.Nh))
+
+    paralell =np.zeros((c.Nh))
+    paralell[:c.Nh//3] = 1
+    paralell[c.Nh//3:2*c.Nh//3] = 2
+    paralell[2*c.Nh//3:] = 3
+
+    us2 =np.zeros((1))
+    us3 =np.zeros((1))
+
+    us_prev =np.zeros((1))
+    us_prev2 =np.zeros((1))
     for n in tqdm(range(c.NN * c.MM)):
         theta = np.mod(n/c.NN,1) # (0,1)
         rs_prev = rs
         hs_prev = hs.copy()
+        hs_prev2 = hs2.copy()
+        hs_prev3 = hs3.copy()
 
         rs = p2s(theta,0)# 参照クロック
-        us = p2s(theta,Up[m]) # エンコードされた入力
+        us = p2s(theta,Up[m,0]) # エンコードされた入力
+        us = us.reshape((1))
+        # us2 = us2.reshape((1))
+        # us3 = us3.reshape((1))
+
+        us_prev = us.copy()
+        us_prev2 = us2.copy()
+        
+        us2 = us_prev # エンコードされた入力
+        us3 = us_prev2 # エンコードされた入力
+        
+        #us = p2s(theta,Wi@(2*Up[m]-1))
         ds = p2s(theta,Dp[m]) #
         ys = p2s(theta,yp)
-        #linear = Wi@(2*us-1) + Wr@(2*p2s(theta,hp)-1) + c.alpha_s*(hs-rs)*ht
-
+        #print(us == Wi@(2*p2s(theta,Up[m])-1))
+        # print("aaaaaaaaaaaaaaaaaaa")
+        # print(us)
+        # print(Wi@(2*p2s(theta,Up[m])-1))
         sum = np.zeros(c.Nh)
         #sum += c.alpha_s*rs # ラッチ動作を用いないref.clockと同期させるための結合
         sum += c.alpha_s*(hs-rs)*ht # ref.clockと同期させるための結合
-        #sum += c.alpha_s * hx 
         sum += Wi@(2*us-1) # 外部入力
+        #sum += us
         #sum += Wr@(2*hs-1) # リカレント結合
         sum += Wr@(2*p2s(theta,hp)-1) # リカレント結合
 
-        #sum += Wr@prev_hc/c.NN
-        #sum += Wr@(2*p2s(theta,hp)-1)
+        sum2 = np.zeros(c.Nh)
+        sum2 += c.alpha_s2*(hs2-rs)*ht2 # ref.clockと同期させるための結合
+        sum2 += Wi2@(2*us2-1) # 外部入力
+        #sum += us
+        #sum += Wr@(2*hs-1) # リカレント結合
+        sum2 += Wr2@(2*p2s(theta,hp)-1) # リカレント結合
+
+        sum3 = np.zeros(c.Nh)
+        sum3 += c.alpha_s3*(hs3-rs)*ht3 # ref.clockと同期させるための結合
+        sum3 += Wi3@(2*us3-1) # 外部入力
+        #sum += us
+        #sum += Wr@(2*hs-1) # リカレント結合
+        sum3 += Wr3@(2*p2s(theta,hp)-1) # リカレント結合
         #if mode == 0:
         #    sum += Wb@ys
         #if mode == 1:  # teacher forcing
         #    sum += Wb@ds
 
+
+        
         hsign = 1 - 2*hs
-        hx = hx + hsign*(1+np.exp(hsign*sum/c.Temp))*c.dt
-        #hx[:idx_linear] = linear[:idx_linear]
-        #hx[:idx_linear] += p2s(theta,lx[:idx_linear])*c.dt
+        hx = hx + hsign*(1.0+np.exp(hsign*sum/c.Temp))*c.dt
         hs = np.heaviside(hx+hs-1,0)
         hx = np.fmin(np.fmax(hx,0),1)
+
+        hsign2 = 1 - 2*hs2
+        hx2 = hx2 + hsign2*(1.0+np.exp(hsign2*sum2/c.Temp))*c.dt
+        hs2 = np.heaviside(hx2+hs2-1,0)
+        hx2 = np.fmin(np.fmax(hx2,0),1)
+
+        hsign3 = 1 - 2*hs3
+        hx3 = hx3 + hsign3*(1.0+np.exp(hsign3*sum3/c.Temp))*c.dt
+        hs3 = np.heaviside(hx3+hs3-1,0)
+        hx3 = np.fmin(np.fmax(hx3,0),1)
+
+        # hc[(hs_prev == 1)& (hs==0) & (paralell ==1)] = count
+        # hc[(hs_prev2 == 1)& (hs2==0)& (paralell ==2)] = count
+        # hc[(hs_prev3 == 1)& (hs3==0)& (paralell ==3)] = count
         
         hc[(hs_prev == 1)& (hs==0)] = count
-        
+        hc2[(hs_prev2 == 1)& (hs2==0)] = count
+        hc3[(hs_prev3 == 1)& (hs3==0)] = count
+
         # ref.clockの立ち上がり
         if rs_prev==0 and rs==1:
-            linear = Wi@Up[m]+Wr2@hp
-            hp = 2*hc/c.NN-1    # デコード、カウンタの値を連続値に変換
-            hp[:idx_linear] = linear[:idx_linear]
+            #print(hc>)
+            # hc[hc>]
+            hp_all = np.zeros((c.Nh*3))
+
+            hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
+            hp2 = 2*hc2/c.NN-1 # デコード、カウンタの値を連続値に変換
+            hp3 = 2*hc3/c.NN-1 # デコード、カウンタの値を連続値に変換
+
             hc = np.zeros(c.Nh) #カウンタをリセット
+            hc2 = np.zeros(c.Nh) #カウンタをリセット
+            hc3 = np.zeros(c.Nh) #カウンタをリセット
+
             ht = 2*hs-1 #リファレンスクロック同期用ラッチ動作をコメントアウト
-            yp = Wo@hp
+            ht2 = 2*hs2-1 #リファレンスクロック同期用ラッチ動作をコメントアウト
+            ht3 = 2*hs3-1 #リファレンスクロック同期用ラッチ動作をコメントアウト
+
+            hp_all[:c.Nh] =hp
+            hp_all[c.Nh:c.Nh*2] =hp2
+            hp_all[c.Nh*2:] =hp3
+
+            # np.random.shuffle(hp_all)
+
+            # hp = hp_all[:c.Nh]
+            # hp2 = hp_all[c.Nh:c.Nh*2]
+            # hp3 = hp_all[c.Nh*2:]
+            
+
+            yp = Wo@hp_all
             # record    
-            Hp[m]=hp
+            Hp[m]=hp_all
             Yp[m]=yp
             count = 0
             m += 1
-            prev_hc = hc
 
         #境界条件
         if n == (c.NN * c.MM-1):
-            #linear = hp#Wi@ Up[m] + Wr@hp
-            linear = Wi@Up[m]+Wr2@hp
-            #linear = Wi@Up[m] + Wr@hp
-            hp = 2*hc/c.NN-1    # デコード、カウンタの値を連続値に変換
-            hp[:idx_linear] = linear[:idx_linear]
-            #idx_linear = int(c.alpha0*c.Nh)
-            #hp[:idx_linear] = linear[:idx_linear]
+            hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
+            hp2 = 2*hc2/c.NN-1 # デコード、カウンタの値を連続値に変換
+            hp3 = 2*hc3/c.NN-1 # デコード、カウンタの値を連続値に変換
 
-            # hp = 2*hc/c.NN-1    # デコード、カウンタの値を連続値に変換
+            hp_all[:c.Nh] =hp
+            hp_all[c.Nh:c.Nh*2] =hp2
+            hp_all[c.Nh*2:] =hp3
 
-            yp = Wo@hp
+            yp = Wo@hp_all
             # record
-            Hp[m]=hp
+            Hp[m]=hp_all
             Yp[m]=yp
-            prev_hc = hc
 
         count += 1
         any_hs_change = np.any(hs!=hs_prev)
@@ -276,7 +376,7 @@ def run_network(mode):
             Hs[n]=hs
             Yx[n]=yx
             Ys[n]=ys
-            Us[n]=us
+            #Us[n]=us
             Ds[n]=ds
 
     # オーバーフローを検出する。
@@ -313,86 +413,11 @@ def train_network():
 def test_network():
     run_network(0)
 
-def plot1():
-    fig=plt.figure(figsize=(20, 12))
-    Nr=6
-    ax = fig.add_subplot(Nr,1,1)
-    ax.cla()
-    ax.set_title("Up")
-    ax.plot(Up)
-
-    ax = fig.add_subplot(Nr,1,2)
-    ax.cla()
-    ax.set_title("Us")
-    ax.plot(Us)
-    ax.plot(Rs,"r:")
-    #ax.plot(R2s,"b:")
-
-    ax = fig.add_subplot(Nr,1,3)
-    ax.cla()
-    ax.set_title("Hx")
-    ax.plot(Hx)
-
-    ax = fig.add_subplot(Nr,1,4)
-    ax.cla()
-    ax.set_title("Hp")
-    ax.plot(Hp)
-
-    ax = fig.add_subplot(Nr,1,5)
-    ax.cla()
-    ax.set_title("Yp")
-    ax.plot(Yp)
-    #ax.plot(y)
-
-    ax = fig.add_subplot(Nr,1,6)
-    ax.cla()
-    ax.plot(DC)
-    ax.set_ylabel("determinant coefficient")
-    ax.set_xlabel("Delay k")
-    ax.set_ylim([0,1])
-    ax.set_xlim([0,c.delay])
-    ax.set_title('MC ~ %3.2lf' % MC, x=0.8, y=0.7)
-
-    plt.show()
-    #plt.savefig(c.fig1)
-
-def plot_delay():
-    fig=plt.figure(figsize=(16,16 ))
-    Nr=20
-    start = 0
-    for i in range(20):
-        ax = fig.add_subplot(Nr,1,i+1)
-        ax.cla()
-        ax.set_title("Yp,Dp, delay = %s" % str(i))
-        ax.plot(Yp.T[i,i:])
-        ax.plot(Dp.T[i,i:])
-
-    plt.show()
-def plot_MC():
-    plt.plot(DC)
-    plt.ylabel("determinant coefficient")
-    plt.xlabel("Delay k")
-    plt.ylim([0,1.1])
-    plt.xlim([0,c.delay])
-    plt.title('MC ~ %3.2lf,Nh = %d' % (MC,c.Nh), x=0.8, y=0.7)
-
-    if 0:
-        fname = "./MC_fig_dir/MC:alphai={0},r={1},s={2},betai={3},r={4}.png".format(c.alpha_i,c.alpha_r,c.alpha_s,c.beta_i,c.beta_r)
-        plt.savefig(fname)
-    plt.show()
-# def plot_MC():
-#     plt.plot(DC)
-#     plt.ylabel("determinant coefficient")
-#     plt.xlabel("Delay k")
-#     plt.ylim([0,1])
-#     plt.xlim([0,c.delay])
-#     plt.title('MC ~ %3.2lf' % MC, x=0.8, y=0.7)
-#     plt.show()
-
 def execute(c):
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM,Yp
     global RMSE1,RMSE2
     global train_Y_binary,MC,DC
+
 
     c.delay = int(c.delay)
     c.Ny = c.delay
@@ -419,10 +444,20 @@ def execute(c):
     #Scale to (-1,1)
     Dp = D                # TARGET   #(MM,len(delay))   
     Up = U                # INPUT    #(MM,1)
-
+    # plt.plot(U)
+    # plt.tight_layout()
+    # plt.savefig("memory-u.eps")
+    #Up = D
     train_network()
-
-    
+    # print(U.shape,Hp.shape)
+    # for i in range(20):
+    #     corr = np.corrcoef(np.vstack((U[i:,0],Hp[i:,i])))
+    #     corr = corr[0,1]
+    #     print(corr)
+    # plt.scatter(U[:,0],Hp[:,0])
+    # plt.title("corr = %s"% str(corr))
+    # plt.show()
+    # exit()
     
     ### test
     
@@ -491,9 +526,10 @@ def execute(c):
         # ax.plot(Hp[50:100])
         # ax.set_xlabel("time")
         # plt.show()
-        #plot_delay()
-        plot_MC()
-        plot1()
+        #plot_delay(DC,4,Yp,Dp)
+        plot_MC(DC,c.delay,MC)
+        #plot1(Up,Us,Rs,Hx,Hp,Yp,Dp)
+        #plot1()
 
 
 if __name__ == "__main__":
