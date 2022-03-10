@@ -46,21 +46,23 @@ class Config():
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 5
-        self.alpha_r = 0.9
+        self.alpha_i = 0.25
+        self.alpha_r = 0.36
         self.alpha_b = 0.
-        self.alpha_s = 10
+        self.alpha_s = 0.82
 
-        self.beta_i = 0.9
-        self.beta_r = 0.15
+        self.beta_i = 0.4
+        self.beta_r = 0.78
         self.beta_b = 0.1
 
         self.lambda0 = 0.1
+        self.future = 1
 
         # Results
         self.RMSE=None
         self.NRMSE=None
         self.NRMSE2 =None
+        self.NMSE2 =None
         self.NMSE = None
         self.cnt_overflow=None
 
@@ -192,79 +194,72 @@ def train_network():
     #print("Hp\n",Hp)
     #print("M\n",M)
 
-    ### Ridge regression
-    E = np.identity(c.Nh)
-    TMP1 = np.linalg.inv(M.T@M + c.lambda0 * E)
-    WoT = TMP1@M.T@G
-    Wo = WoT.T
+    if c.lambda0 == 0:
+        Wo = np.dot(G.T,np.linalg.pinv(M).T)
+        #print("a")
+    else:
+        E = np.identity(c.Nh)
+        TMP1 = np.linalg.inv(M.T@M + c.lambda0 * E)
+        WoT = TMP1@M.T@G
+        Wo = WoT.T
     #print("WoT\n", WoT)
 
 def test_network():
     run_network(0)
-
 def plot1():
     fig=plt.figure(figsize=(20, 12))
-    Nr=6
+    Nr=4
     ax = fig.add_subplot(Nr,1,1)
     ax.cla()
-    ax.set_title("Up")
+    #ax.set_title("input")
     ax.plot(Up)
 
     ax = fig.add_subplot(Nr,1,2)
     ax.cla()
-    ax.set_title("Us")
-    ax.plot(Us)
-    ax.plot(Rs,"r:")
-    #ax.plot(R2s,"b:")
+    #ax.set_title("decoded reservoir states")
+    ax.plot(Hp)
 
     ax = fig.add_subplot(Nr,1,3)
     ax.cla()
-    ax.set_title("Hx")
-    ax.plot(Hx)
+    #ax.set_title("predictive output")
+    #ax.plot(train_Y)
+    ax.plot(Yp)
 
     ax = fig.add_subplot(Nr,1,4)
     ax.cla()
-    ax.set_title("Hp")
-    ax.plot(Hp)
-
-    ax = fig.add_subplot(Nr,1,5)
-    ax.cla()
-    ax.set_title("Yp - Dp")
-    
-    ax.plot(Dp,label = "Dp")
-    ax.plot(Yp,label = "Yp")
-    ax.legend()
-
-
-    ax = fig.add_subplot(Nr,1,6)
-    ax.cla()
-    ax.set_title("Dp")
+    #ax.set_title("desired output")
     ax.plot(Dp)
-
-    plt.show()
-    plt.savefig(c.fig1)
+    plt.savefig("./eps-fig/santafe.eps")
 
 def plot2():
     fig=plt.figure(figsize=(20, 12))
     Nr=2
     ax = fig.add_subplot(Nr,1,1)
     ax.cla()
-    ax.set_title("Yp,Dp, delay = %s" % delay[0])
-    ax.plot(list(range(train_num,train_num+test_num)),Yp,label = "prediction ")
-    ax.plot(list(range(train_num,train_num+test_num)),Dp, label = "Target")
+    l = Dp.shape[1]
+    for i in range(1,l+1):
+        ax.plot(list(range(train_num,train_num+test_num)),Yp[:,i-1], label = "prediction:future={}".format(i))
+        ax.plot(list(range(train_num,train_num+test_num)),Dp[:,i-1], label = "Target:future={}".format(i))
     ax.legend()
+    # ax.set_xlabel("time")
+    # ax.set_ylabel("value of prediction and target")
 
     ax = fig.add_subplot(Nr,1,2)
     ax.cla()
-    ax.set_title("error")
-    ax.plot(list(range(train_num,train_num+test_num)),abs(Yp-Dp))
 
-
-    plt.show()
+    error = abs(Yp-Dp)
+    for i in range(1,l+1):
+        ax.plot(list(range(train_num,train_num+test_num)),error[:,i-1],label ="error:future={}".format(i) )
+    # ax.set_xlabel("time")
+    # ax.set_ylabel("absolute value of error")
+    plt.legend()
+    plt.savefig("santafe-error.eps")
+    plt.tight_layout()
+    #plt.show()
 
 def execute(c):
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM
-    global RMSE1,RMSE2,Yp,normalize,train_num,test_num,delay
+    global RMSE1,RMSE2,Yp,normalize,train_num,test_num,future
     t_start=time.time()
     #if c.seed>=0:
     np.random.seed(int(c.seed))
@@ -276,10 +271,14 @@ def execute(c):
     train_num = 1000
     test_num = 2000
     if c.dataset==1:
-        #delay = 1,2,3,4,5
-        delay =  [1,2,3,4,5]
-        U1,D1,U2,D2,normalize = generate_santafe(future = delay,train_num = train_num,test_num =test_num,)
-    
+        #future = 1,2,3,4,5
+        c.future = [1,2,3,4,5]
+        U1,D1,U2,D2,normalize = generate_santafe(future = c.future,train_num = train_num,test_num =test_num,)
+        # plt.plot(list(range(1000)),U1)
+        # plt.plot(list(range(1000,3000)),U2)
+        # plt.tight_layout()
+        # #plt.show()
+        # plt.savefig("santafe-u.eps")
     #print(D2[:,2]==D2[:,3])
     # plt.plot(U2,label="u")
     # for i in range(5):
@@ -287,7 +286,7 @@ def execute(c):
     # plt.legend()
     # plt.show()
     #print(normalize)
-    c.Ny = int(len(delay))
+    c.Ny = int(len(c.future))
     generate_weight_matrix()
     ### training
     #print("training...")
@@ -325,26 +324,26 @@ def execute(c):
         sum += (Yp[j] - Dp[j])**2
     MSE = sum/c.MM
     RMSE = np.sqrt(MSE)
+    
     NRMSE = RMSE/np.var(Dp)#np.std(Dp)#np.var(Dp)
-
     c.RMSE = RMSE
     c.NRMSE2 = NRMSE
-    print(RMSE)
-    print(NRMSE)
-   #print("それぞれのdelayのNRMSE: "+str(NRMSE))
-    c.NMSE = MSE/np.var(Dp)
+
+    NMSE =(MSE/np.var(Dp))
+    print(NMSE)
+    c.NMSE = np.sum(NMSE)/NMSE.size
     c.NRMSE = np.sum(NRMSE)/NRMSE.size
     c.cnt_overflow=cnt_overflow
-
+    c.NMSE2 = NMSE
     #print(RRMSE1)
-    #print("それぞれのdelayでのNRMSEを全部加算した場合のNRMSE: "+str(c.NRMSE))
+    #print("それぞれのfutureでのNRMSEを全部加算した場合のNRMSE: "+str(c.NRMSE))
     #print("time: %.6f [sec]" % (time.time()-t_start))
 
     if c.plot: 
-        plot1()
+        #plot1()
         plot2()
         #print(RMSE)
-        print("それぞれのdelayでのNMSEを全部加算した場合のNRMSE: "+str(c.NMSE))
+        print("それぞれのfutureでのNMSEを全部加算した場合のNMSE: "+str(c.NMSE))
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()

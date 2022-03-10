@@ -42,16 +42,16 @@ class Config():
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 0.1
+        self.alpha_i = 1
         self.alpha_r = 0.9
         self.alpha_b = 0.
-        self.alpha_s = 0.5
+        self.alpha_s = 1
 
-        self.alpha0 = 1#0.1
+        self.alpha0 = 0.5#0.1
         self.alpha1 = 0#-5.8
 
-        self.beta_i = 0.3
-        self.beta_r = 0.6
+        self.beta_i = 0.9
+        self.beta_r = 0.1
         self.beta_b = 0.1
 
         self.lambda0 = 0.
@@ -90,7 +90,7 @@ def p2s(theta,p):
 
 
 def run_network(mode):
-    global Hx, Hs, Hp, Y, Yx, Ys, Yp, Y, Us, Ds,Rs
+    global Hx, Hs, Hp, Y, Yx, Ys, Yp, Y, Us, Ds,Rs,idx_linear
     Hp = np.zeros((c.MM, c.Nh))
     Hx = np.zeros((c.MM*c.NN, c.Nh))
     Hs = np.zeros((c.MM*c.NN, c.Nh))
@@ -121,6 +121,7 @@ def run_network(mode):
     any_hs_change = True
     m=0
     count =0
+    total = np.zeros((c.Nh))
     for n in tqdm(range(c.NN * c.MM)):
         theta = np.mod(n/c.NN,1) # (0,1)
         rs_prev = rs
@@ -132,43 +133,48 @@ def run_network(mode):
         ys = p2s(theta,yp)
 
         sum = np.zeros(c.Nh)
-        #sum += c.alpha_s*rs # ラッチ動作を用いないref.clockと同期させるための結合
-        sum += c.alpha_s*(hs-rs)*ht # ref.clockと同期させるための結合
+        sum += c.alpha_s*rs # ラッチ動作を用いないref.clockと同期させるための結合
+        #sum += c.alpha_s*(hx-rs)*ht # ref.clockと同期させるための結合
         sum += Wi@(2*us-1) # 外部入力
-        sum += Wr@(2*hs-1) # リカレント結合
-
+        #sum += Wr@(2*p2s(theta,hp)-1) # リカレント結合
+        
+        sum += Wr@(2*hx-1) # リカレント結合
         #if mode == 0:
         #    sum += Wb@ys
         #if mode == 1:  # teacher forcing
         #    sum += Wb@ds
+        hsign = (1-2*hx)
+        hx = hx + hsign*np.tanh(sum)*c.dt
 
-        hsign = 1 - 2*hs
-        #hx = hx + hsign*(1.0+np.exp(hsign*sum/c.Temp))*c.dt
-        
-        #hx = hx + hsign*c.alpha0 * (sum)*c.dt
-        idx0 = (hs==0)
-        idx1 = (hs==1)
-        hx[idx0] = hx[idx0] + np.abs(c.alpha0 * (sum)[idx0])*c.dt
-        hx[idx1] = hx[idx1] - np.abs(c.alpha0 * (sum)[idx1])*c.dt
         hs = np.heaviside(hx+hs-1,0)
         hx = np.fmin(np.fmax(hx,0),1)
-
-        # if rs==1:
-        #     hc+=hs # デコードのためのカウンタ、ref.clockとhsのANDでカウントアップ
-        hc[(hs_prev == 1) & (hs==0)] = count 
+        total += hx
+        
+        hc[(hs_prev == 1)& (hs==0)] = count
 
         # ref.clockの立ち上がり
         if rs_prev==0 and rs==1:
-            hp = 2*hc/c.NN-1    # デコード、カウンタの値を連続値に変換
-            hc = np.zeros(c.Nh) #カウンタをリセット
-            ht = 2*hs-1 #リファレンスクロック同期用ラッチ動作をコメントアウト
+            hp = 2*total/c.NN-1    # デコード、カウンタの値を連続値に変換
+            total = 0
+            ht = 2*hs-1
+            #hx = p2s(theta,hp)
+            #hx = np.zeros((c.Nh))
             yp = Wo@hp
-            # record
+
+            # recorda
             Hp[m]=hp
             Yp[m]=yp
             m+=1
             count = 0
+        if n==(c.MM*c.NN-1):
+            hp = 2*hs/c.NN-1    # デコード、カウンタの値を連続値に変換
+            total = 0
+            yp = Wo@hp
 
+            # record
+            Hp[m]=hp
+            Yp[m]=yp
+            count = 0
         any_hs_change = np.any(hs!=hs_prev)
         count += 1
 
@@ -311,7 +317,7 @@ def execute(c):
     if c.dataset==6:
         T = c.MM
         #U,D = generate_white_noise(c.delay,T=T+200,)
-        U,D = generate_white_noise(c.delay,T=T+200,)
+        U,D = generate_white_noise(c.delay,T=T+200,dist="uniform")
         U=U[200:]
         D=D[200:]
     ### training
@@ -339,7 +345,6 @@ def execute(c):
     DC = np.zeros((c.delay, 1))  # 決定係数
     MC = 0.0                        # 記憶容量
 
-    #inv scale
     
     Dp = Dp[c.MM0:]                    # TARGET    #(MM,len(delay))
     Yp = Yp[c.MM0:]                    # PRED      #(MM,len(delay))

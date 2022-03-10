@@ -31,24 +31,24 @@ class Config():
         self.dataset=1
         self.seed:int=0 # 乱数生成のためのシード
         self.NN=2**8 # １サイクルあたりの時間ステップ
-        self.MM=1000 # サイクル数
-        self.MM0 = 0 #
+        self.MM=2200 # サイクル数
+        self.MM0 = 200 #
 
         self.Nu = 1   #size of input
         self.Nh = 100 #size of dynamical reservior
-        self.Ny = 20   #size of output
+        self.Ny = 200   #size of output
 
         self.Temp=1.0
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 0.11
-        self.alpha_r = 0.89
+        self.alpha_i = 0.34
+        self.alpha_r = 0.9
         self.alpha_b = 0.
-        self.alpha_s = 1.58
+        self.alpha_s = 0.8
 
-        self.beta_i = 0.39
-        self.beta_r = 0.88
+        self.beta_i = 0.4
+        self.beta_r = 0.25
         self.beta_b = 0.1
 
         self.lambda0 = 0.
@@ -60,10 +60,23 @@ class Config():
         self.MC = None
         self.CAPACITY = None 
         self.cnt_overflow=None
-
+def ring_weight():
+    global Wr, Wb, Wo, Wi
+    #taikaku = "zero"
+    taikaku = "nonzero"
+    Wr = np.zeros((c.Nh,c.Nh))
+    for i in range(c.Nh-1):
+        Wr[i,i+1] = 1
+    Wr[-1,0]=1
+    # #print(Wr)
+    v = np.linalg.eigvals(Wr)
+    lambda_max = max(abs(v))
+    Wr = Wr/lambda_max*c.alpha_r
+    return Wr
 def generate_weight_matrix():
     global Wr, Wb, Wo, Wi
-    Wr = generate_random_matrix(c.Nh,c.Nh,c.alpha_r,c.beta_r,distribution="one",normalization="sr")
+    #Wr = generate_random_matrix(c.Nh,c.Nh,c.alpha_r,c.beta_r,distribution="one",normalization="sr")
+    Wr = ring_weight()
     Wb = generate_random_matrix(c.Nh,c.Ny,c.alpha_b,c.beta_b,distribution="one",normalization="none")
     Wi = generate_random_matrix(c.Nh,c.Nu,c.alpha_i,c.beta_i,distribution="one",normalization="none")
     Wo = np.zeros(c.Nh * c.Ny).reshape(c.Ny, c.Nh)
@@ -123,7 +136,8 @@ def run_network(mode):
         #sum += c.alpha_s*rs # ラッチ動作を用いないref.clockと同期させるための結合
         sum += c.alpha_s*(hs-rs)*ht # ref.clockと同期させるための結合
         sum += Wi@(2*us-1) # 外部入力
-        sum += Wr@(2*hs-1) # リカレント結合
+        #sum += Wr@(2*hs-1) # リカレント結合
+        sum += Wr@(2*p2s(theta,hp)-1) # リカレント結合
 
         #if mode == 0:
         #    sum += Wb@ys
@@ -193,6 +207,7 @@ def train_network():
     ### Ridge regression
 
     if c.lambda0 == 0:
+        #print(G.shape,M.shape)
         Wo = np.dot(G.T,np.linalg.pinv(M).T)
         #print("a")
     else:
@@ -251,7 +266,7 @@ def execute(c):
     #if c.seed>=0:
     c.Nh = int(c.Nh)
     c.seed = int(c.seed)
-    c.Ny = c.delay
+    #c.Ny = c.delay
     np.random.seed(c.seed)    
     
 
@@ -261,15 +276,17 @@ def execute(c):
     dist = dist_list[c.set]
     name = name_list[c.set]
     
-    U,D = datasets(k=c.delay,n=c.degree,T = c.MM,name=name,dist=dist,seed=c.seed,new=0)
-    print(U.shape,D.shape)
+    U,D = datasets(k=c.delay,n=1,T = c.MM,name=name,dist=dist,seed=c.seed,new=0)
+    for degree in range(2,11):
+        _,D2 = datasets(k=c.delay,n=degree,T = c.MM,name=name,dist=dist,seed=c.seed,new=0)
+        D = np.hstack([D,D2])
+    #print(U.shape,D.shape)
     # max = np.max(np.max(abs(D)))
     # D /= max*1.01
     # U /= max*1.01
     # plt.plot(D[:,0])
     #plt.plot(U)
     # plt.show()
-    D = D[:,:c.delay]
 
     generate_weight_matrix()
     ### training
@@ -296,7 +313,9 @@ def execute(c):
     # plt.show()
     MC = 0
     CAPACITY = []
-    for i in range(c.delay):
+
+   #print(Dp.shape,Yp.shape)
+    for i in range(c.delay*10):
         r = np.corrcoef(Dp[c.delay:,i],Yp[c.delay:,i])[0,1]
         CAPACITY.append(r**2)
     MC = sum(CAPACITY)
@@ -304,13 +323,13 @@ def execute(c):
     # MC = np.heaviside(MC-ep,1)*MC
     
     SUM = np.sum((Yp-Dp)**2)
-    RMSE1 = np.sqrt(SUM/c.Ny/(c.MM-c.MM0-c.delay))
+    #RMSE1 = np.sqrt(SUM/c.Ny/(c.MM-c.MM0-c.delay))
 
     #RMSE2 = 0
     print("-------------"+name+","+dist+",degree = "+str(c.degree)+"-------------")
-    print(CAPACITY)
+    #print(CAPACITY)
     #print("RMSE=",RMSE1)
-    print("IPC=",MC)
+    #print("IPC=",MC)
 
 
 ######################################################################################
@@ -326,7 +345,30 @@ def execute(c):
     # plt.show()
     # plt.plot(Up)
     # plt.show()
-    if c.plot: plot1()
+    if c.plot:
+        
+        for i in range(1):
+            c.plot = 1
+            c.degree = i
+            for i in range(10):
+                plt.plot(c.CAPACITY[i*(20):(i+1)*20],label="degree = "+str(1+i))
+
+                # plt.bar([c.alpha_i],[c.CAPACITY],bottom=prev,width=0.1,label=str(i+1))
+                # prev+=c.CAPACITY
+                # c.per.append([[c.alpha_i],[c.CAPACITY]]
+        
+        plt.ylabel("Capacity")
+        plt.xlabel("delay")
+        plt.ylim([-0.1,1.1])
+        plt.xlim([-0.1,20.1])
+        plt.title("cbm::"+c.name+"::"+c.dist)
+        plt.legend()
+        #plt.show()
+        t = common.string_now()
+        na = "./eps-fig/%s-ipc4_cbm_fixed_in_tar_%s.eps" % (t,str(c.set))
+        plt.savefig(na)
+        plt.clf()
+    # if c.plot: plot1()
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
@@ -338,31 +380,11 @@ if __name__ == "__main__":
     degree  = c.degree
     name_list = ["Legendre","Hermite","Chebyshev","Laguerre"]
     dist_list = ["uniform","normal","arcsine","exponential"]
-    
     for c.set in range(4):
         c.dist = dist_list[c.set]
         c.name = name_list[c.set]
-        for i in range(1,11):
-            c.plot = 0
-            c.degree = i
-            
-            execute(c)
-            plt.plot(c.CAPACITY,label="degree = "+str(i))
-
-                # plt.bar([c.alpha_i],[c.CAPACITY],bottom=prev,width=0.1,label=str(i+1))
-                # prev+=c.CAPACITY
-                # c.per.append([[c.alpha_i],[c.CAPACITY]]
-        plt.ylabel("Capacity")
-        plt.xlabel("delay")
-        plt.ylim([-0.1,1.1])
-        plt.xlim([-0.1,20.1])
-        plt.title("cbm::"+c.name+"::"+c.dist)
-        plt.legend()
-        #plt.show()
-        t = common.string_now()
-        na = "./all_fig/%s-ipc4_cbm_fixed_in_tar_%s.png" % (t,str(c.set))
-        plt.savefig(na)
-        plt.clf()
+        execute(c)
+    
      
     if a.config: common.save_config(c)
     # if a.config: c=common.load_config(c)

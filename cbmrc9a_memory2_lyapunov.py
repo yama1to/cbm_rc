@@ -35,7 +35,7 @@ class Config():
         self.MM0 = 200 #
 
         self.Nu = 1         #size of input
-        self.Nh:int = 150   #815 #size of dynamical reservior
+        self.Nh:int = 100   #815 #size of dynamical reservior
         self.Ny = 20        #size of output
 
         self.Temp=1
@@ -43,7 +43,7 @@ class Config():
 
         #sigma_np = -5
         self.alpha_i = 0.64
-        self.alpha_r = 0.9
+        self.alpha_r = 1.5
         self.alpha_b = 0.
         self.alpha_s = 1
 
@@ -57,7 +57,7 @@ class Config():
         self.lambda0 = 0.
 
         self.delay = 20
-
+        self.noise = 0.001
         # ResultsX
         self.RMSE1=None
         self.RMSE2=None
@@ -156,9 +156,10 @@ def p2s(theta,p):
     return np.heaviside( np.sin(np.pi*(2*theta-p)),1)
 
 def run_network(mode):
-    global Hx, Hs, Hp, Y, Yx, Ys, Yp, Y, Us, Ds,Rs,ganma
+    global Hx,Hx2, Hs, Hp, Y, Yx, Ys, Yp, Y, Us, Ds,Rs,ganma
     Hp = np.zeros((c.MM, c.Nh))
     Hx = np.zeros((c.MM*c.NN, c.Nh))
+    Hx2 = np.zeros((c.MM*c.NN, c.Nh))
     Hs = np.zeros((c.MM*c.NN, c.Nh))
     hsign = np.zeros(c.Nh)
     hx = np.zeros(c.Nh)
@@ -188,7 +189,7 @@ def run_network(mode):
     m = 0
 
     #2###############################################################################
-    noise = 10**(-3)
+    noise =c.noise
     hsign2 = np.zeros(c.Nh)
     hx2 = np.zeros(c.Nh) 
     hx2 += noise
@@ -206,18 +207,6 @@ def run_network(mode):
 
 
     for n in tqdm(range(c.NN * c.MM)):
-        
-        if n == 0 :
-            diff = hx2 - hx 
-            gan = np.linalg.norm(diff)
-            gan0 = gan
-        else:
-            diff = hx2 - hx 
-            gan = np.linalg.norm(diff)
-            hx2 = hx + gan0/gan *diff 
-        ganma[n] = gan
-        
-
         theta = np.mod(n/c.NN,1) # (0,1)
         rs_prev = rs
         hs_prev = hs.copy()
@@ -265,7 +254,7 @@ def run_network(mode):
         any_hs_change = np.any(hs!=hs_prev)
 
         #2##################################################################################
-        rs = p2s(theta,0)# 参照クロック
+        rs2 = p2s(theta,0)# 参照クロック
         rs_prev2 = rs2
         hs_prev2 = hs2.copy()
 
@@ -303,10 +292,26 @@ def run_network(mode):
         count2 += 1
         any_hs_change = np.any(hs!=hs_prev)            
 
+        Hx[n]=hx
+        Hx2[n]=hx2
+
+        if n == 0 :
+            diff = hx2 - hx 
+            gan = np.linalg.norm(diff)
+            gan0 = 0.01
+            hx2 = hx + gan0/gan *diff 
+        else:
+            diff = hx2 - hx 
+            gan = np.linalg.norm(diff)
+            hx2 = hx + gan0/gan *diff 
+        ganma[n] = gan
+
+        
         if c.plot:
         # record
             Rs[n]=rs
             Hx[n]=hx
+            Hx2[n]=hx2
             Hs[n]=hs
             Yx[n]=yx
             Ys[n]=ys
@@ -405,15 +410,12 @@ def execute(c):
 
     MC = np.sum(DC)
 
-
-    sum = 0
-    base = ganma[0]
-    lam = np.zeros((c.MM*c.NN))
-    for i in range(c.MM*c.NN):
-        sum += np.log(ganma[i]/base)
-        lam[i] = np.sum(sum)/(i+1)
-    lyapunov = np.mean(lam)
+    from lyapunov_calc import lyapunov
+    lyapunov = lyapunov(Hx,Hx2,c.noise,c.MM*c.NN,c.Nh,False)
     print(lyapunov)
+
+    np.save("./lyapunov_arr/lyapunov_hx1_ar=1.5",Hx)
+    np.save("./lyapunov_arr/lyapunov_hx2_ar=1.5",Hx2)
     # plt.plot(ganma)
     # plt.show()
 ######################################################################################

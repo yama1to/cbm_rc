@@ -37,12 +37,12 @@ class Config():
         # config
         self.dataset=1
         self.seed:int=0 # 乱数生成のためのシード
-        self.NN=256 # １サイクルあたりの時間ステップ
+        self.NN=2**10 # １サイクルあたりの時間ステップ
         self.MM=2000 # サイクル数
         self.MM0 = 200 #
 
         self.Nu = 1   #size of input
-        self.Nh = 100 #size of dynamical reservior
+        self.Nh = 300 #size of dynamical reservior
         self.Ny = 1   #size of output
 
         self.Temp=1
@@ -50,7 +50,7 @@ class Config():
 
         #sigma_np = -5
         self.alpha_i = 0.35
-        self.alpha_r = 0.15
+        self.alpha_r = 0.9
         self.alpha_b = 0.
         self.alpha_s = 0.47
 
@@ -65,6 +65,22 @@ class Config():
         self.NRMSE  =   None
         self.NMSE   =   None
         self.cnt_overflow   =   None
+
+
+def ring_weight():
+    global Wr, Wb, Wo, Wi
+    #taikaku = "zero"
+    taikaku = "nonzero"
+    Wr = np.zeros((c.Nh,c.Nh))
+    for i in range(c.Nh-1):
+        Wr[i,i+1] = 1
+    Wr[-1,0]=1
+    # #print(Wr)
+    v = np.linalg.eigvals(Wr)
+    lambda_max = max(abs(v))
+    Wr = Wr/lambda_max*c.alpha_r
+    return Wr
+
 def bm_weight():
     global Wr, Wb, Wo, Wi
     #taikaku = "zero"
@@ -100,6 +116,7 @@ def generate_weight_matrix():
     global Wr, Wb, Wo, Wi
     Wr = generate_random_matrix(c.Nh,c.Nh,c.alpha_r,c.beta_r,distribution="one",normalization="sr")
     #Wr  = bm_weight()
+    Wr = ring_weight()
     Wb = generate_random_matrix(c.Nh,c.Ny,c.alpha_b,c.beta_b,distribution="one",normalization="none")
     Wi = generate_random_matrix(c.Nh,c.Nu,c.alpha_i,c.beta_i,distribution="one",normalization="none")
     Wo = np.zeros(c.Nh * c.Ny).reshape(c.Ny, c.Nh)
@@ -112,11 +129,11 @@ def fyi(h):
 
 def p2s(theta,p):
     return np.heaviside( np.sin(np.pi*(2*theta-p)),1)
+
 def run_network(mode):
     global Hx, Hs, Hp, Y, Yx, Ys, Yp, Y, Us, Ds,Rs
     Hp = np.zeros((c.MM, c.Nh))
-    Hx = np.zeros((c.MM*c.NN, c.Nh))
-    Hs = np.zeros((c.MM*c.NN, c.Nh))
+    
     hsign = np.zeros(c.Nh)
     hx = np.zeros(c.Nh)
     #hx = np.random.uniform(0,1,c.Nh) # [0,1]の連続値
@@ -126,57 +143,96 @@ def run_network(mode):
     hp = np.zeros(c.Nh) # [-1,1]の連続値
     ht = np.zeros(c.Nh) # {0,1}
 
-    Yp = np.zeros((c.MM, c.Ny))
-    Yx = np.zeros((c.MM*c.NN, c.Ny))
-    Ys = np.zeros((c.MM*c.NN, c.Ny))
+
     #ysign = np.zeros(Ny)
     yp = np.zeros(c.Ny)
     yx = np.zeros(c.Ny)
     ys = np.zeros(c.Ny)
+    Yp = np.zeros((c.MM, c.Ny))
     #yc = np.zeros(Ny)
+    if c.plot:
+        Us = np.zeros((c.MM*c.NN, c.Nu))
+        Ds = np.zeros((c.MM*c.NN, c.Ny))
+        Rs = np.zeros((c.MM*c.NN, 1))
 
-    Us = np.zeros((c.MM*c.NN, c.Nu))
-    Ds = np.zeros((c.MM*c.NN, c.Ny))
-    Rs = np.zeros((c.MM*c.NN, 1))
+        Hx = np.zeros((c.MM*c.NN, c.Nh))
+        Hs = np.zeros((c.MM*c.NN, c.Nh))
+
+        
+        Yx = np.zeros((c.MM*c.NN, c.Ny))
+        Ys = np.zeros((c.MM*c.NN, c.Ny))
+
 
     rs = 1
     any_hs_change = True
     count =0
     m = 0
-    for n in tqdm(range(c.NN * c.MM)):
+
+    x = np.zeros((c.Nh))
+    y = np.zeros((c.Nh))
+    z = np.zeros((c.Nh))
+
+
+    evolve = np.ones(c.Nh)
+
+    for n in tqdm(range(c.NN*c.MM)):
         theta = np.mod(n/c.NN,1) # (0,1)
         rs_prev = rs
         hs_prev = hs.copy()
 
         rs = p2s(theta,0)# 参照クロック
         us = p2s(theta,Up[m]) # エンコードされた入力
+        #us = p2s(theta,Wi@(2*Up[m]-1))
         ds = p2s(theta,Dp[m]) #
         ys = p2s(theta,yp)
 
+        #print(us == Wi@(2*p2s(theta,Up[m])-1))
+        # print("aaaaaaaaaaaaaaaaaaa")
+        # print(us)
+        # print(Wi@(2*p2s(theta,Up[m])-1))
         sum = np.zeros(c.Nh)
         #sum += c.alpha_s*rs # ラッチ動作を用いないref.clockと同期させるための結合
         sum += c.alpha_s*(hs-rs)*ht # ref.clockと同期させるための結合
         sum += Wi@(2*us-1) # 外部入力
-        sum += Wr@(2*hs-1) # リカレント結合
-
+        #sum += us
+        #sum += Wr@(2*hs-1) # リカレント結合
+        sum += Wr@(2*p2s(theta,hp)-1) # リカレント結合
         #if mode == 0:
         #    sum += Wb@ys
         #if mode == 1:  # teacher forcing
         #    sum += Wb@ds
 
-        hsign = 1 - 2*hs
-        hx = hx + hsign*(1.0+np.exp(hsign*sum/c.Temp))*c.dt
-        hs = np.heaviside(hx+hs-1,0)
-        hx = np.fmin(np.fmax(hx,0),1)
 
-        hc[(hs_prev == 1)& (hs==0)] = count
         
-        # ref.clockの立ち上がり
-        if rs_prev==0 and rs==1:
-            hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
+        hsign = 1 - 2*hs
+        hx[evolve==1] = hx[evolve==1] + (hsign*(1.0+np.exp(hsign*sum/c.Temp))*c.dt)[evolve==1]
+        hs[evolve==1] = np.heaviside(hx[evolve==1]+hs[evolve==1]-1,0)
+        hx[evolve==1] = np.fmin(np.fmax(hx[evolve==1],0),1)
+        ht = 2*hs-1 #リファレンスクロック同期用ラッチ動作をコメントアウト
+        
+        y[(hs_prev == 0)& (hs==1)] = n
+        
+        # ２値状態 立ち下がり
+        if np.sum((hs_prev == 1)& (hs==0))>0:
+            id = (hs_prev == 1)& (hs==0)
+            #duty ratio (z-y)/(z-x)
+            z[id] = n
+            hc[id] = 2*(z[id]-y[id])/(z[id]-x[id])-1
+            x[id] = n
+            #print(hp[id])
+            #evolve[id] = 0
+            
+            #hc[id] = 1
+            
+
+        if rs_prev==0 and rs ==1:
+            
+            hp = hc # デコード、カウンタの値を連続値に変換
             hc = np.zeros(c.Nh) #カウンタをリセット
-            ht = 2*hs-1 #リファレンスクロック同期用ラッチ動作をコメントアウト
+            #print(hp)
+            evolve = np.ones(c.Nh)
             yp = Wo@hp
+
             # record    
             Hp[m]=hp
             Yp[m]=yp
@@ -185,7 +241,8 @@ def run_network(mode):
 
         #境界条件
         if n == (c.NN * c.MM-1):
-            hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
+            hp = hc
+            #hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
             yp = Wo@hp
             # record
             Hp[m]=hp
@@ -201,7 +258,7 @@ def run_network(mode):
             Hs[n]=hs
             Yx[n]=yx
             Ys[n]=ys
-            Us[n]=us
+            #Us[n]=us
             Ds[n]=ds
 
     # オーバーフローを検出する。
@@ -211,6 +268,7 @@ def run_network(mode):
         tmp = np.sum( np.heaviside( np.fabs(Hp[m+1]-Hp[m]) - 0.6 ,0))
         cnt_overflow += tmp
         #print(tmp)
+
 def train_network():
     global Wo
 
@@ -298,13 +356,13 @@ def execute():
     np.random.seed(c.seed)
     generate_weight_matrix()
 
-    MM1 = 1200
-    MM2 = 2200
+    MM1 = 1000
+    MM2 = 500
     U1,D1  = generate_narma(N=MM1,seed=0,delay=c.delay)
     U2,D2  = generate_narma(N=MM2,seed=1,delay=c.delay)
-    plt.plot(D1)
-    plt.tight_layout()
-    plt.savefig("narma-d.eps")
+    # plt.plot(D1)
+    # plt.tight_layout()
+    # plt.savefig("narma-d.eps")
     #print((MM2-2))
     #print(np.var(D1))
 

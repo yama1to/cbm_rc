@@ -64,12 +64,24 @@ def plot2(Up,Hp,Yp,Dp,show = 1,save=1,dir_name = "trashfigure",fig_name="fig1"):
     ax.plot(Dp)
     if show :plt.show()
     if save:plt.savefig("./{}/{}".format(dir_name,fig_name))
-def plot_MC(DC,delay,MC,show = 1,save=1,dir_name = "trashfigure",fig_name="fig1"):
+def plot_MC(DC,delay,MC,show = 1,save=1,dir_name = "trashfigure",fig_name="mc1"):
     plt.plot(DC)
     plt.ylabel("determinant coefficient")
     plt.xlabel("Delay k")
     plt.ylim([0,1])
     plt.xlim([0,delay])
     plt.title('MC ~ %3.2lf' % MC, x=0.8, y=0.7)
-    if show :plt.show()
     if save:plt.savefig("./{}/{}".format(dir_name,fig_name))
+    if show :plt.show()
+    
+def plot_delay(DC,N,pred,target,):
+    fig=plt.figure(figsize=(8,8 ))
+    Nr=N
+    start = 0
+    for i in range(Nr):
+        ax = fig.add_subplot(Nr,1,i+1)
+        ax.cla()
+        ax.set_title("DC = %2f,delay = %s" % (DC[i],str(i)))
+        ax.plot(pred.T[i,i:])
+        ax.plot(target.T[i,i:])
+    plt.show()

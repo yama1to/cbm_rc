@@ -50,7 +50,7 @@ class Config():
 
         #sigma_np = -5
         self.alpha_i = 0.35
-        self.alpha_r = 0.15
+        self.alpha_r = 0.9
         self.alpha_b = 0.
         self.alpha_s = 0.47
 
@@ -72,11 +72,11 @@ def ring_weight():
     Wr = np.zeros((c.Nh,c.Nh))
     for i in range(c.Nh-1):
         Wr[i,i+1] = 1
-    
+    Wr[-1,0]=1
     # #print(Wr)
-    # v = np.linalg.eigvals(Wr)
-    # lambda_max = max(abs(v))
-    # Wr = Wr/lambda_max*c.alpha_r
+    v = np.linalg.eigvals(Wr)
+    lambda_max = max(abs(v))
+    Wr = Wr/lambda_max*c.alpha_r
     return Wr
 def generate_weight_matrix():
     global Wr, Wb, Wo, Wi
@@ -139,8 +139,10 @@ def run_network(mode):
         #sum += c.alpha_s*rs # ラッチ動作を用いないref.clockと同期させるための結合
         sum += c.alpha_s*(hs-rs)*ht # ref.clockと同期させるための結合
         sum += Wi@(2*us-1) # 外部入力
-        sum += Wr@(2*hs-1) # リカレント結合
+        #sum += Wr@(2*hs-1) # リカレント結合
+        sum += Wr@(2*p2s(theta,hp)-1) # リカレント結合
 
+        
         #if mode == 0:
         #    sum += Wb@ys
         #if mode == 1:  # teacher forcing

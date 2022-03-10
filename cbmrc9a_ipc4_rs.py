@@ -22,43 +22,46 @@ class Config():
         self.columns = None # 結果をCSVに保存する際のコラム
         self.csv = None # 結果を保存するファイル
         self.id  = None
-        self.plot = True # 図の出力のオンオフ
+        self.plot = 0 # 図の出力のオンオフ
         self.show = True # 図の表示（plt.show()）のオンオフ、explorerは実行時にこれをオフにする。
         self.savefig = True
         self.fig1 = "fig1.png" ### 画像ファイル名
 
         # config
         self.dataset=1
-        self.seed:int=0 # 乱数生成のためのシード
-        self.NN=2**8 # １サイクルあたりの時間ステップ
-        self.MM=1000 # サイクル数
+        self.seed:int=1 # 乱数生成のためのシード
+        self.NN=2**10 # １サイクルあたりの時間ステップ
+        self.MM=2200 # サイクル数
         self.MM0 = 200 #
 
         self.Nu = 1   #size of input
         self.Nh = 100 #size of dynamical reservior
-        self.Ny = 20   #size of output
+        self.Ny = 200   #size of output
 
         self.Temp=1.0
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 0.08
-        self.alpha_r = 0.3
+        self.alpha_i = 0.46
+        self.alpha_r = 0.94
         self.alpha_b = 0.
-        self.alpha_s = 1.
+        self.alpha_s = 0.55
 
-        self.beta_i = 0.74
-        self.beta_r = 0.1
+        self.alpha0 = 0#0.1
+        self.alpha1 = 1#-5.8
+
+        self.beta_i = 0.25
+        self.beta_r = 0.35
         self.beta_b = 0.1
 
         self.lambda0 = 0.
 
-        self.delay = 1
-        self.degree = 1
+        self.delay = 20
+        self.degree = 10
         self.set = 0    #0,1,2,3
         # Results
         self.MC = None
-        self.per = None 
+        self.CAPACITY = None 
         self.cnt_overflow=None
 
 def generate_weight_matrix():
@@ -80,8 +83,7 @@ def p2s(theta,p):
 def run_network(mode):
     global Hx, Hs, Hp, Y, Yx, Ys, Yp, Y, Us, Ds,Rs
     Hp = np.zeros((c.MM, c.Nh))
-    Hx = np.zeros((c.MM*c.NN, c.Nh))
-    Hs = np.zeros((c.MM*c.NN, c.Nh))
+    
     hsign = np.zeros(c.Nh)
     hx = np.zeros(c.Nh)
     #hx = np.random.uniform(0,1,c.Nh) # [0,1]の連続値
@@ -91,59 +93,89 @@ def run_network(mode):
     hp = np.zeros(c.Nh) # [-1,1]の連続値
     ht = np.zeros(c.Nh) # {0,1}
 
-    Yp = np.zeros((c.MM, c.Ny))
-    Yx = np.zeros((c.MM*c.NN, c.Ny))
-    Ys = np.zeros((c.MM*c.NN, c.Ny))
+
     #ysign = np.zeros(Ny)
     yp = np.zeros(c.Ny)
     yx = np.zeros(c.Ny)
     ys = np.zeros(c.Ny)
+    Yp = np.zeros((c.MM, c.Ny))
     #yc = np.zeros(Ny)
+    if c.plot:
+        Us = np.zeros((c.MM*c.NN, c.Nu))
+        Ds = np.zeros((c.MM*c.NN, c.Ny))
+        Rs = np.zeros((c.MM*c.NN, 1))
 
-    Us = np.zeros((c.MM*c.NN, c.Nu))
-    Ds = np.zeros((c.MM*c.NN, c.Ny))
-    Rs = np.zeros((c.MM*c.NN, 1))
+        Hx = np.zeros((c.MM*c.NN, c.Nh))
+        Hs = np.zeros((c.MM*c.NN, c.Nh))
+
+        
+        Yx = np.zeros((c.MM*c.NN, c.Ny))
+        Ys = np.zeros((c.MM*c.NN, c.Ny))
+
 
     rs = 1
     any_hs_change = True
     count =0
     m = 0
-    for n in tqdm(range(c.NN * c.MM)):
+
+    x = np.zeros((c.Nh))
+    y = np.zeros((c.Nh))
+    z = np.zeros((c.Nh))
+
+    for n in tqdm(range(c.NN*c.MM)):
         theta = np.mod(n/c.NN,1) # (0,1)
         rs_prev = rs
         hs_prev = hs.copy()
 
         rs = p2s(theta,0)# 参照クロック
         us = p2s(theta,Up[m]) # エンコードされた入力
+        #us = p2s(theta,Wi@(2*Up[m]-1))
         ds = p2s(theta,Dp[m]) #
         ys = p2s(theta,yp)
-
+        #print(us == Wi@(2*p2s(theta,Up[m])-1))
+        # print("aaaaaaaaaaaaaaaaaaa")
+        # print(us)
+        # print(Wi@(2*p2s(theta,Up[m])-1))
         sum = np.zeros(c.Nh)
         #sum += c.alpha_s*rs # ラッチ動作を用いないref.clockと同期させるための結合
         sum += c.alpha_s*(hs-rs)*ht # ref.clockと同期させるための結合
         sum += Wi@(2*us-1) # 外部入力
-        sum += Wr@(2*hs-1) # リカレント結合
-
+        #sum += us
+        #sum += Wr@(2*hs-1) # リカレント結合
+        sum += Wr@(2*p2s(theta,hp)-1) # リカレント結合
         #if mode == 0:
         #    sum += Wb@ys
-        
         #if mode == 1:  # teacher forcing
         #    sum += Wb@ds
 
+
+        
         hsign = 1 - 2*hs
         hx = hx + hsign*(1.0+np.exp(hsign*sum/c.Temp))*c.dt
         hs = np.heaviside(hx+hs-1,0)
         hx = np.fmin(np.fmax(hx,0),1)
-
-        hc[(hs_prev == 1)& (hs==0)] = count
+        ht = 2*hs-1 #リファレンスクロック同期用ラッチ動作をコメントアウト
         
-        # ref.clockの立ち上がり
-        if rs_prev==0 and rs==1:
-            hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
-            #hp = (hp-np.mean(hp))/np.var(hp)
+        y[(hs_prev == 0)& (hs==1)] = n
+        
+        # ２値状態 立ち下がり
+        if np.sum((hs_prev == 1)& (hs==0))>0:
+            id = (hs_prev == 1)& (hs==0)
+            #duty ratio (z-y)/(z-x)
+            z[id] = n
+            hp[id] = 2*(z[id]-y[id])/(z[id]-x[id])-1
+            x[id] = n
+            #print(hp[id])
+            
+            #hc[id] = 1
+            
+
+        if rs_prev==0 and rs ==1:
+            #hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
             hc = np.zeros(c.Nh) #カウンタをリセット
-            ht = 2*hs-1 #リファレンスクロック同期用ラッチ動作をコメントアウト
+            #print(hp)
             yp = Wo@hp
+
             # record    
             Hp[m]=hp
             Yp[m]=yp
@@ -152,8 +184,7 @@ def run_network(mode):
 
         #境界条件
         if n == (c.NN * c.MM-1):
-            hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
-            #hp = (hp-np.mean(hp))/np.var(hp)
+            #hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
             yp = Wo@hp
             # record
             Hp[m]=hp
@@ -169,7 +200,7 @@ def run_network(mode):
             Hs[n]=hs
             Yx[n]=yx
             Ys[n]=ys
-            Us[n]=us
+            #Us[n]=us
             Ds[n]=ds
 
     # オーバーフローを検出する。
@@ -195,6 +226,7 @@ def train_network():
     ### Ridge regression
 
     if c.lambda0 == 0:
+        #print(G.shape,M.shape)
         Wo = np.dot(G.T,np.linalg.pinv(M).T)
         #print("a")
     else:
@@ -253,28 +285,26 @@ def execute(c):
     #if c.seed>=0:
     c.Nh = int(c.Nh)
     c.seed = int(c.seed)
-    c.Ny = int(c.delay)
-    c.set = int(c.set)
-    c.degree = int(c.degree)
+    #c.Ny = c.delay
     np.random.seed(c.seed)    
     
 
     ### generate data
-    #c.set = 0
     name_list = ["Legendre","Hermite","Chebyshev","Laguerre"]
     dist_list = ["uniform","normal","arcsine","exponential"]
     dist = dist_list[c.set]
     name = name_list[c.set]
     
-    U,D = datasets(k=c.delay,n=c.degree,T = c.MM,name=name,dist=dist,seed=c.seed,new=0,save=0)
- 
-    D = D[:,:c.delay]
-    print(D.shape)
+    U,D = datasets(k=c.delay,n=1,T = c.MM,name=name,dist=dist,seed=c.seed,new=0)
+    for degree in range(2,11):
+        _,D2 = datasets(k=c.delay,n=degree,T = c.MM,name=name,dist=dist,seed=c.seed,new=0)
+        D = np.hstack([D,D2])
+    #print(U.shape,D.shape)
     # max = np.max(np.max(abs(D)))
     # D /= max*1.01
-    #print(U[:,0]==D[:,0])
-    # plt.plot(D)
-    # plt.plot(U)
+    # U /= max*1.01
+    # plt.plot(D[:,0])
+    #plt.plot(U)
     # plt.show()
 
     generate_weight_matrix()
@@ -297,33 +327,70 @@ def execute(c):
 
     Yp = Yp[c.MM0:]
     Dp = Dp[c.MM0:]
+    # plt.plot(Yp)
+    # plt.plot(Dp)
+    # plt.show()
     MC = 0
+    CAPACITY = []
 
-    CAPACITY = np.zeros((c.delay))
-    for i in range(c.delay):
-        r = np.corrcoef(Dp[i:,i],Yp[i:,i])[0,1]
-        CAPACITY[i] = r**2
-    ep = 1.7*10**(-1)
-    CAPACITY = np.heaviside(CAPACITY-ep,1)*CAPACITY
+   #print(Dp.shape,Yp.shape)
+    for i in range(c.delay*10):
+        r = np.corrcoef(Dp[c.delay:,i],Yp[c.delay:,i])[0,1]
+        CAPACITY.append(r**2)
     MC = sum(CAPACITY)
+    # ep = 1.7*10**(-4)
+    # MC = np.heaviside(MC-ep,1)*MC
     
     SUM = np.sum((Yp-Dp)**2)
-    RMSE1 = np.sqrt(SUM/c.Ny/(c.MM-c.MM0-c.delay))
+    #RMSE1 = np.sqrt(SUM/c.Ny/(c.MM-c.MM0-c.delay))
 
     #RMSE2 = 0
     print("-------------"+name+","+dist+",degree = "+str(c.degree)+"-------------")
-    # print("RMSE=",RMSE1)
-    print("IPC=",MC)
+    #print(CAPACITY)
+    #print("RMSE=",RMSE1)
+    #print("IPC=",MC)
+
 
 ######################################################################################
      # Results8
 
     c.MC = MC
+    c.CAPACITY = CAPACITY
     c.cnt_overflow = cnt_overflow
 #####################################################################################
-    plt.plot(CAPACITY)
-    plt.show()
-    if c.plot: plot1()
+    # plt.plot(Yp)
+    # plt.show()
+    # plt.plot(Dp)
+    # plt.show()
+    # plt.plot(Up)
+    # plt.show()
+    if 1:
+        
+        for i in range(1):
+            #c.plot = 0
+            c.degree = i
+            
+            
+            for i in range(10):
+                plt.plot(c.CAPACITY[i*(20):(i+1)*20],label="degree = "+str(1+i))
+
+                # plt.bar([c.alpha_i],[c.CAPACITY],bottom=prev,width=0.1,label=str(i+1))
+                # prev+=c.CAPACITY
+                # c.per.append([[c.alpha_i],[c.CAPACITY]]
+        
+        plt.ylabel("Capacity")
+        plt.xlabel("delay")
+        plt.ylim([-0.1,1.1])
+        plt.xlim([-0.1,20.1])
+        plt.title("cbm::"+c.name+"::"+c.dist)
+        plt.legend()
+        
+        t = common.string_now()
+        na = "./eps-fig/%s-ipc4_cbm_fixed_in_tar_%s.eps" % (t,str(c.set))
+        plt.savefig(na)
+        #plt.show()
+        plt.clf()
+   # if c.plot: plot1()
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
@@ -332,8 +399,15 @@ if __name__ == "__main__":
 
     c=Config()
     if a.config: c=common.load_config(a)
+    degree  = c.degree
+    name_list = ["Legendre","Hermite","Chebyshev","Laguerre"]
+    dist_list = ["uniform","normal","arcsine","exponential"]
+    for c.set in range(4):
+        c.dist = dist_list[c.set]
+        c.name = name_list[c.set]
+        execute(c)
     
-    execute(c)
+     
     if a.config: common.save_config(c)
     # if a.config: c=common.load_config(c)
     # execute()

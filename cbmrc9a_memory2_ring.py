@@ -11,10 +11,14 @@ import scipy.linalg
 import matplotlib.pyplot as plt
 import copy
 import time
+
+from sqlalchemy import over
 from explorer import common
 from generate_data_sequence import *
 from generate_matrix import *
 from tqdm import tqdm
+
+import networkx as nx 
 
 class Config():
     def __init__(self):
@@ -31,7 +35,7 @@ class Config():
         self.dataset=6
         self.seed:int=0 # 乱数生成のためのシード
         self.NN=2**8 # １サイクルあたりの時間ステップ
-        self.MM=2000 # サイクル数
+        self.MM=2200 # サイクル数
         self.MM0 = 200 #
 
         self.Nu = 1         #size of input
@@ -42,16 +46,16 @@ class Config():
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 0.08
-        self.alpha_r = 0.86
+        self.alpha_i = 0.5
+        self.alpha_r = 0.7
         self.alpha_b = 0.
-        self.alpha_s = 0.72
+        self.alpha_s = 1
 
         self.alpha0 = 0#0.1
         self.alpha1 = 0#-5.8
 
-        self.beta_i = 0.33
-        self.beta_r = 0.63
+        self.beta_i = 0.3
+        self.beta_r = 0.13
         self.beta_b = 0.1
 
         self.lambda0 = 0.
@@ -74,15 +78,23 @@ class Config():
 def ring_weight():
     global Wr, Wb, Wo, Wi
     #taikaku = "zero"
-    taikaku = "nonzero"
+    #taikaku = "nonzero"
     Wr = np.zeros((c.Nh,c.Nh))
     for i in range(c.Nh-1):
         Wr[i,i+1] = 1
     
-    # #print(Wr)
-    # v = np.linalg.eigvals(Wr)
-    # lambda_max = max(abs(v))
-    # Wr = Wr/lambda_max*c.alpha_r
+
+    Wr[-1,0] = 1
+    # from smallworld.draw import draw_network
+    # WR = nx.from_numpy_array(Wr)
+
+    # draw_network(WR,k_over_2=0)
+    # plt.title("NODE=100,circle")
+    # plt.show()
+    # # #print(Wr)
+    v = np.linalg.eigvals(Wr)
+    lambda_max = max(abs(v))
+    Wr = Wr/lambda_max*c.alpha_r
     return Wr
     
 
@@ -94,6 +106,13 @@ def generate_weight_matrix():
     Wb = generate_random_matrix(c.Nh,c.Ny,c.alpha_b,c.beta_b,distribution="one",normalization="none")
     Wi = generate_random_matrix(c.Nh,c.Nu,c.alpha_i,c.beta_i,distribution="one",normalization="none")
     Wo = np.zeros(c.Nh * c.Ny).reshape((c.Ny, c.Nh))
+    #print(Wi)
+    # Wi = np.zeros((c.Nh,c.Nu))
+    # Wi[-1,0] = 0.1
+    # import networkx as nx 
+
+    # Wr = nx.from_numpy_matrix(Wr)
+    #print(Wr)
 
 def fy(h):
     return np.tanh(h)
@@ -110,8 +129,8 @@ def run_network(mode):
     Hx = np.zeros((c.MM*c.NN, c.Nh))
     Hs = np.zeros((c.MM*c.NN, c.Nh))
     hsign = np.zeros(c.Nh)
-    hx = np.zeros(c.Nh)
-    #hx = np.random.uniform(0,1,c.Nh) # [0,1]の連続値
+    #hx = np.zeros(c.Nh)
+    hx = np.random.uniform(0,1,c.Nh) # [0,1]の連続値
     hs = np.zeros(c.Nh) # {0,1}の２値
     hs_prev = np.zeros(c.Nh)
     hc = np.zeros(c.Nh) # ref.clockに対する位相差を求めるためのカウント
@@ -149,7 +168,9 @@ def run_network(mode):
         #sum += c.alpha_s*rs # ラッチ動作を用いないref.clockと同期させるための結合
         sum += c.alpha_s*(hs-rs)*ht # ref.clockと同期させるための結合
         sum += Wi@(2*us-1) # 外部入力
-        sum += Wr@(2*hs-1) # リカレント結合
+        #sum += Wr@(2*hs-1) # リカレント結合
+        sum += Wr@(2*p2s(theta,hp)-1) # リカレント結合
+
 
         #if mode == 0:
         #    sum += Wb@ys

@@ -29,7 +29,7 @@ class Config():
         self.columns = None # 結果をCSVに保存する際のコラム
         self.csv = None # 結果を保存するファイル
         self.id  = None
-        self.plot = 1 # 図の出力のオンオフ
+        self.plot = 0 # 図の出力のオンオフ
         self.show = True # 図の表示（plt.show()）のオンオフ、explorerは実行時にこれをオフにする。
         self.savefig = True
         self.fig1 = "fig1.png" ### 画像ファイル名
@@ -42,7 +42,7 @@ class Config():
         self.MM0 = 200 #
 
         self.Nu = 1   #size of input
-        self.Nh = 100 #size of dynamical reservior
+        self.Nh = 50 #size of dynamical reservior
         self.Ny = 1   #size of output
 
         self.Temp=1
@@ -50,9 +50,9 @@ class Config():
 
         #sigma_np = -5
         self.alpha_i = 0.35
-        self.alpha_r = 0.15
+        self.alpha_r = 0.3
         self.alpha_b = 0.
-        self.alpha_s = 0.47
+        self.alpha_s = 1
 
         self.beta_i = 0.28
         self.beta_r = 0.51
@@ -60,6 +60,7 @@ class Config():
 
         self.lambda0 = 0.0001
         self.delay = 9
+        self.parallel = 5
         # Results
         self.RMSE   =   None
         self.NRMSE  =   None
@@ -102,7 +103,7 @@ def generate_weight_matrix():
     #Wr  = bm_weight()
     Wb = generate_random_matrix(c.Nh,c.Ny,c.alpha_b,c.beta_b,distribution="one",normalization="none")
     Wi = generate_random_matrix(c.Nh,c.Nu,c.alpha_i,c.beta_i,distribution="one",normalization="none")
-    Wo = np.zeros(c.Nh * c.Ny).reshape(c.Ny, c.Nh)
+    Wo = np.zeros(c.Nh*c.parallel * c.Ny).reshape(c.Ny, c.Nh*c.parallel)
 
 def fy(h):
     return np.tanh(h)
@@ -112,20 +113,23 @@ def fyi(h):
 
 def p2s(theta,p):
     return np.heaviside( np.sin(np.pi*(2*theta-p)),1)
+
 def run_network(mode):
     global Hx, Hs, Hp, Y, Yx, Ys, Yp, Y, Us, Ds,Rs
-    Hp = np.zeros((c.MM, c.Nh))
+    Hp = np.zeros((c.MM, c.Nh*c.parallel))
     Hx = np.zeros((c.MM*c.NN, c.Nh))
     Hs = np.zeros((c.MM*c.NN, c.Nh))
-    hsign = np.zeros(c.Nh)
-    hx = np.zeros(c.Nh)
-    #hx = np.random.uniform(0,1,c.Nh) # [0,1]の連続値
-    hs = np.zeros(c.Nh) # {0,1}の２値
-    hs_prev = np.zeros(c.Nh)
-    hc = np.zeros(c.Nh) # ref.clockに対する位相差を求めるためのカウント
-    hp = np.zeros(c.Nh) # [-1,1]の連続値
-    ht = np.zeros(c.Nh) # {0,1}
 
+    hsign = np.zeros((c.Nh,c.parallel))
+    hx = np.zeros((c.Nh,c.parallel))
+    hs = np.zeros((c.Nh,c.parallel))
+
+    hs_prev = np.zeros(c.Nh)
+
+    hc = np.zeros((c.Nh,c.parallel)) # ref.clockに対する位相差を求めるためのカウント
+    hp = np.zeros((c.Nh,c.parallel)) # [-1,1]の連続値
+
+    ht = np.zeros((c.Nh,c.parallel)) # {0,1}
     Yp = np.zeros((c.MM, c.Ny))
     Yx = np.zeros((c.MM*c.NN, c.Ny))
     Ys = np.zeros((c.MM*c.NN, c.Ny))
@@ -143,42 +147,80 @@ def run_network(mode):
     any_hs_change = True
     count =0
     m = 0
+
+    us = np.zeros((1,c.parallel))
+    Up_prev =np.zeros((1,c.parallel))
+
+
+    group = np.zeros((c.Nh,c.parallel))
+    for i in range(c.parallel):
+        group[:,i] = i
+
+
     for n in tqdm(range(c.NN * c.MM)):
+        
         theta = np.mod(n/c.NN,1) # (0,1)
         rs_prev = rs
+        
         hs_prev = hs.copy()
-
         rs = p2s(theta,0)# 参照クロック
-        us = p2s(theta,Up[m]) # エンコードされた入力
+
+
+        # for i in range(c.parallel-1):
+        #     us[0,i+1] = us_prev[0,i]
+        
+        #or i in range(c.parallel):
+        us[:] = p2s(theta,Up_prev[:]) # エンコードされた入力
+
         ds = p2s(theta,Dp[m]) #
         ys = p2s(theta,yp)
 
-        sum = np.zeros(c.Nh)
-        #sum += c.alpha_s*rs # ラッチ動作を用いないref.clockと同期させるための結合
-        sum += c.alpha_s*(hs-rs)*ht # ref.clockと同期させるための結合
+        sum = np.zeros((c.Nh))
+        
+        # for i in range(c.parallel):
+        #     #sum += c.alpha_s*rs # ラッチ動作を用いないref.clockと同期させus_prev[0,i]るための結合
+        #     sum += c.alpha_s*(hs[:,i]-rs)*ht[:,i] # ref.clockと同期させるための結合
+        #     sum += Wi@(2*us[:,i]-1) # 外部入力
+        #     #sum += us
+        #     #sum += Wr@(2*hs-1) # リカレント結合
+            
+        #     sum += Wr@(2*p2s(theta,hp[:,i])-1) # リカレント結合
+            
+        #     hsign = 1 - 2*hs[:,i]
+        #     hx[:,i] += hsign*(1.0+np.exp(hsign*sum/c.Temp))*c.dt
+
+        sum = np.zeros((c.Nh,c.parallel))
+        sum += c.alpha_s*(hs-rs)*ht# ref.clockと同期させるための結合
+        #print(Wi.shape,us.shape)
         sum += Wi@(2*us-1) # 外部入力
-        sum += Wr@(2*hs-1) # リカレント結合
+        #sum += us
+        #sum += Wr@(2*hs-1) # リカレント結合
 
-        #if mode == 0:
-        #    sum += Wb@ys
-        #if mode == 1:  # teacher forcing
-        #    sum += Wb@ds
-
+        sum += Wr@(2*p2s(theta,hp)-1) # リカレント結合
+        
         hsign = 1 - 2*hs
-        hx = hx + hsign*(1.0+np.exp(hsign*sum/c.Temp))*c.dt
+        hx+= hsign*(1.0+np.exp(hsign*sum/c.Temp))*c.dt
+
         hs = np.heaviside(hx+hs-1,0)
         hx = np.fmin(np.fmax(hx,0),1)
-
         hc[(hs_prev == 1)& (hs==0)] = count
-        
+
         # ref.clockの立ち上がり
         if rs_prev==0 and rs==1:
+            for i in reversed(range(c.parallel-1)):
+                Up_prev[:,i+1] = Up_prev[0,i]
+            
+                Up_prev[:,0] = Up[m]
+
             hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
-            hc = np.zeros(c.Nh) #カウンタをリセット
+            hp_all = hp.reshape((c.Nh*c.parallel))
+
+            hc = np.zeros((c.Nh,c.parallel)) #カウンタをリセット
             ht = 2*hs-1 #リファレンスクロック同期用ラッチ動作をコメントアウト
-            yp = Wo@hp
+
+            yp = Wo@hp_all  
             # record    
-            Hp[m]=hp
+            Hp[m]=hp_all
             Yp[m]=yp
             count = 0
             m += 1
@@ -186,9 +228,11 @@ def run_network(mode):
         #境界条件
         if n == (c.NN * c.MM-1):
             hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
-            yp = Wo@hp
+            hp_all = hp.reshape((c.Nh*c.parallel))
+
+            yp = Wo@hp_all
             # record
-            Hp[m]=hp
+            Hp[m]=hp_all
             Yp[m]=yp
 
         count += 1
@@ -201,7 +245,7 @@ def run_network(mode):
             Hs[n]=hs
             Yx[n]=yx
             Ys[n]=ys
-            Us[n]=us
+            #Us[n]=us
             Ds[n]=ds
 
     # オーバーフローを検出する。
@@ -228,7 +272,7 @@ def train_network():
         Wo = np.dot(G.T,np.linalg.pinv(M).T)
         #print("a")
     else:
-        E = np.identity(c.Nh)
+        E = np.identity(c.Nh*c.parallel)
         TMP1 = np.linalg.inv(M.T@M + c.lambda0 * E)
         WoT = TMP1@M.T@G
         Wo = WoT.T
@@ -292,7 +336,9 @@ def execute():
     c.seed = int(c.seed)
     c.Nh = int(c.Nh)
     c.delay = int(c.delay)
-    c.Ny = c.delay
+    #c.Ny = c.delay
+    c.parallel = int(c.parallel)
+    
     
 
     np.random.seed(c.seed)
@@ -302,9 +348,9 @@ def execute():
     MM2 = 2200
     U1,D1  = generate_narma(N=MM1,seed=0,delay=c.delay)
     U2,D2  = generate_narma(N=MM2,seed=1,delay=c.delay)
-    plt.plot(D1)
-    plt.tight_layout()
-    plt.savefig("narma-d.eps")
+    # plt.plot(D1)
+    # plt.tight_layout()
+    # plt.savefig("narma-d.eps")
     #print((MM2-2))
     #print(np.var(D1))
 

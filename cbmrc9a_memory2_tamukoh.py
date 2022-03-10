@@ -15,6 +15,9 @@ from explorer import common
 from generate_data_sequence import *
 from generate_matrix import *
 from tqdm import tqdm
+from cbm_utils import *
+
+import queue
 
 class Config():
     def __init__(self):
@@ -35,22 +38,22 @@ class Config():
         self.MM0 = 200 #
 
         self.Nu = 1         #size of input
-        self.Nh:int = 100   #815 #size of dynamical reservior
+        self.Nh:int = 300   #815 #size of dynamical reservior
         self.Ny = 20        #size of output
 
         self.Temp=1
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 0.64
-        self.alpha_r = 0.9
+        self.alpha_i = 0.1
+        self.alpha_r = 0.6
         self.alpha_b = 0.
-        self.alpha_s = 1
+        self.alpha_s = 0.5
 
-        self.alpha0 = 1#0.1
+        self.alpha0 = 0#0.1
         self.alpha1 = 0#-5.8
 
-        self.beta_i = 0.1
+        self.beta_i = 0.9
         self.beta_r = 0.1
         self.beta_b = 0.1
 
@@ -70,16 +73,83 @@ class Config():
         #self.BER = None
         
         #self.DC = None 
-
+def ring_weight():
+    global Wr, Wb, Wo, Wi
+    #taikaku = "zero"
+    taikaku = "nonzero"
+    Wr = np.zeros((c.Nh,c.Nh))
+    for i in range(c.Nh-1):
+        Wr[i,i+1] = 1
+    
+    # #print(Wr)
+    # v = np.linalg.eigvals(Wr)
+    # lambda_max = max(abs(v))
+    # Wr = Wr/lambda_max*c.alpha_r
+    return Wr
+def bm_weight():
+    global Wr, Wb, Wo, Wi
+    #taikaku = "zero"
+    taikaku = "nonzero"
+    Wr = np.zeros((c.Nh,c.Nh))
+    x = c.Nh**2
+    if taikaku =="zero":
+        x -= c.Nh
+    nonzeros = int(x * c.beta_r)
+    x = np.zeros((x))
+    x[0:int(nonzeros / 2)] = 1
+    x[int(nonzeros / 2):int(nonzeros)] = -1
+    np.random.shuffle(x)
+    m = 0
+    
+    for i in range(c.Nh):
+        for j in range(i,c.Nh):
+            if taikaku =="zero":
+                if i!=j:
+                    Wr[i,j] = x[m]
+                    Wr[j,i] = x[m]
+                    m += 1
+            else:
+                Wr[i,j] = x[m]
+                Wr[j,i] = x[m]
+                m += 1
+    #print(Wr)
+    v = np.linalg.eigvals(Wr)
+    lambda_max = max(abs(v))
+    Wr = Wr/lambda_max*c.alpha_r
+    return Wr
+    
+def small_world_weight():
+    global Wr, Wb, Wo, Wi
+    Wr = np.zeros((c.Nh,c.Nh))
+    m = 0
+    x = np.array([1,-1])
+    np.random.shuffle(x)
+    for i in range(c.Nh):
+        Wr[i,i-2] = x[0]
+        np.random.shuffle(x)
+        Wr[i,i-1] = x[0]
+        np.random.shuffle(x)
+        rdm = np.random.uniform(0,1,1)
+        if rdm > c.beta_r:
+            Wr[i,int(np.random.randint(0,c.Nh-1,1))] = x[0]
+            m+=1
+    v = np.linalg.eigvals(Wr)
+    lambda_max = max(abs(v))
+    Wr = Wr/lambda_max*c.alpha_r
+    return Wr
 
 def generate_weight_matrix():
     global Wr, Wb, Wo, Wi
-    Wr = generate_random_matrix(c.Nh,c.Nh,c.alpha_r,c.beta_r,distribution="one",normalization="sr")
-    # for i in range(c.Nh):
-    #     Wr[i,i] = (2*np.heaviside(np.random.uniform(-1,1),1)-1)
-    # print(Wr)
+    Wr = generate_random_matrix(c.Nh,c.Nh,c.alpha_r,c.beta_r,distribution="one",normalization="sr",diagnal=True)
+
+    #Wr = bm_weight()
+    #Wr = ring_weight()
+    #Wr = small_world_weight()
     Wb = generate_random_matrix(c.Nh,c.Ny,c.alpha_b,c.beta_b,distribution="one",normalization="none")
     Wi = generate_random_matrix(c.Nh,c.Nu,c.alpha_i,c.beta_i,distribution="one",normalization="none")
+    tmp = Wi
+    for i in range(9):
+        Wi = np.hstack([Wi,tmp])
     Wo = np.zeros(c.Nh * c.Ny).reshape((c.Ny, c.Nh))
 
 def fy(h):
@@ -90,7 +160,6 @@ def fyi(h):
 
 def p2s(theta,p):
     return np.heaviside( np.sin(np.pi*(2*theta-p)),1)
-
 
 def run_network(mode):
     global Hx, Hs, Hp, Y, Yx, Ys, Yp, Y, Us, Ds,Rs
@@ -120,68 +189,62 @@ def run_network(mode):
     Rs = np.zeros((c.MM*c.NN, 1))
 
     rs = 1
-    rs_prev = 0
     any_hs_change = True
-    m=0
     count =0
+    m = 0
+    
+    
+    
     for n in tqdm(range(c.NN * c.MM)):
         theta = np.mod(n/c.NN,1) # (0,1)
         rs_prev = rs
         hs_prev = hs.copy()
 
         rs = p2s(theta,0)# 参照クロック
-        us = p2s(theta,Up[m]) # エンコードされた入力
+
+        us = p2s(theta,Dp[m,:min(m+1,10)]) # エンコードされた入力
+        #us = p2s(theta,Wi@(2*Up[m]-1))
         ds = p2s(theta,Dp[m]) #
         ys = p2s(theta,yp)
 
         sum = np.zeros(c.Nh)
         #sum += c.alpha_s*rs # ラッチ動作を用いないref.clockと同期させるための結合
-        #sum += c.alpha_s*(hs-rs)*ht # ref.clockと同期させるための結合
-        sum += Wi@(2*us-1) # 外部入力
-        #sum += Wr@(2*hs-1)
-        sum += Wr@(2*((1-c.alpha0)*hs + c.alpha0*p2s(theta,hp))-1) # リカレント結合
-        #sum += (np.identity(c.Nh))@(2*p2s(theta,hp)-1)*c.alpha0
-        #if mode == 0:
-        #    sum += Wb@ys
-        #if mode == 1:  # teacher forcing
-        #    sum += Wb@ds
-        hx_prev = hx 
+        sum += c.alpha_s*(hs-rs)*ht # ref.clockと同期させるための結合
+        sum += Wi[:,:min(m+1,10)]@(2*us[:min(m+1,10)]-1) # 外部入力
+        #sum += Wr@(2*hs-1) # リカレント結合
+        sum += Wr@(2*p2s(theta,hp)-1) # リカレント結合
+
         hsign = 1 - 2*hs
-        
-        #print((1.0+np.exp(hsign*sum/c.Temp))*c.dt)
-
-
-        #print(np.exp(hsign*sum/c.Temp))
-        hx = hx + hsign*(1.0+np.exp(hsign*(sum)/c.Temp))*c.dt
+        hx = hx + hsign*(1.0+np.exp(hsign*sum/c.Temp))*c.dt
         hs = np.heaviside(hx+hs-1,0)
-
-
-        hx = hx_prev + hsign*(1.0+np.exp(hsign*(sum+c.alpha_s*(hs-rs)*ht)/c.Temp))*c.dt
-        hs = np.heaviside(hx+hs_prev-1,0)
-
-        # hsign = 1 - 2*hs
-        # hx = hx_prev + hsign*(1.0+np.exp(hsign*(c.alpha_s*(hs-rs)*ht)/c.Temp))*c.dt
-        # hs = np.heaviside(hx+hs-1,0)
         hx = np.fmin(np.fmax(hx,0),1)
 
-        # if rs==1:
-        #     hc+=hs # デコードのためのカウンタ、ref.clockとhsのANDでカウントアップ
-        hc[(hs_prev == 1) & (hs==0)] = count 
-
+        hc[(hs_prev == 1)& (hs==0)] = count
+        
+        
         # ref.clockの立ち上がり
         if rs_prev==0 and rs==1:
-            hp = 2*hc/c.NN-1    # デコード、カウンタの値を連続値に変換
+
+            hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
             hc = np.zeros(c.Nh) #カウンタをリセット
             ht = 2*hs-1 #リファレンスクロック同期用ラッチ動作をコメントアウト
+            yp = Wo@hp
+            # record    
+            Hp[m]=hp
+            Yp[m]=yp
+            count = 0
+            m += 1
+
+        #境界条件
+        if n == (c.NN * c.MM-1):
+            hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
             yp = Wo@hp
             # record
             Hp[m]=hp
             Yp[m]=yp
-            m+=1
-            count = 0
 
-        any_hs_change = np.any(hs!=hs_prev)
         count += 1
+        any_hs_change = np.any(hs!=hs_prev)
 
         if c.plot:
         # record
@@ -190,7 +253,7 @@ def run_network(mode):
             Hs[n]=hs
             Yx[n]=yx
             Ys[n]=ys
-            Us[n]=us
+            #Us[n]=us
             Ds[n]=ds
 
     # オーバーフローを検出する。
@@ -227,82 +290,6 @@ def train_network():
 def test_network():
     run_network(0)
 
-def plot1():
-    fig=plt.figure(figsize=(20, 12))
-    Nr=6
-    ax = fig.add_subplot(Nr,1,1)
-    ax.cla()
-    ax.set_title("input")
-    ax.plot(Up)
-
-    ax = fig.add_subplot(Nr,1,2)
-    ax.cla()
-    ax.set_title("encoded input")
-    ax.plot(Us)
-    ax.plot(Rs,"r:")
-    #ax.plot(R2s,"b:")
-
-    ax = fig.add_subplot(Nr,1,3)
-    ax.cla()
-    ax.set_title("internal state")
-    ax.plot(Hx)
-
-    ax = fig.add_subplot(Nr,1,4)
-    ax.cla()
-    ax.set_title("decoded internal state")
-    ax.plot(Hp)
-
-    ax = fig.add_subplot(Nr,1,5)
-    ax.cla()
-    ax.set_title("predicted output")
-    ax.plot(Yp)
-    #ax.plot(y)
-
-    ax = fig.add_subplot(Nr,1,6)
-    ax.cla()
-    ax.plot(DC)
-    ax.set_ylabel("determinant coefficient")
-    ax.set_xlabel("Delay k")
-    ax.set_ylim([0,1])
-    ax.set_xlim([0,c.delay])
-    ax.set_title('MC ~ %3.2lf' % MC, x=0.8, y=0.7)
-
-    plt.show()
-    #plt.savefig(c.fig1)
-
-def plot_delay():
-    fig=plt.figure(figsize=(8,8 ))
-    Nr=4
-    start = 0
-    for i in range(Nr):
-        ax = fig.add_subplot(Nr,1,i+1)
-        ax.cla()
-        ax.set_title("DC = %2f,delay = %s" % (DC[i],str(i)))
-        ax.plot(Yp.T[i,i:])
-        ax.plot(Dp.T[i,i:])
-
-    plt.show()
-def plot_MC():
-    plt.plot(DC)
-    plt.ylabel("determinant coefficient")
-    plt.xlabel("Delay k")
-    plt.ylim([0,1.1])
-    plt.xlim([0,c.delay])
-    plt.title('MC ~ %3.2lf,Nh = %d' % (MC,c.Nh), x=0.8, y=0.7)
-
-    if 0:
-        fname = "./MC_fig_dir/MC:alphai={0},r={1},s={2},betai={3},r={4}.png".format(c.alpha_i,c.alpha_r,c.alpha_s,c.beta_i,c.beta_r)
-        plt.savefig(fname)
-    plt.show()
-# def plot_MC():
-#     plt.plot(DC)
-#     plt.ylabel("determinant coefficient")
-#     plt.xlabel("Delay k")
-#     plt.ylim([0,1])
-#     plt.xlim([0,c.delay])
-#     plt.title('MC ~ %3.2lf' % MC, x=0.8, y=0.7)
-#     plt.show()
-
 def execute(c):
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM,Yp
     global RMSE1,RMSE2
@@ -322,58 +309,33 @@ def execute(c):
     if c.dataset==6:
         T = c.MM
         #U,D = generate_white_noise(c.delay,T=T+200,)
-        U,D = generate_white_noise(c.delay,T=T+200,)
+        U,D = generate_white_noise(c.delay,T=T+200,dist="uniform")
         U=U[200:]
         D=D[200:]
     ### training
     #print("training...")
-    max = np.max(np.max(abs(D)))
-    D /= max*1.01
-    U /= max*1.01
+    #print(U[:,0]==D[:,0])
+    tmp = np.zeros((c.MM,10))
+    for i in range(10):
+        tmp[i:,i] = U[:c.MM-i,0]
+        tmp[:i,i] = 0
+    U = tmp
+
+    max = np.max(np.max(abs(U)))
+    if max>0.5:
+        D /= max*2
+        U /= max*2
     #Scale to (-1,1)
     Dp = D                # TARGET   #(MM,len(delay))   
     Up = U                # INPUT    #(MM,1)
-
+    # plt.plot(U)
+    # plt.tight_layout()
+    # plt.savefig("memory-u.eps")
     train_network()
+
     
-    # plt.plot(Hx[256*20:256*21,0],label="binary state")
-    # plt.plot(Rs[256*20:256*21,0],label="internal state")
-    # plt.legend()
-    # plt.show()
-    # plt.clf()
-        
-    # plt.plot(Hs[256*0:256*11,0],label="binary state")
-    # #plt.plot(Hs[256*0:256*11,0],label="internal state")
-    # plt.legend()
-    # plt.show()
-    # # plt.clf()
-    # plt.plot(Hx[256*0:256*11,:],c='tab:orange',label="internal state")
-    # plt.legend()
-    # # plt.show()
-    # # plt.clf()
-    # for i in range(5):
-    #     plt.scatter(i,Up[i,0],marker="o")
-    # plt.plot(Up[:5,0],c="black")
-    # plt.show()
-    # plt.clf()
-
-    # r = list(range(c.MM*c.NN))
-    # # for i in range(5):
-    # #     plt.plot(r[256*i:256*(i+1)],Us[256*i:256*(i+1),0])
-    # plt.plot(Rs[:256*5,0],c="black",alpha=0.5)
-    # plt.show()
-    # plt.clf()
-    #plt.plot(Hs[256*0:256*11,0:])#,label="binary state")
-    #plt.plot(Hx[256*0:256*11,0:])
-
-
-    #plt.plot(Hs[:256,0],label="binary state")
-    # r = list(range(c.MM*c.NN))
-    # for i in range(1,5):
-    #     plt.plot(r[256*(i-1):256*i],Rs[256*(i-1):256*i,0],label=str(i))
-    # plt.legend()
-    # plt.show()
-    # ### test
+    
+    ### test
     
     #print("test...")
     # c.MM = c.MM - c.MM0
@@ -394,18 +356,11 @@ def execute(c):
     予測と目標から決定係数を求める。
     決定係数の積分が記憶容量
     """
-    
     for k in range(c.delay):
         corr = np.corrcoef(np.vstack((Dp.T[k, k:], Yp.T[k, k:])))   #相関係数
-        DC[k] = corr[0, 1] ** 2   
-        # plt.scatter(Dp.T[k, k:], Yp.T[k, k:])
-        # plt.title("相関係数 = {:.2f}".format(corr[0, 1]))
-        # plt.show()
-        #決定係数 = 相関係数 **2
-    
-    MC = np.sum(DC)
-    
+        DC[k] = corr[0, 1] ** 2                                     #決定係数 = 相関係数 **2
 
+    MC = np.sum(DC)
     
    
 ######################################################################################
@@ -432,7 +387,6 @@ def execute(c):
         MC4 = np.sum(DC[:50])
         c.MC4 = MC4
     print("MC =",c.MC)
-    print(c.cnt_overflow)
 
 #####################################################################################
     if c.plot:
@@ -448,9 +402,10 @@ def execute(c):
         # ax.plot(Hp[50:100])
         # ax.set_xlabel("time")
         # plt.show()
-        #plot_delay()
-        #plot_MC()
-        plot1()
+        #plot_delay(DC,4,Yp,Dp)
+        plot_MC(DC,c.delay,MC)
+        #plot1(Up,Us,Rs,Hx,Hp,Yp,Dp)
+        #plot1()
 
 
 if __name__ == "__main__":

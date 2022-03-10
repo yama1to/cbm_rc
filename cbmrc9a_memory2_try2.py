@@ -136,10 +136,10 @@ def run_network(mode):
 
         sum = np.zeros(c.Nh)
         #sum += c.alpha_s*rs # ラッチ動作を用いないref.clockと同期させるための結合
-        #sum += c.alpha_s*(hs-rs)*ht # ref.clockと同期させるための結合
+        sum += c.alpha_s*(hs-rs)*ht # ref.clockと同期させるための結合
         sum += Wi@(2*us-1) # 外部入力
         #sum += Wr@(2*hs-1)
-        sum += Wr@(2*((1-c.alpha0)*hs + c.alpha0*p2s(theta,hp))-1) # リカレント結合
+        sum += Wr@(2*(p2s(theta,hp))-1) # リカレント結合
         #sum += (np.identity(c.Nh))@(2*p2s(theta,hp)-1)*c.alpha0
         #if mode == 0:
         #    sum += Wb@ys
@@ -154,10 +154,6 @@ def run_network(mode):
         #print(np.exp(hsign*sum/c.Temp))
         hx = hx + hsign*(1.0+np.exp(hsign*(sum)/c.Temp))*c.dt
         hs = np.heaviside(hx+hs-1,0)
-
-
-        hx = hx_prev + hsign*(1.0+np.exp(hsign*(sum+c.alpha_s*(hs-rs)*ht)/c.Temp))*c.dt
-        hs = np.heaviside(hx+hs_prev-1,0)
 
         # hsign = 1 - 2*hs
         # hx = hx_prev + hsign*(1.0+np.exp(hsign*(c.alpha_s*(hs-rs)*ht)/c.Temp))*c.dt

@@ -3,19 +3,25 @@
 NOTE: cbm_rc　時系列生成タスク　
 cbmrc6e.pyを改変
 Configクラスによるパラメータ設定
+
+
+入力から予測を出力する
+
 """
 
 import argparse
 import numpy as np
+from numpy.core.fromnumeric import size
 import scipy.linalg
 import matplotlib.pyplot as plt
 import copy
 import time
 from explorer import common
-from generate_data_sequence import *
+from generate_data_sequence_narma import *
 from generate_matrix import *
-
+import gc
 from tqdm import tqdm 
+
 
 class Config():
     def __init__(self):
@@ -23,52 +29,84 @@ class Config():
         self.columns = None # 結果をCSVに保存する際のコラム
         self.csv = None # 結果を保存するファイル
         self.id  = None
-        self.plot = 1#False # 図の出力のオンオフ
-        self.show = 1#False # 図の表示（plt.show()）のオンオフ、explorerは実行時にこれをオフにする。
-        self.savefig = False
+        self.plot = 1 # 図の出力のオンオフ
+        self.show = True # 図の表示（plt.show()）のオンオフ、explorerは実行時にこれをオフにする。
+        self.savefig = True
         self.fig1 = "fig1.png" ### 画像ファイル名
 
         # config
-        self.dataset=4
-        self.seed:int=2 # 乱数生成のためのシード
+        self.dataset=1
+        self.seed:int=0 # 乱数生成のためのシード
         self.NN=256 # １サイクルあたりの時間ステップ
-        self.MM=50 # サイクル数
-        self.MM0 = 0 #
+        self.MM=2000 # サイクル数
+        self.MM0 = 200 #
 
         self.Nu = 1   #size of input
-        self.Nh:int = 100 #size of dynamical reservior
+        self.Nh = 100 #size of dynamical reservior
         self.Ny = 1   #size of output
-    
+
         self.Temp=1
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 0.62
-        self.alpha_r = 0.68
+        self.alpha_i = 0.35
+        self.alpha_r = 0.15
         self.alpha_b = 0.
-        self.alpha_s = 1.49
+        self.alpha_s = 0.47
 
-        self.alpha0 = 0#0.1
-        self.alpha1 = 0#-5.8
-
-        self.beta_i = 0.47
-        self.beta_r = 0.1
+        self.beta_i = 0.28
+        self.beta_r = 0.51
         self.beta_b = 0.1
 
-        self.lambda0 = 0.0
-
+        self.lambda0 = 0.0001
+        self.delay = 9
         # Results
-        self.RMSE1=None
-        self.RMSE2=None
-        self.cnt_overflow=None
-        self.BER = None
-
+        self.RMSE   =   None
+        self.NRMSE  =   None
+        self.NMSE   =   None
+        self.cnt_overflow   =   None
+def bm_weight():
+    global Wr, Wb, Wo, Wi
+    #taikaku = "zero"
+    taikaku = "nonzero"
+    Wr = np.zeros((c.Nh,c.Nh))
+    x = c.Nh**2
+    if taikaku =="zero":
+        x -= c.Nh
+    nonzeros = int(x * c.beta_r)
+    x = np.zeros((x))
+    x[0:int(nonzeros / 2)] = 1
+    x[int(nonzeros / 2):int(nonzeros)] = -1
+    np.random.shuffle(x)
+    m = 0
+    
+    for i in range(c.Nh):
+        for j in range(i,c.Nh):
+            if taikaku =="zero":
+                if i!=j:
+                    Wr[i,j] = x[m]
+                    Wr[j,i] = x[m]
+                    m += 1
+            else:
+                Wr[i,j] = x[m]
+                Wr[j,i] = x[m]
+                m += 1
+    #print(Wr)
+    v = np.linalg.eigvals(Wr)
+    lambda_max = max(abs(v))
+    Wr = Wr/lambda_max*c.alpha_r
+    return Wr
 def generate_weight_matrix():
     global Wr, Wb, Wo, Wi
     Wr = generate_random_matrix(c.Nh,c.Nh,c.alpha_r,c.beta_r,distribution="one",normalization="sr")
+    #Wr  = bm_weight()
     Wb = generate_random_matrix(c.Nh,c.Ny,c.alpha_b,c.beta_b,distribution="one",normalization="none")
     Wi = generate_random_matrix(c.Nh,c.Nu,c.alpha_i,c.beta_i,distribution="one",normalization="none")
-    Wo = np.zeros(c.Nh * c.Ny).reshape((c.Ny, c.Nh))
+    tmp = Wi
+    for i in range(9):
+        Wi = np.hstack([Wi,tmp])
+    #print(Wi)
+    Wo = np.zeros(c.Nh * c.Ny).reshape(c.Ny, c.Nh)
 
 def fy(h):
     return np.tanh(h)
@@ -78,6 +116,7 @@ def fyi(h):
 
 def p2s(theta,p):
     return np.heaviside( np.sin(np.pi*(2*theta-p)),1)
+
 def run_network(mode):
     global Hx, Hs, Hp, Y, Yx, Ys, Yp, Y, Us, Ds,Rs
     Hp = np.zeros((c.MM, c.Nh))
@@ -109,26 +148,28 @@ def run_network(mode):
     any_hs_change = True
     count =0
     m = 0
+    
+    
+    
     for n in tqdm(range(c.NN * c.MM)):
         theta = np.mod(n/c.NN,1) # (0,1)
         rs_prev = rs
         hs_prev = hs.copy()
 
         rs = p2s(theta,0)# 参照クロック
-        us = p2s(theta,Up[m]) # エンコードされた入力
+
+        us = p2s(theta,Up[m,:min(m+1,10)]) # エンコードされた入力
+        #us = p2s(theta,Wi@(2*Up[m]-1))
         ds = p2s(theta,Dp[m]) #
         ys = p2s(theta,yp)
 
         sum = np.zeros(c.Nh)
         #sum += c.alpha_s*rs # ラッチ動作を用いないref.clockと同期させるための結合
         sum += c.alpha_s*(hs-rs)*ht # ref.clockと同期させるための結合
-        sum += Wi@(2*us-1) # 外部入力
-        sum += Wr@(2*hs-1) # リカレント結合
 
-        #if mode == 0:
-        #    sum += Wb@ys
-        #if mode == 1:  # teacher forcing
-        #    sum += Wb@ds
+        sum += Wi[:,:min(m+1,10)]@(2*us[:min(m+1,10)]-1) # 外部入力
+        sum += Wr@(2*hs-1) # リカレント結合
+        #sum += Wr@(2*p2s(theta,hp)-1) # リカレント結合
 
         hsign = 1 - 2*hs
         hx = hx + hsign*(1.0+np.exp(hsign*sum/c.Temp))*c.dt
@@ -137,8 +178,10 @@ def run_network(mode):
 
         hc[(hs_prev == 1)& (hs==0)] = count
         
+        
         # ref.clockの立ち上がり
         if rs_prev==0 and rs==1:
+
             hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
             hc = np.zeros(c.Nh) #カウンタをリセット
             ht = 2*hs-1 #リファレンスクロック同期用ラッチ動作をコメントアウト
@@ -167,7 +210,7 @@ def run_network(mode):
             Hs[n]=hs
             Yx[n]=yx
             Ys[n]=ys
-            Us[n]=us
+            #Us[n]=us
             Ds[n]=ds
 
     # オーバーフローを検出する。
@@ -177,14 +220,13 @@ def run_network(mode):
         tmp = np.sum( np.heaviside( np.fabs(Hp[m+1]-Hp[m]) - 0.6 ,0))
         cnt_overflow += tmp
         #print(tmp)
-
 def train_network():
     global Wo
 
     run_network(1) # run netwrok with teacher forcing
 
     M = Hp[c.MM0:, :]
-    invD = Dp
+    invD =Dp
     G = invD[c.MM0:, :]
 
     #print("Hp\n",Hp)
@@ -220,72 +262,110 @@ def plot1():
     ax.cla()
     #ax.set_title("predictive output")
     #ax.plot(train_Y)
-    ax.plot(train_Y_binary)
+    ax.plot(Yp)
 
     ax = fig.add_subplot(Nr,1,4)
     ax.cla()
     #ax.set_title("desired output")
     ax.plot(Dp)
-    plt.savefig("./eps-fig/xor.eps")
+    plt.savefig("./eps-fig/narma.eps")
+def plot2():
+    fig=plt.figure(figsize=(20, 12))
+    Nr=2
+    ax = fig.add_subplot(Nr,1,1)
+    ax.cla()
+    ax.set_title("Yp,Dp")
+    ax.plot(Yp,label = "prediction ")
+    ax.plot(Dp, label = "Target")
+    ax.legend()
+
+    ax = fig.add_subplot(Nr,1,2)
+    ax.cla()
+    ax.set_title("error",size=10)
+    ax.plot(abs(Yp-Dp))
+    plt.xlabel("time")
+
+    plt.show()
+
+def calc(Yp,Dp):
+    error = (Yp-Dp)**2
+    NMSE = np.mean(error)/np.var(Dp)
+    RMSE = np.sqrt(np.mean(error))
+    NRMSE = RMSE/np.var(Dp)
+    return RMSE,NRMSE,NMSE
+
 def execute():
-    global D,Ds,Dp,U,Us,Up,Rs,R2s,MM
-    global RMSE1,RMSE2
-    global train_Y_binary,train_Y
-    c.NN = int(c.NN)
-    np.random.seed(seed = int(c.seed))
+    global D,Ds,Dp,U,Us,Up,Rs,R2s,MM,Yp
+
+    t_start=time.time()
+    c.seed = int(c.seed)
+    c.Nh = int(c.Nh)
+    c.delay = int(c.delay)
+    c.Ny = c.delay
+    
+
+    np.random.seed(c.seed)
     generate_weight_matrix()
 
-    ### generate data
-    if c.dataset==4:
-        MM1=c.MM
-        MM2 = c.MM
-        U,D = generate_xor(MM1+MM2 +1)
-        U1 = U[:MM1]
-        D1 = D[:MM1]
-        plt.plot(U,marker="o")
-        plt.tight_layout()
-        plt.savefig("xor-u.eps")
-        # plt.plot(U1)
-        # plt.plot(D1)
-        # plt.show()
-    ### training
-    #print("training...")
-    c.MM = MM1
+    MM1 = 1200
+    MM2 = 2200
+    U1,D1  = generate_narma(N=MM1,seed=0,delay=c.delay)
+
+    tmp = U1
+    #print(U1.shape)
+
+    U = np.zeros((MM1,10))
+    for i in range(10):
+        U[i:,i] = U1[i:,0]
+    U1 = U
+    
+
     Dp = D1
-    Up = np.tanh(U1)
-    train_network()                     #Up,Dpからネットワークを学習する
+    Up = U1 
+    print(Up.shape)
+    c.MM = MM1
+    if not c.plot: 
+        del D1,U1
+        gc.collect()
+    train_network()
+
+    # RMSE1,NRMSE1 = calc(Yp,Dp)
+    # print(RMSE1,NRMSE1)
+
+    
+        
 
     ### test
     #print("test...")
     c.MM = MM2
+    U2,D2  = generate_narma(N=MM2,seed=0,delay=c.delay)
+    U = np.zeros((MM2,10))
+    for i in range(10):
+        U[i:,i] = U2[i:,0]
+    U2 = U
+    Dp = D2
+    Up = U2
+    if not c.plot: 
+        del U2,D2
+        gc.collect()
+    test_network()
 
+    global Yp 
+    Yp = Yp[c.MM0:]
+    Dp = Dp[c.MM0:]
 
-    test_network()                      #output = Yp
+    RMSE,NRMSE,NMSE = calc(Yp,Dp)
+    #print(1/np.var(Dp))
+    print("RMSE:",RMSE,"NRMSE:",NRMSE,"NMSE:",NMSE)
+    c.RMSE = RMSE
+    c.NRMSE = NRMSE
+    c.NMSE = NMSE
+    c.cnt_overflow=cnt_overflow/(c.MM-2)
+    #print("time: %.6f [sec]" % (time.time()-t_start))
 
-    tau = 2
-    # 評価（ビット誤り率, BER）
-    train_Y_binary = np.zeros(MM1-tau)
-
-    train_Y = Yp[tau:]        #(T-tau,1)
-    Dp      = Dp[tau:]          #(T-tau,1)
-
-    #閾値を0.5としてバイナリ変換する
-    for n in range(MM1-tau):
-        train_Y_binary[n] = np.heaviside(train_Y[n]-fy(0.5),0)
-    
-    BER = np.linalg.norm(train_Y_binary-Dp[:,0], 1)/(MM1-tau)
-
-
-    print('BER ={:.3g}'.format(BER))
-    ######################################################################################
-     # Results
-    c.RMSE1=None
-    c.RMSE2=None
-    c.cnt_overflow=cnt_overflow
-    c.BER = BER
-    #####################################################################################
-
-    if c.plot: plot1()
+    if c.plot:
+        plot1()
+        #plot2()
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()

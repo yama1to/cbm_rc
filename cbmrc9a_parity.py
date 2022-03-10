@@ -33,7 +33,7 @@ class Config():
 
         # config
         self.dataset=5
-        self.seed:int=1.5 # 乱数生成のためのシード
+        self.seed:int=2 # 乱数生成のためのシード
         self.NN=256 # １サイクルあたりの時間ステップ
         self.MM=50 # サイクル数
         self.MM0 = 0 #
@@ -46,16 +46,16 @@ class Config():
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 0.18
-        self.alpha_r = 0.88
+        self.alpha_i = 1
+        self.alpha_r = 0.2
         self.alpha_b = 0.
-        self.alpha_s = 0.78
+        self.alpha_s = 0.4
 
         self.alpha0 = 0#0.1
         self.alpha1 = 0#-5.8
 
-        self.beta_i = 0.85
-        self.beta_r = 0.18
+        self.beta_i = 0.9
+        self.beta_r = 0.2
         self.beta_b = 0.1
 
         self.lambda0 = 0.0
@@ -135,7 +135,7 @@ def run_network(mode):
         #    sum += Wb@ds
 
         hsign = 1 - 2*hs
-        hx = hx + hsign*(1.0+np.exp(hsign*sum/c.Temp))*c.dt
+        hx = hx + hsign*(1.0+np.exp(hs*sum/c.Temp))*c.dt
         hs = np.heaviside(hx+hs-1,0)
         hx = np.fmin(np.fmax(hx,0),1)
 
@@ -207,46 +207,31 @@ def train_network():
 
 def test_network():
     run_network(0)
-
 def plot1():
     fig=plt.figure(figsize=(20, 12))
-    Nr=6
+    Nr=4
     ax = fig.add_subplot(Nr,1,1)
     ax.cla()
-    ax.set_title("input")
+    #ax.set_title("input")
     ax.plot(Up)
 
     ax = fig.add_subplot(Nr,1,2)
     ax.cla()
-    ax.set_title("encoded input")
-    ax.plot(Us)
-    ax.plot(Rs,"r:")
-    #ax.plot(R2s,"b:")
+    #ax.set_title("decoded reservoir states")
+    ax.plot(Hp)
 
     ax = fig.add_subplot(Nr,1,3)
     ax.cla()
-    ax.set_title("reservoir states")
-    ax.plot(Hx)
+    #ax.set_title("predictive output")
+    #ax.plot(train_Y)
+    ax.plot(train_Y_binary)
 
     ax = fig.add_subplot(Nr,1,4)
     ax.cla()
-    ax.set_title("decoded reservoir states")
-    ax.plot(Hp)
-
-    ax = fig.add_subplot(Nr,1,5)
-    ax.cla()
-    ax.set_title("predictive output")
-    ax.plot(train_Y_binary)
-
-    ax = fig.add_subplot(Nr,1,6)
-    ax.cla()
-    ax.set_title("desired output")
+    #ax.set_title("desired output")
     ax.plot(Dp)
-    ax.plot(train_Y_binary)
-    ax.plot()
-    
     plt.show()
-    plt.savefig(c.fig1)
+    #plt.savefig("./eps-fig/parity.eps")
 
 def execute(c):
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM, Yp,Dp
@@ -267,9 +252,12 @@ def execute(c):
         k = 3           #3bit
         T = MM1 +(tau+k-1)#+MM2 
         U,D = generate_parity(T,tau,k)
-
+        # plt.plot(D,marker="o")
+        # plt.tight_layout()
+        # plt.savefig("parity-d.eps")
     D1 = D[0:MM1]
     U1 = U[0:MM1]
+    #print(Wi)
 
     ### training
     #print("training...")
@@ -283,15 +271,16 @@ def execute(c):
     test_network()                  #output = Yp
 
     # 評価（ビット誤り率, BER）
-    train_Y_binary = np.zeros(MM1-tau)
-    Yp = Yp[tau:]
-    Dp = Dp[tau:]
+    train_Y_binary = np.zeros(MM1-tau-k+1)
+    Yp = Yp[tau+k-1:]
+    Dp = Dp[tau+k-1:]
     #閾値を0.5としてバイナリ変換する
-    for n in range(MM1-tau):
+    for n in range(MM1-tau-k+1):
         train_Y_binary[n] = np.heaviside(Yp[n]-fy(0.5),0)
     
-    BER = np.linalg.norm(train_Y_binary-Dp[:,0], 1)/(MM1-tau)
-
+    BER = np.linalg.norm(train_Y_binary-Dp[:,0], 1)/(MM1-tau-k+1)
+    #print(train_Y_binary==Dp[:,0])
+    #print()
     print('BER =', BER)
 
 ######################################################################################

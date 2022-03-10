@@ -50,9 +50,10 @@ class Config():
 
         #sigma_np = -5
         self.alpha_i = 0.35
-        self.alpha_r = 0.15
+        self.alpha_r = 0.9
         self.alpha_b = 0.
         self.alpha_s = 0.47
+        self.alpha0 = 0.5
 
         self.beta_i = 0.28
         self.beta_r = 0.51
@@ -96,9 +97,23 @@ def bm_weight():
     lambda_max = max(abs(v))
     Wr = Wr/lambda_max*c.alpha_r
     return Wr
+def ring_weight():
+    global Wr, Wb, Wo, Wi
+    #taikaku = "zero"
+    taikaku = "nonzero"
+    Wr = np.zeros((c.Nh,c.Nh))
+    for i in range(c.Nh-1):
+        Wr[i,i+1] = 1
+    Wr[-1,0] = 1
+    # #print(Wr)
+    v = np.linalg.eigvals(Wr)
+    lambda_max = max(abs(v))
+    Wr = Wr/lambda_max*c.alpha_r
+    return Wr
 def generate_weight_matrix():
     global Wr, Wb, Wo, Wi
-    Wr = generate_random_matrix(c.Nh,c.Nh,c.alpha_r,c.beta_r,distribution="one",normalization="sr")
+    #Wr = generate_random_matrix(c.Nh,c.Nh,c.alpha_r,c.beta_r,distribution="one",normalization="sr")
+    Wr = ring_weight()
     #Wr  = bm_weight()
     Wb = generate_random_matrix(c.Nh,c.Ny,c.alpha_b,c.beta_b,distribution="one",normalization="none")
     Wi = generate_random_matrix(c.Nh,c.Nu,c.alpha_i,c.beta_i,distribution="one",normalization="none")
@@ -139,10 +154,14 @@ def run_network(mode):
     Ds = np.zeros((c.MM*c.NN, c.Ny))
     Rs = np.zeros((c.MM*c.NN, 1))
 
+    idx_linear = int(c.alpha0*c.Nh)
     rs = 1
     any_hs_change = True
     count =0
     m = 0
+    prev_hc = np.zeros((c.Nh))
+    hx_prev = np.zeros((c.Nh))
+    hs_prev = np.zeros((c.Nh))
     for n in tqdm(range(c.NN * c.MM)):
         theta = np.mod(n/c.NN,1) # (0,1)
         rs_prev = rs
@@ -152,28 +171,45 @@ def run_network(mode):
         us = p2s(theta,Up[m]) # エンコードされた入力
         ds = p2s(theta,Dp[m]) #
         ys = p2s(theta,yp)
+        #linear = Wi@(2*us-1) + Wr@(2*p2s(theta,hp)-1) + c.alpha_s*(hs-rs)*ht
 
         sum = np.zeros(c.Nh)
         #sum += c.alpha_s*rs # ラッチ動作を用いないref.clockと同期させるための結合
         sum += c.alpha_s*(hs-rs)*ht # ref.clockと同期させるための結合
+        #sum += c.alpha_s * hx 
         sum += Wi@(2*us-1) # 外部入力
-        sum += Wr@(2*hs-1) # リカレント結合
+        #sum += Wr@(2*hs-1) # リカレント結合
+        sum += Wr@(2*p2s(theta,hp)-1) # リカレント結合
 
+        #sum += Wr@prev_hc/c.NN
+        #sum += Wr@(2*p2s(theta,hp)-1)
         #if mode == 0:
         #    sum += Wb@ys
         #if mode == 1:  # teacher forcing
         #    sum += Wb@ds
 
         hsign = 1 - 2*hs
-        hx = hx + hsign*(1.0+np.exp(hsign*sum/c.Temp))*c.dt
+        hx = hx + hsign*(1+np.exp(hsign*sum/c.Temp))*c.dt
+        #hx[:idx_linear] = linear[:idx_linear]
+        #hx[:idx_linear] += p2s(theta,lx[:idx_linear])*c.dt
         hs = np.heaviside(hx+hs-1,0)
         hx = np.fmin(np.fmax(hx,0),1)
-
+        
         hc[(hs_prev == 1)& (hs==0)] = count
         
         # ref.clockの立ち上がり
         if rs_prev==0 and rs==1:
-            hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
+            linear = Wi@Up[m] + Wr@hp
+            hp = 2*hc/c.NN-1    # デコード、カウンタの値を連続値に変換
+            hp[:idx_linear] = linear[:idx_linear]
+
+            #hs[:idx_linear] = p2s(theta,linear[:idx_linear])
+            #hp = (hp+linear)/2
+            # hx = hc/c.NN
+            # hs = np.heaviside(hx+hs-1,0)
+            # hx = np.fmin(np.fmax(hx,0),1)
+            #hp = 2*hc/c.NN-1    # デコード、カウンタの値を連続値に変換
+
             hc = np.zeros(c.Nh) #カウンタをリセット
             ht = 2*hs-1 #リファレンスクロック同期用ラッチ動作をコメントアウト
             yp = Wo@hp
@@ -182,14 +218,23 @@ def run_network(mode):
             Yp[m]=yp
             count = 0
             m += 1
+            prev_hc = hc
 
         #境界条件
         if n == (c.NN * c.MM-1):
-            hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
+            #linear = hp#Wi@ Up[m] + Wr@hp
+            #linear = Wi@Up[m] + Wr@hp
+            hp = 2*hc/c.NN-1    # デコード、カウンタの値を連続値に変換
+            #idx_linear = int(c.alpha0*c.Nh)
+            #hp[:idx_linear] = linear[:idx_linear]
+
+            # hp = 2*hc/c.NN-1    # デコード、カウンタの値を連続値に変換
+
             yp = Wo@hp
             # record
             Hp[m]=hp
             Yp[m]=yp
+            prev_hc = hc
 
         count += 1
         any_hs_change = np.any(hs!=hs_prev)

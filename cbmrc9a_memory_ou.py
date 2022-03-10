@@ -17,6 +17,7 @@ from generate_data_sequence_ipc import datasets
 from generate_data_sequence_ou import *
 from generate_matrix import *
 from explorer import common
+from tqdm import tqdm 
 
 class Config():
     def __init__(self):
@@ -31,7 +32,7 @@ class Config():
 
         # config
         self.dataset=6
-        self.seed:int=2 # 乱数生成のためのシード
+        self.seed:int=1 # 乱数生成のためのシード
         self.NN=256 # １サイクルあたりの時間ステップ
         self.MM=2200 # サイクル数
         self.MM0 = 200 #
@@ -40,20 +41,20 @@ class Config():
         self.Nh:int = 100   #815 #size of dynamical reservior
         self.Ny = 20        #size of output
 
-        self.Temp=5
+        self.Temp=9.96
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
         self.alpha_i = 1
-        self.alpha_r = 0.7
+        self.alpha_r = 0.29
         self.alpha_b = 0.
-        self.alpha_s = 2
+        self.alpha_s = 0
 
         self.alpha0 = 0#0.1
         self.alpha1 = 0#-5.8
 
-        self.beta_i = 0.9
-        self.beta_r = 0.1
+        self.beta_i = 0.02
+        self.beta_r = 1
         self.beta_b = 0.1
 
         self.lambda0 = 0.
@@ -215,50 +216,30 @@ def train_network():
 
 def test_network():
     run_network(0)
-
 def plot1():
-    fig=plt.figure(figsize=(16, 8))
-    Nr=6
+    fig=plt.figure(figsize=(20, 12))
+    Nr=4
     ax = fig.add_subplot(Nr,1,1)
     ax.cla()
-    ax.set_title("Up")
+    #ax.set_title("input")
     ax.plot(Up)
 
     ax = fig.add_subplot(Nr,1,2)
     ax.cla()
-    ax.set_title("Us")
-    ax.plot(Us)
-    ax.plot(Rs,"r:")
-    #ax.plot(R2s,"b:")
+    #ax.set_title("decoded reservoir states")
+    ax.plot(Hp)
 
     ax = fig.add_subplot(Nr,1,3)
     ax.cla()
-    ax.set_title("Hx")
-    ax.plot(Hx)
+    #ax.set_title("predictive output")
+    #ax.plot(train_Y)
+    ax.plot(Yp)
 
     ax = fig.add_subplot(Nr,1,4)
     ax.cla()
-    ax.set_title("Hp")
-    ax.plot(Hp)
-
-    ax = fig.add_subplot(Nr,1,5)
-    ax.cla()
-    ax.set_title("Yp")
-    ax.plot(Yp)
-    #ax.plot(y)
-
-    ax = fig.add_subplot(Nr,1,6)
-    ax.cla()
-    ax.plot(DC)
-    ax.set_ylabel("determinant coefficient")
-    ax.set_xlabel("Delay k")
-    ax.set_ylim([0,1])
-    ax.set_xlim([0,c.delay])
-    ax.set_title('MC ~ %3.2lf' % MC, x=0.8, y=0.7)
-
-    plt.show()
-    plt.savefig(c.fig1)
-
+    #ax.set_title("desired output")
+    ax.plot(Dp)
+    plt.savefig("./eps-fig/memory-ou.eps")
 def plot_delay():
     fig=plt.figure(figsize=(16,16 ))
     Nr=20
@@ -306,6 +287,9 @@ def execute(c):
     U,D = datasets(T = c.MM + 200,delay_s = 100)
     U=U[200:]
     D=D[200:]
+    plt.plot(U)
+    plt.tight_layout()
+    plt.savefig("memory-ou-u.eps")
     ### training
     #print("training...")
     
@@ -374,9 +358,9 @@ def execute(c):
     print("overflow =",c.cnt_overflow)
 #####################################################################################
     if c.plot:
-        plot_delay()
-        plot_MC()
-        #plot1()
+        #plot_delay()
+        #plot_MC()
+        plot1()
 
 
 if __name__ == "__main__":

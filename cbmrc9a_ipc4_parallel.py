@@ -1,24 +1,21 @@
 # Copyright (c) 2018-2021 Katori lab. All Rights Reserved
 """
-NOTE: cbm_rc 時系列生成タスク 
+NOTE: cbm_rc　時系列生成タスク　
 cbmrc6e.pyを改変
 Configクラスによるパラメータ設定
 """
 
 import argparse
-from joblib import parallel_backend
 import numpy as np
 import scipy.linalg
 import matplotlib.pyplot as plt
 import copy
 import time
 from explorer import common
-from generate_data_sequence import *
+from generate_data_sequence_ipc2 import *
 from generate_matrix import *
 from tqdm import tqdm
-from cbm_utils import *
-import tensorflow
-import cupy as cp 
+
 class Config():
     def __init__(self):
         # columns, csv, id: データの管理のために必須の変数
@@ -26,131 +23,44 @@ class Config():
         self.csv = None # 結果を保存するファイル
         self.id  = None
         self.plot = 0 # 図の出力のオンオフ
-        self.show = False # 図の表示（plt.show()）のオンオフ、explorerは実行時にこれをオフにする。
-        self.savefig = False
+        self.show = True # 図の表示（plt.show()）のオンオフ、explorerは実行時にこれをオフにする。
+        self.savefig = True
         self.fig1 = "fig1.png" ### 画像ファイル名
 
         # config
-        self.dataset=6
-        self.seed:int=1 # 乱数生成のためのシード
+        self.dataset=1
+        self.seed:int=0 # 乱数生成のためのシード
         self.NN=2**8 # １サイクルあたりの時間ステップ
-        self.MM=2200 # サイクル数
+        self.MM=10200 # サイクル数
         self.MM0 = 200 #
 
-        self.Nu = 1         #size of input
-        self.Nh:int = 500   #815 #size of dynamical reservior
-        self.Ny = 20        #size of output
+        self.Nu = 1   #size of input
+        self.Nh = 100 #size of dynamical reservior
+        self.Ny = 200   #size of output
 
-        self.Temp=1
+        self.Temp=1.0
         self.dt=1.0/self.NN #0.01
 
         #sigma_np = -5
-        self.alpha_i = 0.24
-        self.alpha_r = 0.64
-        self.alpha_s = 1.0
-        self.beta_i = 0.36
-        self.beta_r = 0.76
-
-        # self.alpha_i2 = 0.24
-        # self.alpha_r2 = 0.64
-        # self.beta_i2 = 0.36
-        # self.beta_r2 = 0.76
-        
-
-        # self.alpha_i3 = 0.24
-        # self.alpha_r3 = 0.64
-        # self.beta_i3 = 0.36
-        # self.beta_r3 = 0.76
-
+        self.alpha_i = 0.34
+        self.alpha_r = 0.75
         self.alpha_b = 0.
-        self.beta_b = 0.1
+        self.alpha_s = 0.8
 
-        self.alpha0 = 0#0.1
-        self.alpha1 = 1#-5.8
-        
-        
+        self.beta_i = 0.4
+        self.beta_r = 0.25
+        self.beta_b = 0.1
 
         self.lambda0 = 0.
 
         self.delay = 20
-        self.parallel =100
-
-        # ResultsX
-        self.RMSE1=None
-        self.RMSE2=None
+        self.degree = 10
+        self.set = 0    #0,1,2,3
+        self.parallel = 10
+        # Results
         self.MC = None
-        self.MC1 = None 
-        self.MC2 = None
-        self.MC3 = None
-        self.MC4 = None
+        self.CAPACITY = None 
         self.cnt_overflow=None
-        #self.BER = None
-        
-        #self.DC = None 
-def ring_weight():
-    global Wr, Wb, Wo, Wi
-    #taikaku = "zero"
-    taikaku = "nonzero"
-    Wr = np.zeros((c.Nh,c.Nh))
-    for i in range(c.Nh-1):
-        Wr[i,i+1] = 1
-    
-    # #print(Wr)
-    # v = np.linalg.eigvals(Wr)
-    # lambda_max = max(abs(v))
-    # Wr = Wr/lambda_max*c.alpha_r
-    return Wr
-def bm_weight():
-    global Wr, Wb, Wo, Wi
-    #taikaku = "zero"
-    taikaku = "nonzero"
-    Wr = np.zeros((c.Nh,c.Nh))
-    x = c.Nh**2
-    if taikaku =="zero":
-        x -= c.Nh
-    nonzeros = int(x * c.beta_r)
-    x = np.zeros((x))
-    x[0:int(nonzeros / 2)] = 1
-    x[int(nonzeros / 2):int(nonzeros)] = -1
-    np.random.shuffle(x)
-    m = 0
-    
-    for i in range(c.Nh):
-        for j in range(i,c.Nh):
-            if taikaku =="zero":
-                if i!=j:
-                    Wr[i,j] = x[m]
-                    Wr[j,i] = x[m]
-                    m += 1
-            else:
-                Wr[i,j] = x[m]
-                Wr[j,i] = x[m]
-                m += 1
-    #print(Wr)
-    v = np.linalg.eigvals(Wr)
-    lambda_max = max(abs(v))
-    Wr = Wr/lambda_max*c.alpha_r
-    return Wr
-    
-def small_world_weight():
-    global Wr, Wb, Wo, Wi
-    Wr = np.zeros((c.Nh,c.Nh))
-    m = 0
-    x = np.array([1,-1])
-    np.random.shuffle(x)
-    for i in range(c.Nh):
-        Wr[i,i-2] = x[0]
-        np.random.shuffle(x)
-        Wr[i,i-1] = x[0]
-        np.random.shuffle(x)
-        rdm = np.random.uniform(0,1,1)
-        if rdm > c.beta_r:
-            Wr[i,int(np.random.randint(0,c.Nh-1,1))] = x[0]
-            m+=1
-    v = np.linalg.eigvals(Wr)
-    lambda_max = max(abs(v))
-    Wr = Wr/lambda_max*c.alpha_r
-    return Wr
 
 def generate_weight_matrix():
     global Wr, Wb, Wo, Wi,Wr2,Wr3,Wi2,Wi3,Wh
@@ -345,127 +255,160 @@ def train_network():
 def test_network():
     run_network(0)
 
+def plot1():
+    fig=plt.figure(figsize=(10, 6))
+    Nr=6
+    ax = fig.add_subplot(Nr,1,1)
+    ax.cla()
+    ax.set_title("Up")
+    ax.plot(Up)
+
+    ax = fig.add_subplot(Nr,1,2)
+    ax.cla()
+    ax.set_title("Us")
+    ax.plot(Us)
+    ax.plot(Rs,"r:")
+    #ax.plot(R2s,"b:")
+
+    ax = fig.add_subplot(Nr,1,3)
+    ax.cla()
+    ax.set_title("Hx")
+    ax.plot(Hx)
+
+    ax = fig.add_subplot(Nr,1,4)
+    ax.cla()
+    ax.set_title("Hp")
+    ax.plot(Hp)
+
+    ax = fig.add_subplot(Nr,1,5)
+    ax.cla()
+    ax.set_title("Yp")
+    ax.plot(Yp)
+
+    ax = fig.add_subplot(Nr,1,6)
+    ax.cla()
+    ax.set_title("Dp")
+    ax.plot(Dp)
+
+    plt.show()
+    #plt.savefig(c.fig1)
+
+
 def execute(c):
-    global D,Ds,Dp,U,Us,Up,Rs,R2s,MM,Yp
-    global RMSE1,RMSE2
-    global train_Y_binary,MC,DC
-
-
-    c.delay = int(c.delay)
-    c.Ny = c.delay
-    c.NN = int(c.NN)
+    global D,Ds,Dp,U,Us,Up,Rs,R2s,MM
+    global Yp,Dp,CAPACITY,sumOfCapacity, name ,dist 
+    t_start=time.time()
+    #if c.seed>=0:
     c.Nh = int(c.Nh)
+    c.seed = int(c.seed)
     c.parallel = int(c.parallel)
-
-
-    np.random.seed(seed = int(c.seed))    
-    generate_weight_matrix()
+    #c.Ny = c.delay
+    np.random.seed(c.seed)    
+    
 
     ### generate data
+    name_list = ["Legendre","Hermite","Chebyshev","Laguerre"]
+    dist_list = ["uniform","normal","arcsine","exponential"]
+    dist = dist_list[c.set]
+    name = name_list[c.set]
     
-    if c.dataset==6:
-        T = c.MM
-        #U,D = generate_white_noise(c.delay,T=T+200,)
-        U,D = generate_white_noise(c.delay,T=T+200,dist="uniform")
-        U=U[200:]
-        D=D[200:]
+    U,D = datasets(k=c.delay,n=1,T = c.MM,name=name,dist=dist,seed=c.seed,new=0)
+    for degree in range(2,11):
+        _,D2 = datasets(k=c.delay,n=degree,T = c.MM,name=name,dist=dist,seed=c.seed,new=0)
+        D = np.hstack([D,D2])
+    #print(U.shape,D.shape)
+    # max = np.max(np.max(abs(D)))
+    # D /= max*1.01
+    # U /= max*1.01
+    # plt.plot(D[:,0])
+    #plt.plot(U)
+    # plt.show()
+
+    generate_weight_matrix()
     ### training
     #print("training...")
-    max = np.max(np.max(abs(U)))
-    if max>0.5:
-        D /= max*2
-        U /= max*2
-    #Scale to (-1,1)
-    Dp = D                # TARGET   #(MM,len(delay))   
-    Up = U                # INPUT    #(MM,1)
-    # plt.plot(U)
-    # plt.tight_layout()
-    # plt.savefig("memory-u.eps")
-    #Up = D
+    
+    Dp = D[:]                # TARGET   #(MM,len(delay))   
+    Up = U[:]                # INPUT    #(MM,1)
+
     train_network()
-    # print(U.shape,Hp.shape)
-    # for i in range(20):
-    #     corr = np.corrcoef(np.vstack((U[i:,0],Hp[i:,i])))
-    #     corr = corr[0,1]
-    #     print(corr)
-    # plt.scatter(U[:,0],Hp[:,0])
-    # plt.title("corr = %s"% str(corr))
-    # plt.show()
-    # exit()
+    #print("...end") 
     
     ### test
-    
     #print("test...")
-    # c.MM = c.MM - c.MM0
-    # Dp = Dp[c.MM0:]                    # TARGET    #(MM,len(delay))
-    # Up = Up[c.MM0:]                    # PRED      #(MM,len(delay))
-    
+    Dp = D[:]                    # TARGET   #(MM,len(delay))   
+    Up = U[:]                    # INPUT    #(MM,1)
     test_network()                  #OUTPUT = Yp
-    
-    DC = np.zeros((c.delay, 1))  # 決定係数
-    MC = 0.0                        # 記憶容量
 
-    #inv scale
-    
-    Dp = Dp[c.MM0:]                    # TARGET    #(MM,len(delay))
-    Yp = Yp[c.MM0:]                    # PRED      #(MM,len(delay))
-    #print(np.max(Dp),np.max(Yp))
-    """
-    予測と目標から決定係数を求める。
-    決定係数の積分が記憶容量
-    """
-    for k in range(c.delay):
-        corr = np.corrcoef(np.vstack((Dp.T[k, k:], Yp.T[k, k:])))   #相関係数
-        DC[k] = corr[0, 1] ** 2                                     #決定係数 = 相関係数 **2
+    ### evaluation
 
-    MC = np.sum(DC)
+    Yp = Yp[c.MM0:]
+    Dp = Dp[c.MM0:]
+    # plt.plot(Yp)
+    # plt.plot(Dp)
+    # plt.show()
+    MC = 0
+    CAPACITY = []
+
+   #print(Dp.shape,Yp.shape)
+    for i in range(c.delay*10):
+        r = np.corrcoef(Dp[c.delay:,i],Yp[c.delay:,i])[0,1]
+        CAPACITY.append(r**2)
+    MC = sum(CAPACITY)
+    # ep = 1.7*10**(-4)
+    # MC = np.heaviside(MC-ep,1)*MC
     
-   
+    SUM = np.sum((Yp-Dp)**2)
+    #RMSE1 = np.sqrt(SUM/c.Ny/(c.MM-c.MM0-c.delay))
+
+    #RMSE2 = 0
+    #print("-------------"+name+","+dist+",degree = "+str(c.degree)+"-------------")
+    #print(CAPACITY)
+    #print("RMSE=",RMSE1)
+    print("IPC=",MC)
+
+
 ######################################################################################
-     # Results
-    c.RMSE1=None
-    c.RMSE2=None
-    c.cnt_overflow=cnt_overflow
+     # Results8
 
     c.MC = MC
-
-    if c.delay >=5:
-        MC1 = np.sum(DC[:5])
-        c.MC1 = MC1
-
-    if c.delay >=10:
-        MC2 = np.sum(DC[:10])
-        c.MC2 = MC2
-
-    if c.delay >=20:
-        MC3 = np.sum(DC[:20])
-        c.MC3 = MC3
-
-    if c.delay >=50:
-        MC4 = np.sum(DC[:50])
-        c.MC4 = MC4
-    print("MC =",c.MC)
-
+    c.CAPACITY = CAPACITY
+    c.cnt_overflow = cnt_overflow
 #####################################################################################
-    plot_MC(DC,c.delay,MC)
-    if c.plot:
-        # fig=plt.figure(figsize=(12, 10))
-        # ax = fig.add_subplot(2,1,1)
-        # ax.cla()
-        # ax.set_title("internal states")
-        # ax.plot(Hx[50*256:100*256])
-        # ax.set_xlabel("timestep")
-        # ax = fig.add_subplot(2,1,2)
-        # ax.cla()
-        # ax.set_title("decoded internal states")
-        # ax.plot(Hp[50:100])
-        # ax.set_xlabel("time")
-        # plt.show()
-        #plot_delay(DC,4,Yp,Dp)
-        plot_MC(DC,c.delay,MC)
-        #plot1(Up,Us,Rs,Hx,Hp,Yp,Dp)
-        #plot1()
+    # plt.plot(Yp)
+    # plt.show()
+    # plt.plot(Dp)
+    # plt.show()
+    # plt.plot(Up)
+    # plt.show()
+    if 1:
+        for c.set in range(1):
+            c.dist = dist_list[c.set]
+            c.name = name_list[c.set]
+            for i in range(1):
+                c.plot = 0
+                c.degree = i
+                
+                
+                for i in range(10):
+                    plt.plot(c.CAPACITY[i*(20):(i+1)*20],label="degree = "+str(1+i))
 
+                    # plt.bar([c.alpha_i],[c.CAPACITY],bottom=prev,width=0.1,label=str(i+1))
+                    # prev+=c.CAPACITY
+                    # c.per.append([[c.alpha_i],[c.CAPACITY]]
+            
+            plt.ylabel("Capacity")
+            plt.xlabel("delay")
+            plt.ylim([-0.1,1.1])
+            plt.xlim([-0.1,20.1])
+            plt.title("cbm::"+c.name+"::"+c.dist)
+            plt.legend()
+            plt.show()
+            t = common.string_now()
+            na = "./eps-fig/%s_%s_parallel=%s_Nx=%s" % (t,str(c.set),str(c.parallel),str(c.Nh))
+            plt.savefig(na)
+            plt.clf()
+    if c.plot: plot1()
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
@@ -474,5 +417,13 @@ if __name__ == "__main__":
 
     c=Config()
     if a.config: c=common.load_config(a)
+    degree  = c.degree
+    name_list = ["Legendre","Hermite","Chebyshev","Laguerre"]
+    dist_list = ["uniform","normal","arcsine","exponential"]
     execute(c)
+    
+     
     if a.config: common.save_config(c)
+    # if a.config: c=common.load_config(c)
+    # execute()
+    # if a.config: common.save_config(c)

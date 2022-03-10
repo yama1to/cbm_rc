@@ -22,6 +22,7 @@ from generate_matrix import *
 import gc
 from tqdm import tqdm 
 
+import cupy as cp
 
 class Config():
     def __init__(self):
@@ -29,7 +30,7 @@ class Config():
         self.columns = None # 結果をCSVに保存する際のコラム
         self.csv = None # 結果を保存するファイル
         self.id  = None
-        self.plot = 1 # 図の出力のオンオフ
+        self.plot = 0 # 図の出力のオンオフ
         self.show = True # 図の表示（plt.show()）のオンオフ、explorerは実行時にこれをオフにする。
         self.savefig = True
         self.fig1 = "fig1.png" ### 画像ファイル名
@@ -42,7 +43,7 @@ class Config():
         self.MM0 = 200 #
 
         self.Nu = 1   #size of input
-        self.Nh = 100 #size of dynamical reservior
+        self.Nh = 40 #size of dynamical reservior
         self.Ny = 1   #size of output
 
         self.Temp=1
@@ -50,9 +51,9 @@ class Config():
 
         #sigma_np = -5
         self.alpha_i = 0.35
-        self.alpha_r = 0.15
+        self.alpha_r = 0.3
         self.alpha_b = 0.
-        self.alpha_s = 0.47
+        self.alpha_s = 1
 
         self.beta_i = 0.28
         self.beta_r = 0.51
@@ -60,6 +61,7 @@ class Config():
 
         self.lambda0 = 0.0001
         self.delay = 9
+        self.parallel = 5
         # Results
         self.RMSE   =   None
         self.NRMSE  =   None
@@ -96,13 +98,27 @@ def bm_weight():
     lambda_max = max(abs(v))
     Wr = Wr/lambda_max*c.alpha_r
     return Wr
+    
 def generate_weight_matrix():
-    global Wr, Wb, Wo, Wi
-    Wr = generate_random_matrix(c.Nh,c.Nh,c.alpha_r,c.beta_r,distribution="one",normalization="sr")
-    #Wr  = bm_weight()
+    global Wr, Wb, Wo, Wi,Wr2,Wr3,Wi2,Wi3,Wh
+    Wr = generate_random_matrix(c.Nh,c.Nh,c.alpha_r,c.beta_r,distribution="one",normalization="sr",diagnal=0)
+    # Wr2 = generate_random_matrix(c.Nh,c.Nh,c.alpha_r2,c.beta_r2,distribution="one",normalization="sr",diagnal=1)
+    # Wr3 = generate_random_matrix(c.Nh,c.Nh,c.alpha_r3,c.beta_r3,distribution="one",normalization="sr",diagnal=1)
+    #Wr = bm_weight()
+    #Wr = ring_weight()
+    #Wr = small_world_weight()
     Wb = generate_random_matrix(c.Nh,c.Ny,c.alpha_b,c.beta_b,distribution="one",normalization="none")
     Wi = generate_random_matrix(c.Nh,c.Nu,c.alpha_i,c.beta_i,distribution="one",normalization="none")
-    Wo = np.zeros(c.Nh * c.Ny).reshape(c.Ny, c.Nh)
+    
+    # Wi2 = generate_random_matrix(c.Nh,c.Nu,c.alpha_i2,c.beta_i2,distribution="one",normalization="none")
+    # Wi3 = generate_random_matrix(c.Nh,c.Nu,c.alpha_i3,c.beta_i3,distribution="one",normalization="none")
+
+    #Wh = generate_random_matrix(c.Nh,c.Nh*3,c.alpha_i3,c.beta_i3,distribution="one",normalization="none")
+    Wo = np.zeros(c.Nh*c.parallel * c.Ny).reshape((c.Ny, c.Nh*c.parallel))
+    Wi = cp.asarray(Wi)
+    Wr = cp.asarray(Wr)
+    Wb = cp.asarray(Wb)
+    Wo = cp.asarray(Wo)
 
 def fy(h):
     return np.tanh(h)
@@ -112,19 +128,16 @@ def fyi(h):
 
 def p2s(theta,p):
     return np.heaviside( np.sin(np.pi*(2*theta-p)),1)
+
+def p2s_gpu(theta,p):
+    return cp.where(cp.sin(cp.pi*(2*theta-p))>0,1,0)
+
 def run_network(mode):
     global Hx, Hs, Hp, Y, Yx, Ys, Yp, Y, Us, Ds,Rs
-    Hp = np.zeros((c.MM, c.Nh))
+    Hp = cp.zeros((c.MM, c.Nh*c.parallel))
     Hx = np.zeros((c.MM*c.NN, c.Nh))
     Hs = np.zeros((c.MM*c.NN, c.Nh))
-    hsign = np.zeros(c.Nh)
-    hx = np.zeros(c.Nh)
-    #hx = np.random.uniform(0,1,c.Nh) # [0,1]の連続値
-    hs = np.zeros(c.Nh) # {0,1}の２値
-    hs_prev = np.zeros(c.Nh)
-    hc = np.zeros(c.Nh) # ref.clockに対する位相差を求めるためのカウント
-    hp = np.zeros(c.Nh) # [-1,1]の連続値
-    ht = np.zeros(c.Nh) # {0,1}
+
 
     Yp = np.zeros((c.MM, c.Ny))
     Yx = np.zeros((c.MM*c.NN, c.Ny))
@@ -133,63 +146,102 @@ def run_network(mode):
     yp = np.zeros(c.Ny)
     yx = np.zeros(c.Ny)
     ys = np.zeros(c.Ny)
+    
     #yc = np.zeros(Ny)
 
     Us = np.zeros((c.MM*c.NN, c.Nu))
     Ds = np.zeros((c.MM*c.NN, c.Ny))
     Rs = np.zeros((c.MM*c.NN, 1))
 
+    hc = cp.zeros((c.Nh,c.parallel)) # ref.clockに対する位相差を求めるためのカウント
+    hsign = cp.zeros((c.Nh,c.parallel))
+    hx = cp.zeros((c.Nh,c.parallel))
+    hs = cp.zeros((c.Nh,c.parallel))
+    hs_prev = cp.zeros(c.Nh)
+    hp = np.zeros((c.Nh,c.parallel)) # [-1,1]の連続値
+    ht = cp.zeros((c.Nh,c.parallel)) # {0,1}
+    us = cp.zeros((1,c.parallel))
+    Up_prev =cp.zeros((1,c.parallel))
+
     rs = 1
     any_hs_change = True
     count =0
     m = 0
+
+    
+
+
+    # group = np.zeros((c.Nh,c.parallel))
+    # for i in range(c.parallel):
+    #     group[:,i] = i
+
+
     for n in tqdm(range(c.NN * c.MM)):
         theta = np.mod(n/c.NN,1) # (0,1)
         rs_prev = rs
+        
         hs_prev = hs.copy()
-
         rs = p2s(theta,0)# 参照クロック
-        us = p2s(theta,Up[m]) # エンコードされた入力
-        ds = p2s(theta,Dp[m]) #
-        ys = p2s(theta,yp)
 
-        sum = np.zeros(c.Nh)
-        #sum += c.alpha_s*rs # ラッチ動作を用いないref.clockと同期させるための結合
-        sum += c.alpha_s*(hs-rs)*ht # ref.clockと同期させるための結合
+
+        # for i in range(c.parallel-1):
+        #     us[0,i+1] = us_prev[0,i]
+        
+        #or i in range(c.parallel):
+        us[:] = p2s_gpu(theta,Up_prev[:]) # エンコードされた入力
+
+        # ds = p2s(theta,Dp[m]) #
+        # ys = p2s(theta,yp)
+
+
+        #sum = cp.zeros((c.Nh,c.parallel))
+        sum = c.alpha_s*(hs-rs)*ht# ref.clockと同期させるための結合
+        #print(Wi.shape,us.shape)
         sum += Wi@(2*us-1) # 外部入力
+        #sum += us
         sum += Wr@(2*hs-1) # リカレント結合
 
-        #if mode == 0:
-        #    sum += Wb@ys
-        #if mode == 1:  # teacher forcing
-        #    sum += Wb@ds
-
-        hsign = 1 - 2*hs
-        hx = hx + hsign*(1.0+np.exp(hsign*sum/c.Temp))*c.dt
-        hs = np.heaviside(hx+hs-1,0)
-        hx = np.fmin(np.fmax(hx,0),1)
-
-        hc[(hs_prev == 1)& (hs==0)] = count
+        #sum += Wr@(2*cp.asarray(p2s(theta,cp.asnumpy(hp)))-1) # リカレント結合
         
+        hsign = 1 - 2*hs
+        hx+= hsign*(1.0+np.exp(hsign*sum/c.Temp))*c.dt
+        #hs = np.heaviside(hx+hs-1,0)
+        hs = cp.where(hx>1,1,hs)
+        hs = cp.where(hx<0,0,hs)
+        hx = cp.fmin(cp.fmax(hx,0),1)
+        #hc[(hs_prev == 1)& (hs==0)] = count
+        hc = cp.where((hs_prev == 1)& (hs==0),count,hc)
+
         # ref.clockの立ち上がり
         if rs_prev==0 and rs==1:
+            for i in reversed(range(c.parallel-1)):
+                Up_prev[:,i+1] = Up_prev[0,i]
+            
+            Up_prev[:,0] = cp.asarray(Up[m])
+
             hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
-            hc = np.zeros(c.Nh) #カウンタをリセット
+            hp_all = hp.reshape((c.Nh*c.parallel))
+
+            hc = cp.zeros((c.Nh,c.parallel)) #カウンタをリセット
             ht = 2*hs-1 #リファレンスクロック同期用ラッチ動作をコメントアウト
-            yp = Wo@hp
+
+            yp = Wo@hp_all
             # record    
-            Hp[m]=hp
-            Yp[m]=yp
+            Hp[m]=hp_all
+            Yp[m]=cp.asnumpy(yp)
             count = 0
             m += 1
 
         #境界条件
         if n == (c.NN * c.MM-1):
             hp = 2*hc/c.NN-1 # デコード、カウンタの値を連続値に変換
-            yp = Wo@hp
+            hp_all = hp.reshape((c.Nh*c.parallel))
+
+            yp = Wo@hp_all
             # record
-            Hp[m]=hp
-            Yp[m]=yp
+
+            Hp[m]=hp_all
+            Yp[m]=cp.asnumpy(yp)
 
         count += 1
         any_hs_change = np.any(hs!=hs_prev)
@@ -201,39 +253,39 @@ def run_network(mode):
             Hs[n]=hs
             Yx[n]=yx
             Ys[n]=ys
-            Us[n]=us
-            Ds[n]=ds
+            #Us[n]=us
+            #Ds[n]=ds
 
-    # オーバーフローを検出する。
-    global cnt_overflow
-    cnt_overflow = 0
-    for m in range(2,c.MM-1):
-        tmp = np.sum( np.heaviside( np.fabs(Hp[m+1]-Hp[m]) - 0.6 ,0))
-        cnt_overflow += tmp
-        #print(tmp)
+    # # オーバーフローを検出する。
+    # global cnt_overflow
+    # cnt_overflow = 0
+    # for m in range(2,c.MM-1):
+    #     tmp = np.sum( np.heaviside( np.fabs(Hp[m+1]-Hp[m]) - 0.6 ,0))
+    #     cnt_overflow += tmp
+    #     #print(tmp)
+
 def train_network():
     global Wo
 
     run_network(1) # run netwrok with teacher forcing
 
     M = Hp[c.MM0:, :]
-    invD =Dp
-    G = invD[c.MM0:, :]
+    invD = Dp
+    G = cp.asarray(invD[c.MM0:, :])
 
     #print("Hp\n",Hp)
     #print("M\n",M)
 
     ### Ridge regression
     if c.lambda0 == 0:
-        Wo = np.dot(G.T,np.linalg.pinv(M).T)
+        Wo = cp.dot(G.T,cp.linalg.pinv(M).T)
         #print("a")
     else:
-        E = np.identity(c.Nh)
-        TMP1 = np.linalg.inv(M.T@M + c.lambda0 * E)
+        E = cp.identity(c.Nh*c.parallel)
+        TMP1 = cp.linalg.inv(M.T@M + c.lambda0 * E)
         WoT = TMP1@M.T@G
         Wo = WoT.T
     #print("WoT\n", WoT)
-
 def test_network():
     run_network(0)
 def plot1():
@@ -302,9 +354,9 @@ def execute():
     MM2 = 2200
     U1,D1  = generate_narma(N=MM1,seed=0,delay=c.delay)
     U2,D2  = generate_narma(N=MM2,seed=1,delay=c.delay)
-    plt.plot(D1)
-    plt.tight_layout()
-    plt.savefig("narma-d.eps")
+    # plt.plot(D1)
+    # plt.tight_layout()
+    # plt.savefig("narma-d.eps")
     #print((MM2-2))
     #print(np.var(D1))
 
@@ -342,7 +394,7 @@ def execute():
     c.RMSE = RMSE
     c.NRMSE = NRMSE
     c.NMSE = NMSE
-    c.cnt_overflow=cnt_overflow/(c.MM-2)
+    #c.cnt_overflow=cnt_overflow/(c.MM-2)
     #print("time: %.6f [sec]" % (time.time()-t_start))
 
     if c.plot:
