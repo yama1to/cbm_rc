@@ -72,8 +72,8 @@ def datasets(k=2,n = 2,
     seed:乱数のシード値
     """
     if not new:
-        u = np.load("./ipc3_dir/input-"+name+".npy")
-        d = np.load("./ipc3_dir/target-"+str(n)+name+".npy")
+        u = np.load("./ipc3_dir/input_"+str(T)+name+".npy")
+        d = np.load("./ipc3_dir/target_"+str(T)+str(int(n))+name+".npy")
         return u,d
     np.random.seed(seed)
 
@@ -86,7 +86,7 @@ def datasets(k=2,n = 2,
     elif dist=="exponential":
         u = st.expon.rvs(loc = -1,scale=0.22,size=(T,1))
     max = np.max(np.max(abs(u)))
-    u = u/max/1.1
+    u = u/max/2
 
 
     delay = np.arange(k)  # 遅延長z 
@@ -105,8 +105,8 @@ def datasets(k=2,n = 2,
 
     if save:
                                 #degree,delay,poly
-        np.save("./ipc3_dir/input-"+name+".npy",arr=u)
-        np.save("./ipc3_dir/target-"+str(n)+name+".npy",arr=d)
+        np.save("./ipc3_dir/input_"+str(T)+name+".npy",arr=u)
+        np.save("./ipc3_dir/target_"+str(T)+str(int(n))+name+".npy",arr=d)
     return u,d
 
 
@@ -123,19 +123,19 @@ if __name__=="__main__":
             dist = dist_list[set]
             name = name_list[set]
             u,d = datasets(k=20,n = i,
-                        T=1000, 
+                        T=10200, 
                         name=name,
                         dist=dist,
                         #dist="exponential",
                         seed=0,
-                        new=0,
-                        save = 0)
-            plt.plot(u)
-            plt.savefig("./all_fig/ipc_data_{0}-{1}-u.png".format(i,j))
-            plt.clf()
-            plt.plot(d)
-            plt.savefig("./all_fig/ipc_data_{0}-{1}-d.png".format(i,j))
-            plt.clf()
+                        new=1,
+                        save = 1)
+            #plt.plot(u)
+            #plt.savefig("./all_fig/ipc_data_{0}-{1}-u.png".format(i,j))
+            #plt.clf()
+            #plt.plot(d)
+            #plt.savefig("./all_fig/ipc_data_{0}-{1}-d.png".format(i,j))
+            #plt.clf()
             # if i==2:
             #     print(i,j)
             #     plt.plot(u,label = "u")

@@ -53,14 +53,14 @@ def generate_parity(T,delay,k,Nu=1,Ny=1):
     return train_U,train_D
 
 
-def generate_xor(MM,tau = 2,Nu=1,Ny=1):
+def generate_xor(MM,tau = 1,Nu=1,Ny=1):
     np.random.seed(0)
     #MM=MM+2
     D = np.zeros((MM, Ny))
     U = np.random.randint(0,2,(MM, Nu))
     
     for n in range(tau,MM):
-        D[n] = U[n-1]^U[n-2]
+        D[n] = U[n-tau]^U[n-tau-1]
         #print(D[n],U[n-1],U[n-2])
 
 
@@ -69,8 +69,8 @@ def generate_xor(MM,tau = 2,Nu=1,Ny=1):
 
     # 学習用情報
 
-    trainU = U[tau:MM].reshape(-1, 1)
-    trainD = D[tau:MM].reshape(-1, 1)
+    trainU = U[:MM].reshape(-1, 1)
+    trainD = D[:MM].reshape(-1, 1)
     #print(trainU.T  == U[2:].T)
     return trainU,trainD
 

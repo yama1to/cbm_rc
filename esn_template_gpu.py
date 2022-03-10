@@ -12,9 +12,12 @@ import matplotlib.pyplot as plt
 import copy
 import time
 from explorer import common
-from generate_data_sequence_narma import *
+from generate_data_sequence import *
 from generate_matrix import *
-import gc
+
+import cupy as cp
+from tqdm import tqdm 
+
 class Config():
     def __init__(self):
         # columns, csv, id: データの管理のために必須の変数
@@ -29,32 +32,31 @@ class Config():
         # config
         self.dataset=6
         self.seed:int=2 # 乱数生成のためのシード
-        self.MM=500 # サイクル数
+        self.MM=100 # サイクル数
         self.MM0 = 0 #
 
-        self.Nu =  1  #size of input
-        self.Nh:int = 300#815 #size of dynamical reservior
-        self.Ny = 1   #size of output
+        self.Nu = 2   #size of input
+        self.Nh:int = 2000#815 #size of dynamical reservior
+        self.Ny = 2   #size of output
 
 
         #sigma_np = -5
-        self.alpha_i = 0.56
+        self.alpha_i = 0.9
         self.alpha_r = 0.9
         self.alpha_b = 0.
 
         self.alpha0 = 1#0.1
         self.alpha1 = 0#-5.8
 
-        self.beta_i = 0.9
-        self.beta_r = 0.05
-        self.beta_b = 0.
+        self.beta_i = 0.01
+        self.beta_r = 0.01
+        self.beta_b = 0.1
 
-        self.lambda0 = 0.0001
+        self.lambda0 = 0.1
 
         # Results
-        self.RMSE = None
-        self.NRMSE=None
-        self.NMSE=None
+        self.RMSE1=None
+        self.RMSE2=None
 
 
 
@@ -65,28 +67,30 @@ def generate_weight_matrix():
     Wi = generate_random_matrix(c.Nh,c.Nu,c.alpha_i,c.beta_i,distribution="one",normalization="none")
     Wo = np.zeros(c.Nh * c.Ny).reshape((c.Ny, c.Nh))
 
+    Wr = cp.asarray(Wr)
+    Wb = cp.asarray(Wb)
+    Wi = cp.asarray(Wi)
+    Wo = cp.asarray(Wo)
+
 def fy(h):
     return np.tanh(h)
 
 def run_network(mode):
-    global Hp
+    global Hp,up
     
     Hp = np.zeros((c.MM, c.Nh))
     #x = np.random.uniform(-1, 1, Nh)/ 10**4
-    x = np.zeros(c.Nh)
+    x = cp.zeros(c.Nh)
+    
+    up = cp.asarray(Up)
 
-    from quantize10 import quantize
-
-    for n in range(c.MM):
+    for n in tqdm(range(c.MM)):
         
-        u = Up[n, :]
-        u = [quantize(u)]
+        u = up[n, :]
 
         #Hp[n+1,:] = x + 1.0/tau * (-alpha0 * x + fx(Wi@u + Wr@x))
         next_x = (1 - c.alpha0) * x + c.alpha0*fy(Wi@u + Wr@x)
-        for i in range(c.Nh):
-            next_x[i] = quantize(next_x[i])
-        Hp[n,:] = next_x
+        Hp[n,:] = cp.asnumpy(next_x)
         x= next_x
 
         
@@ -113,6 +117,7 @@ def train_network():
         TMP1 = np.linalg.inv(M.T@M + c.lambda0 * E)
         WoT = TMP1@M.T@G
         Wo = WoT.T
+    
 
     #print("WoT\n", WoT)
 
@@ -146,13 +151,6 @@ def plot1():
     plt.legend()
     plt.show()
 
-def calc(Yp,Dp):
-    error = (Yp-Dp)**2
-    NMSE = np.mean(error)/np.var(Dp)
-    RMSE = np.sqrt(np.mean(error))
-    NRMSE = RMSE/np.var(Dp)
-    return RMSE,NRMSE,NMSE
-
 def execute(c):
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM,Yp
     global RMSE1,RMSE2
@@ -163,57 +161,47 @@ def execute(c):
     generate_weight_matrix()
 
     ### generate data
-   
-    MM1 = 1000
-    MM2 = 500
-    U1,D1  = generate_narma(N=MM1,seed=0)
-    U2,D2  = generate_narma(N=MM2,seed=1)
-
-    Dp = D1
-    Up = U1 
-    c.MM = MM1
-    if not c.plot: 
-        del D1,U1
-        gc.collect()
-    train_network()
-
-    # RMSE1,NRMSE1 = calc(Yp,Dp)
-    # print(RMSE1,NRMSE1)
-
     
-        
+    if c.dataset==6:
+        U,D = generate_complex_sinusoidal(c.MM)
+        MM1 = c.MM -100
+        MM2 = 100
 
+    ### training
+    #print("training...")
+    
+    #Scale to (-1,1)
+    c.MM = MM1
+    Dp = D[:MM1]                # TARGET   #(MM,len(delay))   
+    Up = U[:MM1]                # INPUT    #(MM,1)
+
+    train_network()
+    #print("...end") 
+    
     ### test
     #print("test...")
     c.MM = MM2
-    Dp = D2
-    Up = U2
-    if not c.plot: 
-        del U2,D2
-        gc.collect()
-    test_network()
+    Dp = D[MM1:]                # TARGET   #(MM,len(delay))   
+    Up = U[MM1:]                # INPUT    #(MM,1)
+    test_network()                  #OUTPUT = Yp
+
 
     
-
     ### evaluation
-
-
-
-    RMSE,NRMSE,NMSE = calc(Yp,Dp)
-    #print(1/np.var(Dp))
-    print("RMSE:",RMSE)
-    print("NRMSE:",NRMSE)
-    print("NMSE:",NMSE)
-
-
+    Yp = (Wo@ Hp.T).T
+    sum=0
+    for j in range(c.MM0,c.MM):
+        sum += (Yp[j] - Dp[j])**2
+    SUM=np.sum(sum)
+    RMSE1 = np.sqrt(SUM/c.Ny/(c.MM-c.MM0))
+    RMSE2 = 0
 
 ######################################################################################
      # Results
-    c.RMSE = RMSE
-    c.NRMSE = NRMSE
-    c.NMSE = NMSE
+    c.RMSE1=RMSE1
+    c.RMSE2=RMSE2
 #####################################################################################
-
+    print(RMSE1)
     if c.plot:
         plot1()
 

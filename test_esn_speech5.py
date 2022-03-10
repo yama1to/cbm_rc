@@ -25,7 +25,7 @@ common.dir_path= "data/data%s_esn_speech5" % common.string_now() # 実験デー�
 common.exe     = "python esn_speech5.py " # 実行されるプログラム
 common.columns =['dataset','seed','id','Nh','alpha_i','alpha_r','alpha0','beta_i','beta_r',
 'lambda0',"train_WER","WER"]
-common.parallel= 32
+common.parallel= 90
 common.setup()
 common.report_common()
 common.report_config(config)
@@ -53,10 +53,10 @@ def optimize():
     opt.appendid()#id:必ず加える
     opt.appendseed()# 乱数のシード（０から始まる整数値）
     #opt.append("alpha0",value=1,min=0.01,max=1,round=2)
-    opt.append("beta_r",value=0.01,min=0.01,max=1,round=2)
-    opt.append("beta_i",value=0.01,min=0.01,max=1,round=2)
-    opt.append("alpha_i",value=0.7,min=0.01,max=1,round=2)
-    opt.append("alpha_r",value=0.9,min=0.01,max=1,round=2)
+    opt.append("beta_r",value=0.01,min=0.0,max=1,round=2)
+    opt.append("beta_i",value=0.01,min=0.0,max=1,round=2)
+    opt.append("alpha_i",value=0.7,min=0.0,max=1,round=2)
+    opt.append("alpha_r",value=0.9,min=0.0,max=1,round=2)
     #opt.append("alpha0",value=1,min=0.01,max=1,round=2)
     opt.minimize(target="WER",iteration=30,population=30,samples=3)
     #opt.minimize(TARGET=func,iteration=5,population=10,samples=4)
@@ -102,11 +102,11 @@ def gs2():
     #gridsearch("Nh",min=100,max=1000,num=41,samples=ns)
     #gridsearch("")
     # gridsearch("Temp",min=0.01,max=10,num=100,samples=ns)
-    gridsearch("beta_i",min=0.01,max=1,num=41,samples=ns)
-    gridsearch("beta_r",min=0.01,max=1,num=41,samples=ns)
+    gridsearch("beta_i",min=0.0,max=1,num=41,samples=ns)
+    gridsearch("beta_r",min=0.0,max=1,num=41,samples=ns)
     #gridsearch("alpha0",min=0.01,max=1,num=41,samples=ns)
-    gridsearch("alpha_r",min=0.01,max=1,num=41,samples=ns)
-    gridsearch("alpha_i",min=0.01,max=1,num=41,samples=ns)
+    gridsearch("alpha_r",min=0.0,max=1,num=41,samples=ns)
+    gridsearch("alpha_i",min=0.0,max=1,num=41,samples=ns)
 
     
 gs2()

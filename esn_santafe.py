@@ -14,6 +14,7 @@ import time
 from explorer import common
 from generate_data_sequence_santafe import *
 from generate_matrix import *
+import gc
 
 class Config():
     def __init__(self):
@@ -27,7 +28,7 @@ class Config():
         self.fig1 = "fig1.png" ### 画像ファイル名
 
         # config
-        self.dataset=6
+        self.dataset=1
         self.seed:int=2 # 乱数生成のためのシード
         self.MM=500 # サイクル数
         self.MM0 = 0 #
@@ -38,18 +39,19 @@ class Config():
 
 
         #sigma_np = -5
-        self.alpha_i = 6
-        self.alpha_r = 0.9
+        self.alpha_i = 0.1
+        self.alpha_r = 0.95
         self.alpha_b = 0.
 
         self.alpha0 = 1#0.1
         self.alpha1 = 0#-5.8
 
         self.beta_i = 0.9
-        self.beta_r = 0.15
+        self.beta_r = 0.05
         self.beta_b = 0.1
 
         self.lambda0 = 0.1
+        self.delay = [1,2,3,4,5]
 
         # Results
         self.NRMSE=None
@@ -146,7 +148,7 @@ def plot2():
     Nr=2
     ax = fig.add_subplot(Nr,1,1)
     ax.cla()
-    ax.set_title("Yp,Dp, delay = %s" % delay[0])
+    ax.set_title("Yp,Dp, delay = %s" % c.delay[0])
     ax.plot(list(range(train_num,train_num+test_num)),Yp,label = "prediction ")
     ax.plot(list(range(train_num,train_num+test_num)),Dp, label = "Target")
     ax.legend()
@@ -162,68 +164,82 @@ def execute(c):
     global D,Ds,Dp,U,Us,Up,Rs,R2s,MM,Yp,delay,train_num,test_num
     global RMSE1,RMSE2
 
+   
+    
     c.Nh = int(c.Nh)
-
-    np.random.seed(seed = int(c.seed))    
-    #generate_weight_matrix()
-
     ### generate data
-    
-    train_num = 600
-    test_num = 500
-    
+    train_num = 1000
+    test_num = 2000
+    if c.dataset==1:
         #delay = 1,2,3,4,5
-    delay =  [10]
-    U1,D1,U2,D2,normalize = generate_santafe(delay = delay,train_num = train_num,test_num =test_num,)
-
+        c.delay = [1,2,3,4,5]
+        U1,D1,U2,D2,normalize = generate_santafe(future = c.delay,train_num = train_num,test_num =test_num,)
+    
+    #print(D2[:,2]==D2[:,3])
+    # plt.plot(U2,label="u")
+    # for i in range(5):
+    #     plt.plot(D2[:,i],label=i+1)
+    # plt.legend()
+    # plt.show()
     #print(normalize)
-    c.Ny = int(len(delay))
+    c.Ny = int(len(c.delay))
     generate_weight_matrix()
     ### training
     #print("training...")
-    c.MM= U1.size
+    c.MM= train_num
 
     Dp = D1
     Up = U1
-
-    ### training
-    #print("training...")
-    
-    #Scale to (-1,1)
-
+    if c.plot:
+        del U1,D1
+        gc.collect()
 
     train_network()
-    #print("...end") 
+
     
+
+
     ### test
     #print("test...")
-    c.MM = U2.size
+    c.MM= test_num
+
     Dp = D2
     Up = U2
-    test_network()                  #OUTPUT = Yp
+    if c.plot:
+        del U2,D2
+        gc.collect()
+    test_network()
+
 
     ### evaluation
     sum=0
     Yp = Yp*normalize
     Dp = Dp*normalize
-
+ 
     for j in range(c.MM):
         sum += (Yp[j] - Dp[j])**2
     MSE = sum/c.MM
     RMSE = np.sqrt(MSE)
+    
     NRMSE = RMSE/np.var(Dp)#np.std(Dp)#np.var(Dp)
-    print(NRMSE)
-    print(RMSE)
+    c.RMSE = RMSE
+    c.NRMSE2 = NRMSE
 
-######################################################################################
-     # Results
+    NMSE =(MSE/np.var(Dp))
+    print(NMSE)
+    c.NMSE = np.sum(NMSE)/NMSE.size
     c.NRMSE = np.sum(NRMSE)/NRMSE.size
-    c.RMSE=RMSE/NRMSE.size
-#####################################################################################
 
-    if c.plot:
+    #print(RRMSE1)
+    #print("それぞれのdelayでのNRMSEを全部加算した場合のNRMSE: "+str(c.NRMSE))
+    #print("time: %.6f [sec]" % (time.time()-t_start))
+
+    if c.plot: 
         plot1()
         plot2()
+        #print(RMSE)
+        print("それぞれのdelayでのNMSEを全部加算した場合のNMSE: "+str(c.NMSE))
+
 
 
 if __name__ == "__main__":

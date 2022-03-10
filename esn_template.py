@@ -14,7 +14,7 @@ import time
 from explorer import common
 from generate_data_sequence import *
 from generate_matrix import *
-
+from tqdm import tqdm 
 class Config():
     def __init__(self):
         # columns, csv, id: データの管理のために必須の変数
@@ -29,11 +29,11 @@ class Config():
         # config
         self.dataset=6
         self.seed:int=2 # 乱数生成のためのシード
-        self.MM=500 # サイクル数
+        self.MM=200000 # サイクル数
         self.MM0 = 0 #
 
         self.Nu = 2   #size of input
-        self.Nh:int = 300#815 #size of dynamical reservior
+        self.Nh:int = 3000#815 #size of dynamical reservior
         self.Ny = 2   #size of output
 
 
@@ -75,7 +75,7 @@ def run_network(mode):
     x = np.zeros(c.Nh)
     
 
-    for n in range(c.MM):
+    for n in tqdm(range(c.MM)):
         
         u = Up[n, :]
 

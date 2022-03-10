@@ -33,20 +33,20 @@ class Config():
         self.MM0 = 200 #
 
         self.Nu = 1   #size of input
-        self.Nh:int = 10000#815 #size of dynamical reservior
+        self.Nh:int = 150#815 #size of dynamical reservior
         self.Ny = 20   #size of output
 
 
         #sigma_np = -5
-        self.alpha_i = 0.5
-        self.alpha_r = 0.9
+        self.alpha_i = 1
+        self.alpha_r = 1.2
         self.alpha_b = 0.
 
         self.alpha0 = 1#0.1
         self.alpha1 = 0#-5.8
 
         self.beta_i = 0.9
-        self.beta_r = 0.3
+        self.beta_r = 0.9
         self.beta_b = 0.1
 
         self.lambda0 = 0.0
@@ -63,6 +63,8 @@ class Config():
         self.MC3 = None
         self.MC4 = None
 
+        self.lyapunov = None 
+
 
 
 def generate_weight_matrix():
@@ -76,21 +78,33 @@ def fy(h):
     return np.tanh(h)
 
 def run_network(mode):
-    global Hp
-    
+    global Hp,gan0,ganma
+    gan0 = 10**(-3)
     Hp = np.zeros((c.MM, c.Nh))
     #x = np.random.uniform(-1, 1, Nh)/ 10**4
     x = np.zeros(c.Nh)
     #x = np.random.uniform(-1, 1, c.Nh)
+    x2 = np.zeros(c.Nh) + gan0
+    ganma = np.zeros((c.MM))
 
     for n in range(c.MM):
-        
+
+        diff = x2 - x 
+        gan = np.linalg.norm(diff)
+        ganma[n] = gan
+        x2 = x + gan0/gan *diff 
+
         u = Up[n, :]
 
         #Hp[n+1,:] = x + 1.0/tau * (-alpha0 * x + fx(Wi@u + Wr@x))
         next_x = (1 - c.alpha0) * x + c.alpha0*fy(Wi@u + Wr@x)
         Hp[n,:] = next_x
         x= next_x
+
+        #Hp[n+1,:] = x + 1.0/tau * (-alpha0 * x + fx(Wi@u + Wr@x))
+        next_x2 = (1 - c.alpha0) * x2 + c.alpha0*fy(Wi@u + Wr@x2)
+        x2= next_x2
+
 
         
 
@@ -200,6 +214,15 @@ def execute(c):
 
     MC = np.sum(DC)
     #print(MC)
+    sum = 0
+    lam = np.zeros((c.MM))
+    for i in range(c.MM):
+        sum += np.log(ganma[i]/gan0)
+        lam[i] = np.sum(sum)/(i+1)
+    lyapunov = np.mean(lam)
+    print(lyapunov)
+    plt.plot(lam)
+    plt.show()
    
     #print(MC,MC1,MC2,MC3,MC4)
 ######################################################################################
@@ -207,6 +230,7 @@ def execute(c):
     c.RMSE1=None
     c.RMSE2=None
     c.MC = MC
+    c.lyapunov = lyapunov
 
     if c.delay >=5:
         MC1 = np.sum(DC[:5])

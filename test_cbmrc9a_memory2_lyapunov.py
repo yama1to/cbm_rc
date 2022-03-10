@@ -24,7 +24,7 @@ common.dir_path= "data/data%s_cbmrc9a_memory2_lyapunov" % common.string_now() # 
 common.exe     = "python cbmrc9a_memory2_lyapunov.py " # 実行されるプログラム
 common.columns=['dataset','seed','id','NN','Nh','alpha_i','alpha_r','alpha_b','alpha_s','beta_i','beta_r','beta_b',
 'Temp','lambda0',"delay",'RMSE1','RMSE2','cnt_overflow','MC',"lyapunov"]
-common.parallel= 32
+common.parallel= 100
 common.setup()
 common.report_common()
 common.report_config(config)
@@ -104,10 +104,10 @@ def gridsearch(X1,min=0,max=1,num=41,samples=10):
     vs.plt_output()
 
 def gs2():
-    ns=3
+    ns=10
     #gridsearch("Nh",min=50,max=700,num=41,samples=ns)
-    gridsearch("alpha_r",min=0.00,max=1,num=41,samples=ns)
-    gridsearch("alpha_i",min=0.00,max=1,num=41,samples=ns)
+    gridsearch("alpha_r",min=0.00,max=2,num=41,samples=ns)
+    gridsearch("alpha_i",min=0.00,max=2,num=41,samples=ns)
     gridsearch("alpha_s",min=0.0,max=2,num=41,samples=ns)
     gridsearch("beta_r",min=0.00,max=1,num=41,samples=ns)
     gridsearch("beta_i",min=0.00,max=1,num=41,samples=ns)

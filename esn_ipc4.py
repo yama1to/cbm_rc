@@ -29,16 +29,16 @@ class Config():
         # config
         self.dataset=6
         self.seed:int=2 # 乱数生成のためのシード
-        self.MM=1000 # サイクル数
-        self.MM0 = 100 #
+        self.MM=2200 # サイクル数
+        self.MM0 = 200 #
 
         self.Nu = 1   #size of input
         self.Nh:int = 100#815 #size of dynamical reservior
-        self.Ny = 1   #size of output
+        self.Ny = 200   #size of output
 
 
         #sigma_np = -5
-        self.alpha_i = 0.9
+        self.alpha_i = 0.5
         self.alpha_r = 0.95
         self.alpha_b = 0.
 
@@ -46,7 +46,7 @@ class Config():
         self.alpha1 = 0#-5.8
 
         self.beta_i = 0.9
-        self.beta_r = 0.9
+        self.beta_r = 0.1
         self.beta_b = 0.1
 
         self.lambda0 = 0
@@ -79,17 +79,16 @@ def run_network(mode):
     #x = np.random.uniform(-1, 1, c.Nh)
     x = np.zeros(c.Nh)
     
-    for i in range(Up.shape[0]):
-        Up[i,0] = quantize(Up[i,0],8)
+    # for i in range(Up.shape[0]):
+    #     Up[i,0] = quantize(Up[i,0],10)
     for n in range(c.MM):
         
-        u = Up[n, :]
-
+        u = [quantize(Up[n, :])]
         #Hp[n+1,:] = x + 1.0/tau * (-alpha0 * x + fx(Wi@u + Wr@x))
         next_x = (1 - c.alpha0) * x + c.alpha0*fy(Wi@u + Wr@x)
         #Hp[n,:] = next_x
         for i in range(c.Nh):
-            next_x[i] = quantize(next_x[i],8)
+            next_x[i] = quantize(next_x[i],10)
         Hp[n] = next_x
         x= next_x
 
@@ -175,7 +174,15 @@ def execute(c):
     ### generate data
     
     
-    U,D = datasets(k=c.delay,n=c.degree,T = c.MM,name=c.name,dist=c.dist,seed=c.seed,new=0)
+    name_list = ["Legendre","Hermite","Chebyshev","Laguerre"]
+    dist_list = ["uniform","normal","arcsine","exponential"]
+    dist = dist_list[c.set]
+    name = name_list[c.set]
+    
+    U,D = datasets(k=c.delay,n=1,T = c.MM,name=name,dist=dist,seed=c.seed,new=0)
+    for degree in range(2,11):
+        _,D2 = datasets(k=c.delay,n=degree,T = c.MM,name=name,dist=dist,seed=c.seed,new=0)
+        D = np.hstack([D,D2])
 
     # max = np.max(np.max(abs(D)))
     # D /= max*1.01
@@ -205,7 +212,7 @@ def execute(c):
     Dp = Dp[c.MM0:]
     MC = 0
     CAPACITY = []
-    for i in range(c.delay):
+    for i in range(c.delay*10):
         r = np.corrcoef(Dp[c.delay:,i],Yp[c.delay:,i])[0,1]
         CAPACITY.append(r**2)
     MC = sum(CAPACITY)
@@ -213,12 +220,14 @@ def execute(c):
     # MC = np.heaviside(MC-ep,1)*MC
     
     SUM = np.sum((Yp-Dp)**2)
-    RMSE1 = np.sqrt(SUM/c.Ny/(c.MM-c.MM0-c.delay))
+    #RMSE1 = np.sqrt(SUM/c.Ny/(c.MM-c.MM0-c.delay))
 
     #RMSE2 = 0
-    print("-------------"+c.name+","+c.dist+",degree = "+str(c.degree)+"-------------")
-    print("RMSE=",RMSE1)
-    print("IPC=",MC)
+    print("-------------"+name+","+dist+",degree = "+str(c.degree)+"-------------")
+    #print(CAPACITY)
+    #print("RMSE=",RMSE1)
+    #print("IPC=",MC)
+
 
 ######################################################################################
      # Results8
@@ -232,7 +241,33 @@ def execute(c):
     # plt.show()
     # plt.plot(Up)
     # plt.show()
-    if c.plot: plot1()
+    if 1:
+        
+        for i in range(1):
+            #c.plot = 0
+            c.degree = i
+            
+            
+            for i in range(10):
+                plt.plot(c.CAPACITY[i*(20):(i+1)*20],label="degree = "+str(1+i))
+
+                # plt.bar([c.alpha_i],[c.CAPACITY],bottom=prev,width=0.1,label=str(i+1))
+                # prev+=c.CAPACITY
+                # c.per.append([[c.alpha_i],[c.CAPACITY]]
+        
+        plt.ylabel("Capacity")
+        plt.xlabel("delay")
+        plt.ylim([-0.1,1.1])
+        plt.xlim([-0.1,20.1])
+        plt.title("cbm::"+c.name+"::"+c.dist)
+        plt.legend()
+        
+        t = common.string_now()
+        na = "./eps-fig/%s-ipc4_esn_fixed_in_tar_%s.eps" % (t,str(c.set))
+        plt.savefig(na)
+        #plt.show()
+        plt.clf()
+   # if c.plot: plot1()
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
@@ -244,31 +279,11 @@ if __name__ == "__main__":
     degree  = c.degree
     name_list = ["Legendre","Hermite","Chebyshev","Laguerre"]
     dist_list = ["uniform","normal","arcsine","exponential"]
-    
     for c.set in range(4):
         c.dist = dist_list[c.set]
         c.name = name_list[c.set]
-        for i in range(1,11):
-            c.plot = 0
-            c.degree = i
-            
-            execute(c)
-            plt.plot(c.CAPACITY,label="degree = "+str(i))
-
-                # plt.bar([c.alpha_i],[c.CAPACITY],bottom=prev,width=0.1,label=str(i+1))
-                # prev+=c.CAPACITY
-                # c.per.append([[c.alpha_i],[c.CAPACITY]]
-        plt.ylabel("Capacity")
-        plt.xlabel("delay")
-        plt.ylim([-0.1,1.1])
-        plt.xlim([-0.1,20.1])
-        plt.title("esn::"+c.name+"::"+c.dist)
-        plt.legend()
-        #plt.show()
-        t = common.string_now()
-        na = "./all_fig/%s-ipc4_esn_fixed_in_tar_%s.png" % (t,str(c.set))
-        plt.savefig(na)
-        plt.clf()
+        execute(c)
+    
      
     if a.config: common.save_config(c)
     # if a.config: c=common.load_config(c)

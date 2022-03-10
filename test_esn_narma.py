@@ -52,15 +52,15 @@ def optimize():
     opt.appendseed()# 乱数のシード（０から始まる整数値）
     # 変数の追加([変数名],[基本値],[下端],[上端],[まるめの桁数])
 
-    opt.append("beta_r",value=0.01,min=0.01,max=1,round=2)
-    opt.append("beta_i",value=0.01,min=0.01,max=1,round=2)
-    opt.append("alpha_i",value=1,min=0.1,max=1,round=2)
-    opt.append("alpha_r",value=1,min=0.1,max=1,round=2)
+    opt.append("beta_r",value=0.01,min=0.0,max=1,round=2)
+    opt.append("beta_i",value=0.01,min=0.0,max=1,round=2)
+    opt.append("alpha_i",value=1,min=0.,max=1,round=2)
+    opt.append("alpha_r",value=1,min=0.,max=1,round=2)
 
-    opt.minimize(target="NMSE",iteration=20,population=30,samples=4)
+    opt.minimize(target="NMSE",iteration=30,population=30,samples=3)
     #opt.minimize(TARGET=func,iteration=5,population=10,samples=4)
     common.config = opt.best_config # 最適化で得られた設定を基本設定とする
-#optimize()
+optimize()
 
 def plot1(x,y,ystd,ymin,ymax,color=None,width=1,label=None):
     # エラーバーをつけてグラフを描画、平均、標準偏差、最大値、最小値をプロットする。
@@ -98,4 +98,4 @@ def gs2():
     gridsearch("beta_r",min=0.01,max=1,num=41,samples=ns)
     # gridsearch("Temp",min=0.01,max=10,num=41,samples=ns)
     #gridsearch("lambda0",min=0.0001,max=10,num=41,samples=ns)
-gs2()
+#gs2()

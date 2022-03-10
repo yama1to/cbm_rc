@@ -22,7 +22,7 @@ common.config  = config
 common.prefix  = "data%s_cbmrc9a_santafe" % common.string_now() # 実験名（ファイルの接頭辞）
 common.dir_path= "data/data%s_cbmrc9a_santafe" % common.string_now() # 実験データを出力するディレクトリのパス
 common.exe     = "python cbmrc9a_santafe.py " # 実行されるプログラム
-common.columns =['dataset','seed','id','NN','Nh','alpha_i','alpha_r','alpha_b','alpha_s','beta_i','beta_r','beta_b','Temp','lambda0',"RMSE",'cnt_overflow','NRMSE',"NRMSE2","NMSE"]
+common.columns =['dataset','seed','id','NN','Nh','alpha_i','alpha_r','alpha_b','alpha_s','beta_i','beta_r','beta_b','Temp',"delay",'lambda0',"RMSE",'cnt_overflow','NRMSE',"NRMSE2","NMSE"]
 common.parallel= 32
 common.setup()
 common.report_common()
@@ -104,5 +104,6 @@ def gs2():
     gridsearch("alpha_s",min=0.0,max=2,num=41,samples=ns)
     gridsearch("beta_i",min=0.0,max=1,num=41,samples=ns)
     gridsearch("beta_r",min=0.0,max=1,num=41,samples=ns)
+    gridsearch("Temp",min=0.0,max=1,num=41,samples=ns)
     #gridsearch("Nh",min=50,max=500,num=9,samples=ns)
-gs2()
+#gs2()

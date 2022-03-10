@@ -33,7 +33,7 @@ common.columns=['dataset','seed','id','NN','Nh',\
     'beta_b',\
         'Temp','lambda0',"delay","parallel",\
         'RMSE1','RMSE2','cnt_overflow','MC']
-common.parallel= 9
+common.parallel= 8
 common.setup()
 common.report_common()
 common.report_config(config)
@@ -68,9 +68,9 @@ def optimize():
 
     #opt.append("alpha1",value=1,min=0,max=2,round=2)
     #opt.append("Temp",value=10,min=1,max=10,round=2)
-    opt.maximize(target="MC",iteration=30,population=45,samples=2)
+    opt.maximize(target="MC",iteration=30,population=32,samples=2)
     common.config = opt.best_config # 最適化で得られた設定を基本設定とする
-optimize()
+#optimize()
 
 def plot1(x,y,ystd,ymin,ymax,color=None,width=1,label=None):
     # エラーバーをつけてグラフを描画、平均、標準偏差、最大値、最小値をプロットする。
@@ -119,9 +119,36 @@ def gs1():
     #gridsearch("delay",min=5,max=100,num=41,samples=ns)
     #gridsearch("lambda0",min=0.01,max=1.5,num=41,samples=ns)
 #gs2()
+
 def gs2():
     x1,x2 = "Nh","parallel"
     gs.scan2d(x1,x2,min1=20,max1=100,min2=1,max2=10,samples=3,num1=11,num2=11)
     vs.plot2d(x1,x2,"MC")
     vs.plot2ds_pcolor(x1,x2,"MC")
-gs2()
+#gs2()
+
+# csv = '/home/yamato/Downloads/cbm_rc/data/data20220211_183544_cbmrc9a_memory2_parallel2_object/data20220211_183544_cbmrc9a_memory2_parallel2_object_scan2d_Nh_parallel.csv'
+
+# x1,x2 = "Nh","parallel"
+# # vs.plot2ds_pcolor(x1,x2,"MC",csv=csv)
+# fig = None
+
+# if fig==None:
+#     fig=os.path.splitext(common.last_csv)[0] + '_pcolor.png'
+# df = common.load_dataframe(csv)
+# df = df.sort_values('id',ascending=True)
+# x1,x2,ymean,ystd,ymin,ymax = vs.analyze2d(df,"id",x1,x2,"MC")
+# nx1=len(set(x1))
+# nx2=len(set(x2))+1
+# x1=x1.reshape(nx1,nx2)
+# x2=x2.reshape(nx1,nx2)
+# ymean=ymean.reshape(nx1,nx2)
+
+# plt.figure()
+# plt.pcolor(x1,x2,ymean)
+# plt.colorbar()
+# plt.xlabel("Nh")
+# plt.ylabel("parallel")
+# plt.title("MC")
+# #plt.show()
+# vs.plt_output(fig)

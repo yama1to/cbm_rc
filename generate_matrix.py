@@ -3,7 +3,7 @@
 import numpy as np
 #import scipy.linalg
 
-def generate_random_matrix(Nx,Ny,alpha,beta,distribution="one",normalization="sd"):
+def generate_random_matrix(Nx,Ny,alpha,beta,distribution="one",normalization="sd",diagnal=False):
     """
     ランダムに行列を生成する。結合率（beta）の割合で非ゼロの値をランダムに割り当て、
     規格化の後、係数(alpha)をかけて出力する。
@@ -35,9 +35,17 @@ def generate_random_matrix(Nx,Ny,alpha,beta,distribution="one",normalization="sd
     if distribution == "uniform":
         W[0:nonzeros] = np.random.uniform(-1,1, nonzeros)
         var = 1/3
+    
+    
+
 
     np.random.shuffle(W)
     W = W.reshape((Nx, Ny))
+    dia = np.array([-1,1])
+    if diagnal:
+        for i in range(Nx):
+            W[i,i] = dia[0]
+            np.random.shuffle(dia)
 
     # spectral radium (sr) 最大固有値による規格化
     if normalization == "sr":

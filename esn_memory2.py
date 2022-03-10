@@ -33,20 +33,20 @@ class Config():
         self.MM0 = 200 #
 
         self.Nu = 1   #size of input
-        self.Nh:int = 100#815 #size of dynamical reservior
+        self.Nh:int = 10000#815 #size of dynamical reservior
         self.Ny = 20   #size of output
 
 
         #sigma_np = -5
-        self.alpha_i = 0.1
-        self.alpha_r = 0.79
+        self.alpha_i = 0.5
+        self.alpha_r = 0.8
         self.alpha_b = 0.
 
         self.alpha0 = 1#0.1
         self.alpha1 = 0#-5.8
 
         self.beta_i = 0.9
-        self.beta_r = 0.84
+        self.beta_r = 0.5
         self.beta_b = 0.1
 
         self.lambda0 = 0.0
@@ -67,7 +67,7 @@ class Config():
 
 def generate_weight_matrix():
     global Wr, Wb, Wo, Wi
-    Wr = generate_random_matrix(c.Nh,c.Nh,c.alpha_r,c.beta_r,distribution="one",normalization="sr")
+    Wr = generate_random_matrix(c.Nh,c.Nh,c.alpha_r,c.beta_r,distribution="one",normalization="sr",diagnal=0)
     Wb = generate_random_matrix(c.Nh,c.Ny,c.alpha_b,c.beta_b,distribution="one",normalization="none")
     Wi = generate_random_matrix(c.Nh,c.Nu,c.alpha_i,c.beta_i,distribution="one",normalization="none")
     Wo = np.zeros(c.Nh * c.Ny).reshape((c.Ny, c.Nh))
@@ -85,7 +85,7 @@ def run_network(mode):
     
     for n in range(c.MM):
         
-        u = Up[n, :]
+        u = np.round(Up[n, :],8)
 
         #Hp[n+1,:] = x + 1.0/tau * (-alpha0 * x + fx(Wi@u + Wr@x))
         next_x = (1 - c.alpha0) * x + c.alpha0*fy(Wi@u + Wr@x)

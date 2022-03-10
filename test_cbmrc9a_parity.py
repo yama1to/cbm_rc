@@ -50,15 +50,15 @@ def optimize():
     opt.clear()#設定をクリアする
     opt.appendid()#id:必ず加える
     opt.appendseed()# 乱数のシード（０から始まる整数値）
-    opt.append("beta_r",value=0.01,min=0.01,max=1,round=2)
-    opt.append("beta_i",value=0.01,min=0.01,max=2,round=2)
-    opt.append("alpha_i",value=1,min=0.1,max=10,round=2)
-    opt.append("alpha_r",value=1,min=0.7,max=1,round=2)
-    opt.append("alpha_s",value=10,min=1,max=10,round=2)
+    opt.append("beta_r",value=0.01,min=0.0,max=1,round=2)
+    opt.append("beta_i",value=0.01,min=0.0,max=1,round=2)
+    opt.append("alpha_i",value=1,min=0.,max=1,round=2)
+    opt.append("alpha_r",value=1,min=0.,max=1,round=2)
+    opt.append("alpha_s",value=1,min=0,max=2,round=2)
     opt.minimize(target="BER",iteration=10,population=10,samples=4)
     #opt.minimize(TARGET=func,iteration=5,population=10,samples=4)
     common.config = opt.best_config # 最適化で得られた設定を基本設定とする
-optimize()
+#optimize()
 
 def plot1(x,y,ystd,ymin,ymax,color=None,width=1,label=None):
     # エラーバーをつけてグラフを描画、平均、標準偏差、最大値、最小値をプロットする。
@@ -80,25 +80,27 @@ def gridsearch(X1,min=0,max=1,num=41,samples=10):
     plt.subplot(2,1,1)
     x,ymean,ystd,ymin,ymax = vs.analyze(df,X1,"BER")
     plot1(x,ymean,ystd,ymin,ymax,color=cmap(1),label="BER")
-    plt.ylabel("BER")
+    #plt.ylabel("BER")
     plt.grid(linestyle="dotted")
+    #plt.xlabel(X1)
+    plt.ylim([-0.05,0.55]) # y軸の範囲
 
     plt.subplot(2,1,2)
     x,ymean,ystd,ymin,ymax = vs.analyze(df,X1,"cnt_overflow")
-    plot1(x,ymean,ystd,ymin,ymax,color=cmap(2),label="cnt_overflow")
-    plt.ylabel("overflow")
+    plot1(x,ymean/50,ystd/50,ymin/50,ymax/50,color=cmap(2),label="cnt_overflow")
+    #plt.ylabel("overflow")
     #plt.yscale('log')
     plt.grid(linestyle="dotted")
     #plt.ylim([0,1]) # y軸の範囲
 
-    plt.xlabel(X1)
-    vs.plt_output()
+    #plt.xlabel(X1)
+    vs.plt_output(extension=".eps")
 
 def gs2():
-    ns=3
-    gridsearch("alpha_r",min=0.7,max=1,num=41,samples=ns)
-    gridsearch("alpha_i",min=0.1,max=2,num=41,samples=ns)
-    gridsearch("alpha_s",min=0.1,max=10,num=41,samples=ns)
-    gridsearch("beta_i",min=0.01,max=1,num=41,samples=ns)
-    gridsearch("beta_r",min=0.01,max=1,num=41,samples=ns)
+    ns=10
+    gridsearch("alpha_r",min=0.,max=1,num=41,samples=ns)
+    gridsearch("alpha_i",min=0.,max=1,num=41,samples=ns)
+    gridsearch("alpha_s",min=0.,max=2,num=41,samples=ns)
+    gridsearch("beta_i",min=0.0,max=1,num=41,samples=ns)
+    gridsearch("beta_r",min=0.0,max=1,num=41,samples=ns)
 gs2()

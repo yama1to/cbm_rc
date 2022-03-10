@@ -16,15 +16,15 @@ from explorer import randomsearch as rs
 from explorer import optimization as opt
 
 ### 共通設定
-from cbmrc9a_memory_ou import Config
+from cbmrc9a_memory2_smallworld import Config
 config = Config()
 common.config  = config
-common.prefix  = "data%s_cbmrc9a_memory_ou" % common.string_now() # 実験名（ファイルの接頭辞）
-common.dir_path= "data/data%s_cbmrc9a_memory_ou" % common.string_now() # 実験データを出力するディレクトリのパス
-common.exe     = "python cbmrc9a_memory_ou.py " # 実行されるプログラム
-common.columns=['dataset','seed','id','NN','Nh','alpha_i','alpha_r',"alpha0",'alpha_b','alpha_s','beta_i','beta_r','beta_b',
-'Temp','lambda0',"delay",'RMSE1','RMSE2','cnt_overflow','MC']
-common.parallel= 32
+common.prefix  = "data%s_cbmrc9a_memory2_smallworld" % common.string_now() # 実験名（ファイルの接頭辞）
+common.dir_path= "data/data%s_cbmrc9a_memory2_smallworld" % common.string_now() # 実験データを出力するディレクトリのパス
+common.exe     = "python cbmrc9a_memory2_smallworld.py " # 実行されるプログラム
+common.columns=['dataset','seed','id','NN','Nh','alpha_i','alpha_r','alpha_b','alpha_s','beta_i','beta_r','beta_b',"over",
+'Temp',"readout",'lambda0',"delay",'RMSE1','RMSE2','cnt_overflow','MC']
+common.parallel= 64
 common.setup()
 common.report_common()
 common.report_config(config)
@@ -51,16 +51,17 @@ def optimize():
     opt.clear()#設定をクリアする
     opt.appendid()#id:必ず加える
     opt.appendseed()# 乱数のシード（０から始まる整数値）
-    #opt.append("Nh",value=500,min=300,max=1000,round=1)
-    opt.append("beta_r",value=0.01,min=0.0,max=1,round=2)
-    opt.append("beta_i",value=0.01,min=0.0,max=1,round=2)
-    opt.append("alpha_i",value=1,min=0.0,max=1,round=2)
+    #opt.append("beta_r",value=0.005,min=0.0,max=1,round=4)
+    #opt.append("beta_i",value=0.01,min=0.0,max=1,round=2)
+    opt.append("alpha_i",value=1,min=0.00,max=1,round=2)
     opt.append("alpha_r",value=1,min=0.,max=1,round=2)
     opt.append("alpha_s",value=1,min=0,max=2,round=2)
+    opt.append("over",value=6,min=0,max=10,round=0)
+    opt.append("beta_r",value=0.001,min=0.,max=0.1,round=4)
+    # opt.append("readout",value=1,min=0,max=1,round=2)
     #opt.append("alpha0",value=1,min=0,max=1,round=2)
-    opt.append("Temp",value=10,min=1,max=10,round=2)
+    #opt.append("Temp",value=10,min=1,max=10,round=2)
     opt.maximize(target="MC",iteration=30,population=30,samples=3)
-    #opt.minimize(TARGET=func,iteration=5,population=10,samples=4)
     common.config = opt.best_config # 最適化で得られた設定を基本設定とする
 optimize()
 
@@ -71,7 +72,6 @@ def plot1(x,y,ystd,ymin,ymax,color=None,width=1,label=None):
     plt.fill_between(x,y-ystd,y+ystd,color=color,alpha=.2)
     plt.plot(x,ymin,color=color,linestyle=':',linewidth=1)
     plt.plot(x,ymax,color=color,linestyle=':',linewidth=1)
-
 
 def gridsearch(X1,min=0,max=1,num=41,samples=10):
     # 指定された変数(X1)についてグリッドサーチを行い、評価基準の変化をまとめてプロット
@@ -99,13 +99,36 @@ def gridsearch(X1,min=0,max=1,num=41,samples=10):
     plt.xlabel(X1)
     vs.plt_output()
 
-def gs2():
+def gs1():
     ns=3
     #gridsearch("Nh",min=50,max=700,num=41,samples=ns)
-    gridsearch("alpha_r",min=0.,max=1,num=41,samples=ns)
-    gridsearch("alpha_i",min=0.,max=1,num=41,samples=ns)
-    gridsearch("alpha_s",min=0.,max=2,num=41,samples=ns)
-    gridsearch("beta_i",min=0.,max=1,num=41,samples=ns)
-    gridsearch("beta_r",min=0.,max=1,num=41,samples=ns)
-    gridsearch("Temp",min=0,max=100,num=41,samples=ns)
-gs2()
+    gridsearch("alpha_r",min=0.00,max=1,num=41,samples=ns)
+    gridsearch("alpha_i",min=0.00,max=1,num=41,samples=ns)
+    gridsearch("alpha_s",min=0.0,max=2,num=41,samples=ns)
+    #gridsearch("beta_r",min=0.00,max=1,num=41,samples=ns)
+    # gridsearch("beta_i",min=0.00,max=1,num=41,samples=ns)
+    # gridsearch("readout",min=0.00,max=1,num=41,samples=ns)
+
+    #gridsearch("Temp",min=-256,max=256,num=4001,samples=ns)
+    #gridsearch("delay",min=5,max=100,num=41,samples=ns)
+    #gridsearch("lambda0",min=0.01,max=1.5,num=41,samples=ns)
+gs1()
+# def gs2():
+    
+#     col = "over"
+    
+#     for i in range(3):
+
+#         setattr(common.config,col,i)
+#         x1,x2 = #"beta_r"#,"readout"
+#         target = "MC"
+#         gs.scan2d(x1,x2,min1=0,max1=1,min2=0,max2=1,samples=3,num1=10,num2=10)
+#         vs.plot2d(x1,x2,target)
+#         vs.plot2ds_pcolor(x1,x2,target)
+#gs2()
+
+# for i in range(11):
+#     for j in range(4):
+#         # setattr(common.config,"alpha0",i/10)
+#         # setattr(common.config,"set",j)
+#         gridsearch("alpha0",min=0,max=1,num=41,samples=1)

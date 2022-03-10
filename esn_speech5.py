@@ -169,7 +169,7 @@ def execute(c):
     collect_state_matrix = np.empty((x,c.Nh))
     start = 0
     target_matrix = DP.copy()
-    
+    #print(length)
     del U1,D1
     gc.collect()
 
@@ -203,6 +203,10 @@ def execute(c):
     for i in range(dataset_num):
 
         tmp = Y_pred[:,start:start+length]  # 1つのデータに対する出力
+        # plt.plot(tmp.T)
+        # plt.tight_layout()
+        # plt.savefig("speech5-pred.eps")
+        # exit()
         max_index = np.argmax(tmp, axis=0)  # 最大出力を与える出力ノード番号
 
         histogram = np.bincount(max_index)  # 出力ノード番号のヒストグラム
@@ -243,7 +247,10 @@ def execute(c):
     #圧縮
     for i in range(dataset_num):
         tmp = Y_pred[:,start:start+length]  # 1つのデータに対する出力
-
+        # plt.plot(tmp)
+        # plt.tight_layout()
+        # plt.savefig("speech5-pred.eps")
+        # exit()
         max_index = np.argmax(tmp, axis=0)  # 最大出力を与える出力ノード番号
 
         histogram = np.bincount(max_index)  # 出力ノード番号のヒストグラム

@@ -1,6 +1,6 @@
 #katoriLab
 #
-# speech5 のコクリアグラム生成時のパラメータ変化させる
+# speech7 のコクリアグラム生成時のパラメータ変化させる
 #
 from time import time
 import numpy as np
@@ -20,7 +20,7 @@ from lyon.calc import LyonCalc
 
 global cwd
 cwd = os.getcwd() # ~/cbmrc/
-matrix_dir = "./speech5_matrix_dir/"
+matrix_dir = "./speech7_matrix_dir/"
 
 
 def num_split_data(num,person,times):
@@ -29,7 +29,7 @@ def num_split_data(num,person,times):
     return all_data_join
 
 def save_wave_fig(wave,file_name):
-    save_file = cwd + "/fig_dir/"+ str(file_name)+".eps"
+    save_file = cwd + "/fig_dir/"+ str(file_name)+".png"
     plt.plot(wave)
     plt.savefig(save_file)
     plt.clf()
@@ -117,20 +117,22 @@ def convert2cochlea(train_data,valid_data,save):
         #plt.plot(waveform[i])
         #plt.show()
                                                                         #64                                 #3
-        c = calc.lyon_passive_ear(waveform[i], sample_rate, decimation_factor=200, ear_q=3,step_factor=0.091, tau_factor=3)#
-
+        c = calc.lyon_passive_ear(waveform[i], sample_rate, decimation_factor=200, ear_q=8,step_factor=0.226, tau_factor=3)#
+        #print(c.shape)
+        # plt.plot(c)
+        # plt.show()
         train_coch[:,i*t_num:(i+1)*t_num] = c.T
         
         if save:
-            file = cwd+"/coch_dir/train-fig"+str(i)+".eps"
+            file = cwd+"/coch_dir/train-fig"+str(i)+".png"
             save_coch(c,file)
 
     waveform = valid_data
     valid_coch = np.empty((input_num,data_num*t_num))
 
     for i in range(data_num):
-        c = calc.lyon_passive_ear(waveform[i], sample_rate, decimation_factor=200, ear_q=3, step_factor=0.091, tau_factor=3)
-
+        c = calc.lyon_passive_ear(waveform[i], sample_rate, decimation_factor=200, ear_q=8, step_factor=0.226, tau_factor=3)
+        
         valid_coch[:,i*t_num:(i+1)*t_num] = c.T
         #
         if save:
@@ -156,7 +158,7 @@ def generate_target():
 def generate_coch(load=0,seed = 0,save_arr=1,save=0,shuffle=True):  
     global data_num,t_num,input_num,SHAPE
 
-    input_num = 77
+    input_num = 86
     t_num = 50
     data_num = 250
     SHAPE = (data_num,t_num,input_num)
@@ -210,15 +212,15 @@ def generate_coch(load=0,seed = 0,save_arr=1,save=0,shuffle=True):
     return train_coch,valid_coch ,train_target, valid_target, (SHAPE)
 
 def save_data(t,v,tD,vD):
-    file = matrix_dir+"generate_cochlear_speech5"
+    file = matrix_dir+"generate_cochlear_speech7"
     np.save(file+"train_coch",arr=t,)
     np.save(file+"valid_coch",arr=v,)
     np.save(file+"train_target",arr=tD,)
     np.save(file+"valid_target",arr=vD,)
 
 def load_datasets():
-    SHAPE = (250,50,77)
-    fname = matrix_dir+"generate_cochlear_speech5"
+    SHAPE = (250,50,86)
+    fname = matrix_dir+"generate_cochlear_speech7"
     train_coch   = np.load(fname+"train_coch.npy")
     valid_coch   = np.load(fname+"valid_coch.npy")
     train_target = np.load(fname+"train_target.npy")
@@ -245,13 +247,13 @@ if __name__ == "__main__":
 
     #新規
     
-    t,v,tD,vD ,s= generate_coch(save_arr=1,save=1)
+    t,v,tD,vD ,s= generate_coch(save_arr=1,save=0)
     
     print(t.shape,v.shape,tD.shape,vD.shape)
     #作成済み
     t2,v2,tD2,vD2 ,s2= load_datasets()
-    t3 = t2.reshape((250,50,77))
-    t4 = t3.reshape((250*50,77))
+    t3 = t2.reshape((250,50,86))
+    t4 = t3.reshape((250*50,86))
     #print(t4==t2)
     for i in range(250):
          print(vD2[i][0])

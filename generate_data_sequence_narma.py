@@ -24,7 +24,7 @@ def narma_narma(N,seed=0):
         return narma_narma(N=N,seed=seed+1)
 
 
-def generate_narma(N,seed=0):
+def generate_narma(N,seed=0,delay=9):
     
     if type(seed)!=None : np.random.seed(seed=seed)
 
@@ -36,7 +36,7 @@ def generate_narma(N,seed=0):
     d = np.zeros((N))
     for i in range(N-1):
         d[i+1] = 0.3*d[i] + 0.05*d[i] * \
-            np.sum(d[i-9:i+1]) + 1.5*u[i-9]*u[i] + 0.1
+            np.sum(d[i-delay:i+1]) + 1.5*u[i-delay]*u[i] + 0.1
     d = d[200:]
     u = u[200:]
     N = N-200

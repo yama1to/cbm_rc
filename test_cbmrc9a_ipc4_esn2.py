@@ -16,15 +16,15 @@ from explorer import randomsearch as rs
 from explorer import optimization as opt
 
 ### 共通設定
-from cbmrc9a_memory_ou import Config
+from cbmrc9a_ipc4_esn2 import Config
 config = Config()
 common.config  = config
-common.prefix  = "data%s_cbmrc9a_memory_ou" % common.string_now() # 実験名（ファイルの接頭辞）
-common.dir_path= "data/data%s_cbmrc9a_memory_ou" % common.string_now() # 実験データを出力するディレクトリのパス
-common.exe     = "python cbmrc9a_memory_ou.py " # 実行されるプログラム
-common.columns=['dataset','seed','id','NN','Nh','alpha_i','alpha_r',"alpha0",'alpha_b','alpha_s','beta_i','beta_r','beta_b',
-'Temp','lambda0',"delay",'RMSE1','RMSE2','cnt_overflow','MC']
-common.parallel= 32
+common.prefix  = "data%s_cbmrc9a_ipc4_esn2" % common.string_now() # 実験名（ファイルの接頭辞）
+common.dir_path= "data/data%s_cbmrc9a_ipc4_esn2" % common.string_now() # 実験データを出力するディレクトリのパス
+common.exe     = "python cbmrc9a_ipc4_esn2.py " # 実行されるプログラム
+common.columns=['dataset','seed','id','NN','Nh','alpha_i','alpha_r','alpha_b','alpha_s',"alpha0",'beta_i','beta_r','beta_b',
+'Temp','lambda0',"delay","degree","MC","set",'cnt_overflow']
+common.parallel= 64
 common.setup()
 common.report_common()
 common.report_config(config)
@@ -36,7 +36,7 @@ def rs1():
     rs.append("alpha_i",min=0,max=5)
     rs.random(num=60,samples=2)
     df = common.load_dataframe() # 直前に保存されたcsvファイルをデータフレーム(df)に読み込む
-    df = df[['alpha_r','alpha_i','cnt_overflow','MC']] # 指定した列のみでデータフレームを構成する
+    df = df[['alpha_r','alpha_i','cnt_overflow',"MC"]] # 指定した列のみでデータフレームを構成する
     #df = df[(df['y1']<=10.0)] # 条件を満たすデータについてデータフレームを構成する。
     #print(df)
     scatter_matrix(df, alpha=0.8, figsize=(6, 6), diagonal='kde')
@@ -47,22 +47,28 @@ def rs1():
 def func(row):# 関数funcでtargetを指定する。
     return row['y1'] + 0.3*row['y2']
 
-def optimize():
+def optimize(i,x):
     opt.clear()#設定をクリアする
     opt.appendid()#id:必ず加える
     opt.appendseed()# 乱数のシード（０から始まる整数値）
     #opt.append("Nh",value=500,min=300,max=1000,round=1)
-    opt.append("beta_r",value=0.01,min=0.0,max=1,round=2)
-    opt.append("beta_i",value=0.01,min=0.0,max=1,round=2)
-    opt.append("alpha_i",value=1,min=0.0,max=1,round=2)
+    opt.append("beta_r",value=0.01,min=0.01,max=1,round=2)
+    opt.append("beta_i",value=0.01,min=0.01,max=1,round=2)
+    opt.append("alpha_i",value=1,min=0.01,max=1,round=2)
     opt.append("alpha_r",value=1,min=0.,max=1,round=2)
     opt.append("alpha_s",value=1,min=0,max=2,round=2)
-    #opt.append("alpha0",value=1,min=0,max=1,round=2)
-    opt.append("Temp",value=10,min=1,max=10,round=2)
-    opt.maximize(target="MC",iteration=30,population=30,samples=3)
+    opt.append("degree",value=i,min=i,max=i,round=0)
+    opt.append("set",value=x,min=x,max=x,round=0)
+    #opt.append("Temp",value=10,min=1,max=10,round=2)
+    opt.maximize(target="MC",iteration=20,population=20,samples=3)
     #opt.minimize(TARGET=func,iteration=5,population=10,samples=4)
     common.config = opt.best_config # 最適化で得られた設定を基本設定とする
-optimize()
+# for x in range(1):
+#     for i in range(10):
+#         optimize(i+1,x)
+
+
+
 
 def plot1(x,y,ystd,ymin,ymax,color=None,width=1,label=None):
     # エラーバーをつけてグラフを描画、平均、標準偏差、最大値、最小値をプロットする。
@@ -98,14 +104,38 @@ def gridsearch(X1,min=0,max=1,num=41,samples=10):
 
     plt.xlabel(X1)
     vs.plt_output()
+    
+
+
 
 def gs2():
-    ns=3
-    #gridsearch("Nh",min=50,max=700,num=41,samples=ns)
-    gridsearch("alpha_r",min=0.,max=1,num=41,samples=ns)
-    gridsearch("alpha_i",min=0.,max=1,num=41,samples=ns)
-    gridsearch("alpha_s",min=0.,max=2,num=41,samples=ns)
-    gridsearch("beta_i",min=0.,max=1,num=41,samples=ns)
-    gridsearch("beta_r",min=0.,max=1,num=41,samples=ns)
-    gridsearch("Temp",min=0,max=100,num=41,samples=ns)
-gs2()
+    ns=10
+    #gridsearch("Nh",min=50,max=300,num=41,samples=ns)
+    #gridsearch("delay",min=1,max=20,num=10,samples=ns)
+    gridsearch("degree",min=1,max=10,num=11,samples=ns)
+    #gridsearch("alpha_i",min=0.1,max=1,num=10,samples=ns)
+    # gridsearch("alpha_r",min=0,max=1,num=41,samples=ns)
+    # gridsearch("alpha_s",min=0.01,max=1,num=41,samples=ns)
+    # gridsearch("beta_i",min=0.01,max=1,num=41,samples=ns)
+    # gridsearch("beta_r",min=0.01,max=1,num=41,samples=ns)
+    # gridsearch("Temp",min=1,max=10,num=41,samples=ns)
+    #plt.legend()
+    #plt.show()
+#gs2()
+def gs2():
+    
+    col = "alpha0"
+    for i in range(11):
+
+        setattr(common.config,col,i/10 )
+        x1,x2 = "delay","degree"
+        target = "MC"
+        gs.scan2d(x1,x2,min1=0,max1=19,min2=1,max2=10,samples=1,num1=20,num2=10)
+        vs.plot2d(x1,x2,target)
+        vs.plot2ds_pcolor(x1,x2,target)
+#gs2()
+for i in range(11):
+    for j in range(4):
+        setattr(common.config,"alpha0",i/10)
+        setattr(common.config,"set",j)
+        gridsearch("alpha0",min=0,max=1,num=41,samples=1)
