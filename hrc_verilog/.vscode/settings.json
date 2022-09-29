@@ -1,7 +1,0 @@
-{
-    "runner.languageMap": {
-        "verilog": ".vscode/run_verilog.sh"
-    },
-    "verilog.linting.iverilog.arguments": "-I include",
-    "verilog.linting.linter": "iverilog"
-}
