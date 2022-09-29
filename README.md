@@ -51,4 +51,4 @@ cbmrc6b4.pyのコピー、STMタスクとcapacityの評価を実装する。
 cbmrc9a.pyはテンプレート
 
 #### cbmrc9b.py
-cbmrc9a.pyのモジュール化予定
+cbmrc9a.pyのモジュール化予定# Lab
