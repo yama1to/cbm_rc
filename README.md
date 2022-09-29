@@ -53,3 +53,4 @@ cbmrc9a.pyはテンプレート
 #### cbmrc9b.py
 cbmrc9a.pyのモジュール化予定# Lab
 # cbm_rc
+# cbm_rc
